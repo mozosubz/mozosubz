@@ -314,7 +314,27 @@ function RegisterFormContent() {
 
       router.push(`/register-success?email=${encodeURIComponent(email.trim())}`)
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "An error occurred"
+      console.error("[v0] Registration error:", err)
+      
+      let message = "Registration failed. Please try again."
+      
+      if (err instanceof Error) {
+        message = err.message || "Registration failed"
+      } else if (typeof err === "object" && err !== null) {
+        const errorObj = err as any
+        // Check various Supabase error message fields
+        message = errorObj?.message 
+          || errorObj?.error_description 
+          || errorObj?.msg
+          || errorObj?.error 
+          || (typeof errorObj === "string" ? errorObj : "Registration failed")
+      }
+      
+      // Clean up empty or object string representations
+      if (!message || message === "{}" || message === "[object Object]") {
+        message = "Registration failed. Please check your details and try again."
+      }
+      
       setError(message)
       toast({ title: "Registration failed", description: message, variant: "destructive" })
       setIsLoading(false)
