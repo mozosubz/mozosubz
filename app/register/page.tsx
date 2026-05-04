@@ -280,6 +280,12 @@ function RegisterFormContent() {
       const supabase = createClient()
       const phoneDigits = phone.replace(/\D/g, "")
 
+      console.log("[v0] Attempting signup with:", {
+        email: email.toLowerCase().trim(),
+        username: username.toLowerCase().trim(),
+        phone: phoneDigits,
+      })
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.toLowerCase().trim(),
         password,
@@ -295,15 +301,27 @@ function RegisterFormContent() {
         },
       })
 
-      if (signUpError) throw signUpError
+      console.log("[v0] Signup response:", { data, error: signUpError })
 
-      // Supabase email-enumeration protection: when the email already exists it
+      if (signUpError) {
+        console.error("[v0] Signup error details:", signUpError)
+        throw signUpError
+      }
+
+      // Check for Supabase email-enumeration protection: when the email already exists,
       // returns NO error but the new "user" has an empty `identities` array.
       if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        console.log("[v0] Email already registered (empty identities)")
         setEmailAvailable(false)
         setEmailError("Email already registered")
         throw new Error("Email already registered")
       }
+
+      if (!data?.user?.id) {
+        throw new Error("Signup failed: No user ID returned")
+      }
+
+      console.log("[v0] Signup successful, user ID:", data.user.id)
 
       // Fire-and-forget welcome email — never block the redirect on this.
       fetch("/api/email/welcome", {
