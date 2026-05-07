@@ -14,6 +14,7 @@ import {
   Banknote,
   Menu,
   X,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +26,7 @@ const adminLinks = [
   { name: 'Pricing Rules', href: '/admin/pricing', icon: Settings },
   { name: 'Deposit Rules', href: '/admin/deposit-rules', icon: Banknote },
   { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
+  { name: 'Rate Limits', href: '/admin/rate-limits', icon: Lock },
 ]
 
 export function AdminSidebar() {
