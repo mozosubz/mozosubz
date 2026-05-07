@@ -9,6 +9,7 @@ import { RevenueMetrics } from '@/components/admin/revenue-metrics'
 import { CategoryPerformance } from '@/components/admin/category-performance'
 import { RevenueForecast } from '@/components/admin/revenue-forecast'
 import { WeekComparison } from '@/components/admin/week-comparison'
+import { ClearRateLimitForm } from '@/components/admin/clear-rate-limit-form'
 import { Users, DollarSign, TrendingUp, Zap, Activity } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -148,6 +149,9 @@ export default async function AdminDashboard() {
 
         {/* Week-over-Week Comparison */}
         <WeekComparison transactions={allTransactions || []} />
+
+        {/* Clear Rate Limit Tool */}
+        <ClearRateLimitForm />
 
         {/* Activity Section */}
         <RevenueActivityTable activity={activityRes || []} />
