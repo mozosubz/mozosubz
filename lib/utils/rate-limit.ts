@@ -78,7 +78,7 @@ export const RATE_LIMIT_CONFIG = {
 
   // Authentication endpoints (strict)
   AUTH_LOGIN: { interval: 60000, maxRequests: 5, keyPrefix: "rl:auth:login" },
-  AUTH_REGISTER: { interval: 3600000, maxRequests: 3, keyPrefix: "rl:auth:register" },
+  AUTH_REGISTER: { interval: 3600000, maxRequests: 9, keyPrefix: "rl:auth:register" }, // Increased from 3 to 9 (3x)
 
   // Transaction endpoints (medium)
   TRANSACTION_BUY: { interval: 60000, maxRequests: 30, keyPrefix: "rl:tx:buy" },
@@ -121,4 +121,34 @@ export function getRateLimitIdentifier(request: Request): string {
     "unknown"
 
   return ip
+}
+
+/**
+ * Clear rate limit for a specific endpoint and IP
+ * Used for administrative purposes to unblock users
+ */
+export async function clearRateLimit(ipAddress: string, keyPrefix: string): Promise<boolean> {
+  const key = `${keyPrefix}:${ipAddress}`
+  try {
+    await redis.del(key)
+    console.log(`[v0] Rate limit cleared for key: ${key}`)
+    return true
+  } catch (error) {
+    console.error(`[v0] Failed to clear rate limit for key ${key}:`, error)
+    return false
+  }
+}
+
+/**
+ * Get current rate limit count for a specific endpoint and IP
+ */
+export async function getRateLimitCount(ipAddress: string, keyPrefix: string): Promise<number> {
+  const key = `${keyPrefix}:${ipAddress}`
+  try {
+    const count = await redis.get<number>(key)
+    return count || 0
+  } catch (error) {
+    console.error(`[v0] Failed to get rate limit count for key ${key}:`, error)
+    return 0
+  }
 }
