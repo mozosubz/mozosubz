@@ -33,15 +33,29 @@ export async function POST(request: Request) {
     // Resolve WhatsApp to user_id
     const { data: session } = await admin
       .from('whatsapp_sessions')
-      .select('user_id')
+      .select('user_id, is_verified')
       .eq('whatsapp_phone', whatsappPhone)
-      .eq('is_verified', true)
       .maybeSingle()
 
     if (!session) {
       return NextResponse.json(
-        { success: false, error: 'WhatsApp not linked to an account' },
-        { status: 401 }
+        { 
+          success: true, 
+          authenticated: false,
+          message: 'This WhatsApp number is not connected to an active Mozosubz account. Please connect it on the website first.' 
+        },
+        { status: 200 }
+      )
+    }
+
+    if (!session.is_verified) {
+      return NextResponse.json(
+        { 
+          success: true, 
+          authenticated: false,
+          message: 'This WhatsApp number has been disconnected from your account. Please reconnect it on the website.' 
+        },
+        { status: 200 }
       )
     }
 
