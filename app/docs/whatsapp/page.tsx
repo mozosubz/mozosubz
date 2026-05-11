@@ -99,28 +99,29 @@ Database / Service Providers`}
         </div>
       </section>
 
-      {/* Key Endpoints */}
-      <section className="px-4 sm:px-6 lg:px-8 py-16 md:py-20">
-        <div className="max-w-6xl mx-auto">
-          <div className="max-w-2xl mb-12">
-            <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">API Reference</p>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">Four Core Endpoints</h2>
+      {/* API Reference - Compact Postman Style */}
+      <section className="px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <p className="text-xs font-semibold text-blue-600 mb-2 uppercase tracking-wider">API Reference</p>
+            <h2 className="text-2xl font-bold text-slate-900">All Endpoints</h2>
           </div>
 
-          <div className="space-y-6">
-            {/* Generate Token */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
-                  1
+          <div className="space-y-3">
+            {/* 1. Connect Token */}
+            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/connect-token</code>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/connect-token</h3>
-                  <p className="text-slate-600 mb-4 leading-relaxed">
-                    Generate a temporary 10-minute token for WhatsApp linking. Called from the user's Mozosubz profile.
-                  </p>
-                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-700">{`Authorization: Bearer <user_jwt_token>
+                <span className="text-xs text-slate-500">Auth Required</span>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-600 mb-2">Generate 10-minute temporary token for WhatsApp linking</p>
+                <div className="bg-slate-900 rounded p-3 mb-2 overflow-x-auto">
+                  <pre className="text-xs font-mono text-slate-100">{`Request:
+Authorization: Bearer <jwt_token>
 
 Response:
 {
@@ -128,27 +129,22 @@ Response:
   "token": "MZ_3A7B9C2F",
   "expires_in_minutes": 10
 }`}</pre>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    <strong>Security:</strong> Token is hashed before storage, one-use only, user must be authenticated.
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Connect WhatsApp */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
-                  2
+            {/* 2. Connect */}
+            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/connect</code>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/connect</h3>
-                  <p className="text-slate-600 mb-4 leading-relaxed">
-                    Verify the token and link a WhatsApp number to the Mozosubz account. Called by your WhatsApp bot.
-                  </p>
-                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-700">{`Request:
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-600 mb-2">Link WhatsApp number to Mozosubz account</p>
+                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                  <pre className="text-xs font-mono text-slate-100">{`Request:
 {
   "whatsapp_number": "+2349056458312",
   "token": "MZ_3A7B9C2F"
@@ -158,29 +154,30 @@ Response:
 {
   "success": true,
   "message": "WhatsApp connected successfully",
-  "user_id": "user_id"
+  "user_id": "uuid"
+}
+
+Error:
+{
+  "success": false,
+  "error": "Invalid or expired token"
 }`}</pre>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    <strong>Validation:</strong> Token is verified, checked for expiry, and marked as used.
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Authenticate */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
-                  3
+            {/* 3. Authenticate */}
+            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/authenticate</code>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/authenticate</h3>
-                  <p className="text-slate-600 mb-4 leading-relaxed">
-                    Resolve a WhatsApp number to a Mozosubz user ID. Called before executing any transaction.
-                  </p>
-                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-700">{`Request:
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-600 mb-2">Resolve WhatsApp number to user_id (call before transactions)</p>
+                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                  <pre className="text-xs font-mono text-slate-100">{`Request:
 {
   "whatsapp_number": "+2349056458312"
 }
@@ -189,7 +186,7 @@ Response (Linked):
 {
   "success": true,
   "authenticated": true,
-  "user_id": "user_id"
+  "user_id": "uuid"
 }
 
 Response (Not Linked):
@@ -197,27 +194,22 @@ Response (Not Linked):
   "success": false,
   "authenticated": false
 }`}</pre>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    <strong>Important:</strong> Always call this before making transaction requests to ensure the user is linked.
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Disconnect */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
-                  4
+            {/* 4. Balance */}
+            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/balance</code>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/balance</h3>
-                  <p className="text-slate-600 mb-4 leading-relaxed">
-                    Get the wallet balance for a connected WhatsApp user. Returns current balance, user info, and name.
-                  </p>
-                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-700">{`Request:
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-600 mb-2">Get user wallet balance and profile info</p>
+                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                  <pre className="text-xs font-mono text-slate-100">{`Request:
 {
   "whatsapp_number": "+2349056458312"
 }
@@ -227,26 +219,25 @@ Response:
   "success": true,
   "user_id": "uuid",
   "wallet_balance": 15000,
-  "user_name": "Igangan Godspower"
+  "user_name": "Igangan Godspower",
+  "user_email": "user@example.com"
 }`}</pre>
-                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Deposit */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
-                  5
+            {/* 5. Deposit */}
+            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/deposit</code>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/deposit</h3>
-                  <p className="text-slate-600 mb-4 leading-relaxed">
-                    Initiate a wallet deposit for a connected WhatsApp user. Returns the user_id to use with the standard deposit flow.
-                  </p>
-                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-700">{`Request:
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-600 mb-2">Initiate wallet deposit for WhatsApp user</p>
+                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                  <pre className="text-xs font-mono text-slate-100">{`Request:
 {
   "whatsapp_number": "+2349056458312",
   "amount": 5000,
@@ -260,38 +251,32 @@ Response:
   "user_email": "user@example.com",
   "user_name": "Igangan Godspower",
   "amount": 5000,
-  "next_step": "POST /api/deposit/start with user context"
+  "next_step": "Use /api/deposit/start with user auth"
 }`}</pre>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    <strong>Note:</strong> After getting user_id, use existing /api/deposit/start with authenticated user.
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Disconnect */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
-                  6
+            {/* 6. Disconnect */}
+            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-mono font-bold rounded">POST</span>
+                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/disconnect</code>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/disconnect</h3>
-                  <p className="text-slate-600 mb-4 leading-relaxed">
-                    Unlink a WhatsApp number from a Mozosubz account. Called from the user's profile.
-                  </p>
-                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-700">{`Authorization: Bearer <user_jwt_token>
+                <span className="text-xs text-slate-500">Auth Required</span>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-slate-600 mb-2">Unlink WhatsApp from account (from profile)</p>
+                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                  <pre className="text-xs font-mono text-slate-100">{`Request:
+Authorization: Bearer <jwt_token>
 
 Response:
 {
-  "success": true
+  "success": true,
+  "message": "WhatsApp disconnected"
 }`}</pre>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    <strong>Effect:</strong> All future WhatsApp requests from this number are rejected until linked again.
-                  </p>
                 </div>
               </div>
             </div>
