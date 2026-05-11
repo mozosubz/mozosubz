@@ -41,12 +41,16 @@ const SERVICE_LINKS = [
   { label: "Transactions", href: "/dashboard/transactions" },
 ]
 
+const DEVELOPER_LINKS = [
+  { label: "WhatsApp API", href: "/docs/WHATSAPP_API.md" },
+]
+
 export function Footer() {
   const year = new Date().getFullYear()
   return (
     <footer className="bg-slate-950 text-slate-400 border-t border-slate-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-4">
@@ -114,6 +118,20 @@ export function Footer() {
                   <Link href={l.href} className="text-sm text-slate-400 hover:text-white transition">
                     {l.label}
                   </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Developer */}
+          <div>
+            <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">Developer</h3>
+            <ul className="space-y-3">
+              {DEVELOPER_LINKS.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} className="text-sm text-slate-400 hover:text-white transition">
+                    {l.label}
+                  </a>
                 </li>
               ))}
             </ul>
