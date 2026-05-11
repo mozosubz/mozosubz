@@ -255,7 +255,7 @@ Database / Service Providers`}
 
           {/* Service Endpoints */}
           <div className="mb-8">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 uppercase">Services</h3>
+            <h3 className="text-sm font-bold text-slate-900 mb-3 uppercase">Services - All Networks & Plans</h3>
             <div className="space-y-3">
               {/* Get Plans */}
               <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
@@ -266,19 +266,42 @@ Database / Service Providers`}
                   </div>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-xs text-slate-600 mb-2">Get available plans for service</p>
+                  <p className="text-xs text-slate-600 mb-2">Get all available plans for any service/network</p>
                   <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-100">{`GET /api/gsubz/plans?service=MTN&type=DATA
+                    <pre className="text-xs font-mono text-slate-100 whitespace-pre-wrap break-words">{`GET /api/gsubz/plans?service=MTN
 
+Response Example:
 {
   "success": true,
-  "plans": [{
-    "id": "plan_1",
-    "name": "1GB",
-    "price": 250,
-    "duration": "30 days"
-  }]
-}`}</pre>
+  "plans": [
+    {
+      "id": "mtn_500mb",
+      "displayName": "500MB",
+      "value": "500MB",
+      "price": 100,
+      "duration": "7 days"
+    },
+    {
+      "id": "mtn_1gb",
+      "displayName": "1GB",
+      "value": "1GB",
+      "price": 200,
+      "duration": "30 days"
+    },
+    {
+      "id": "mtn_2gb",
+      "displayName": "2GB",
+      "value": "2GB",
+      "price": 300,
+      "duration": "30 days"
+    }
+  ]
+}
+
+SERVICES: MTN, AIRTEL, GLO, 9MOBILE
+CABLE: DSTV, GOTV, STARTIMES
+DATA PLANS: 100MB, 200MB, 500MB, 750MB, 1GB, 2GB, 3GB, 5GB, 10GB
+CABLE PLANS: Starter, Family, Premium, SuperFamily`}</pre>
                   </div>
                 </div>
               </div>
@@ -292,17 +315,20 @@ Database / Service Providers`}
                   </div>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-xs text-slate-600 mb-2">Buy airtime</p>
+                  <p className="text-xs text-slate-600 mb-2">Buy airtime for any network (any amount)</p>
                   <div className="bg-slate-900 rounded p-3 overflow-x-auto">
                     <pre className="text-xs font-mono text-slate-100">{`{
-  "network": "MTN",
+  "network": "MTN|AIRTEL|GLO|9MOBILE",
   "phone": "09056458312",
-  "amount": 500
+  "amount": 100
 }
 
 {
   "success": true,
-  "message": "Airtime purchased"
+  "transactionId": "TXN_123",
+  "network": "MTN",
+  "amount": 100,
+  "phone": "09056458312"
 }`}</pre>
                   </div>
                 </div>
@@ -317,19 +343,30 @@ Database / Service Providers`}
                   </div>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-xs text-slate-600 mb-2">Buy data plan</p>
+                  <p className="text-xs text-slate-600 mb-2">Buy data for MTN, Airtel, Glo, 9Mobile (with plan variants)</p>
                   <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-100">{`{
-  "network": "MTN",
+                    <pre className="text-xs font-mono text-slate-100">{`REQUEST:
+{
+  "network": "MTN|AIRTEL|GLO|9MOBILE",
   "phone": "09056458312",
-  "plan_id": "plan_1",
+  "plan_id": "mtn_1gb",
   "amount": 250
 }
 
+RESPONSE:
 {
   "success": true,
-  "message": "Data purchased"
-}`}</pre>
+  "transactionId": "TXN_456",
+  "network": "MTN",
+  "plan": "1GB",
+  "duration": "30 days",
+  "amount": 250,
+  "phone": "09056458312",
+  "activated_at": "2024-01-15T10:30:00Z"
+}
+
+NOTE: Use /api/gsubz/plans?service=MTN to get 
+all available plan IDs with different sizes/prices`}</pre>
                   </div>
                 </div>
               </div>
@@ -343,18 +380,66 @@ Database / Service Providers`}
                   </div>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-xs text-slate-600 mb-2">Subscribe to cable TV</p>
+                  <p className="text-xs text-slate-600 mb-2">Subscribe to cable TV (DSTV, GOTV, Startimes)</p>
                   <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-100">{`{
-  "provider": "DSTV",
-  "customer_id": "12345",
-  "plan_id": "plan_1"
+                    <pre className="text-xs font-mono text-slate-100">{`REQUEST:
+{
+  "provider": "DSTV|GOTV|STARTIMES",
+  "customer_id": "12345678",
+  "plan_id": "dstv_starter",
+  "amount": 2500
 }
 
+RESPONSE:
 {
   "success": true,
-  "message": "Subscription activated"
-}`}</pre>
+  "transactionId": "TXN_789",
+  "provider": "DSTV",
+  "customer_id": "12345678",
+  "plan": "Starter Pack",
+  "amount": 2500,
+  "expiry": "2024-02-15T00:00:00Z"
+}
+
+PLANS:
+DSTV: Starter, Family, Premium, SuperFamily, MaxFamily
+GOTV: Max, Plus, Standard, Lite
+STARTIMES: SmartMax, SmartPlus, Smart, Basic`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Electricity */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/gsubz/electricity/purchase</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Pay for electricity (IKEDC, KEDCO, EEDC, etc)</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`REQUEST:
+{
+  "provider": "IKEDC|KEDCO|EEDC|BEDC|AEDC|PHED|YEDC",
+  "customer_id": "12345678",
+  "amount": 5000
+}
+
+RESPONSE:
+{
+  "success": true,
+  "transactionId": "TXN_101",
+  "provider": "IKEDC",
+  "customer_id": "12345678",
+  "customer_name": "John Doe",
+  "amount_paid": 5000,
+  "tokens_generated": 1234567890123456,
+  "paid_at": "2024-01-15T10:30:00Z"
+}
+
+PROVIDERS: IKEDC, KEDCO, EEDC, BEDC, AEDC, PHED, YEDC`}</pre>
                   </div>
                 </div>
               </div>
@@ -368,18 +453,31 @@ Database / Service Providers`}
                   </div>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-xs text-slate-600 mb-2">Generate recharge pins</p>
+                  <p className="text-xs text-slate-600 mb-2">Generate recharge pins for any network</p>
                   <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                    <pre className="text-xs font-mono text-slate-100">{`{
-  "network": "MTN",
+                    <pre className="text-xs font-mono text-slate-100">{`REQUEST:
+{
+  "network": "MTN|AIRTEL|GLO|9MOBILE",
   "value": 500,
-  "number": 5
+  "quantity": 5
 }
 
+RESPONSE:
 {
   "success": true,
-  "pins": ["1234-5678", "9012-3456"]
-}`}</pre>
+  "pins": [
+    "1234-5678-9101-1121",
+    "1314-1516-1718-1920",
+    "2122-2324-2526-2728",
+    "2930-3132-3334-3536",
+    "3738-3940-4142-4344"
+  ],
+  "network": "MTN",
+  "value_per_pin": 500,
+  "total_cost": 2500
+}
+
+PIN VALUES: 100, 200, 500, 1000, 2000, 5000`}</pre>
                   </div>
                 </div>
               </div>
