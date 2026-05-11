@@ -42,7 +42,7 @@ const SERVICE_LINKS = [
 ]
 
 const DEVELOPER_LINKS = [
-  { label: "WhatsApp API", href: "/docs/WHATSAPP_API.md" },
+  { label: "WhatsApp API", href: "/docs/whatsapp" },
 ]
 
 export function Footer() {
