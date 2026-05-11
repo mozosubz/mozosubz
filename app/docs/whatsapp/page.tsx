@@ -99,184 +99,341 @@ Database / Service Providers`}
         </div>
       </section>
 
-      {/* API Reference - Compact Postman Style */}
+      {/* API Reference - Complete Postman Style */}
       <section className="px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <p className="text-xs font-semibold text-blue-600 mb-2 uppercase tracking-wider">API Reference</p>
             <h2 className="text-2xl font-bold text-slate-900">All Endpoints</h2>
+            <p className="text-sm text-slate-600 mt-2">Complete Mozosubz API documentation. Use these for WhatsApp bot integration.</p>
           </div>
 
-          <div className="space-y-3">
-            {/* 1. Connect Token */}
-            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
-                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/connect-token</code>
+          {/* WhatsApp Auth Endpoints */}
+          <div className="mb-8">
+            <h3 className="text-sm font-bold text-slate-900 mb-3 uppercase">WhatsApp Authentication</h3>
+            <div className="space-y-3">
+              {/* Connect Token */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/connect-token</code>
+                  </div>
                 </div>
-                <span className="text-xs text-slate-500">Auth Required</span>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-slate-600 mb-2">Generate 10-minute temporary token for WhatsApp linking</p>
-                <div className="bg-slate-900 rounded p-3 mb-2 overflow-x-auto">
-                  <pre className="text-xs font-mono text-slate-100">{`Request:
-Authorization: Bearer <jwt_token>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Generate 10-minute token for linking WhatsApp</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`Authorization: Bearer <jwt>
 
-Response:
 {
-  "success": true,
   "token": "MZ_3A7B9C2F",
   "expires_in_minutes": 10
 }`}</pre>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 2. Connect */}
-            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
-                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/connect</code>
+              {/* Connect */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/connect</code>
+                  </div>
                 </div>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-slate-600 mb-2">Link WhatsApp number to Mozosubz account</p>
-                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                  <pre className="text-xs font-mono text-slate-100">{`Request:
-{
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Link WhatsApp to account</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
   "whatsapp_number": "+2349056458312",
   "token": "MZ_3A7B9C2F"
 }
 
-Response:
 {
   "success": true,
-  "message": "WhatsApp connected successfully",
   "user_id": "uuid"
-}
-
-Error:
-{
-  "success": false,
-  "error": "Invalid or expired token"
 }`}</pre>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 3. Authenticate */}
-            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
-                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/authenticate</code>
+              {/* Authenticate */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/authenticate</code>
+                  </div>
                 </div>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-slate-600 mb-2">Resolve WhatsApp number to user_id (call before transactions)</p>
-                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                  <pre className="text-xs font-mono text-slate-100">{`Request:
-{
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Resolve WhatsApp number to user_id</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
   "whatsapp_number": "+2349056458312"
 }
 
-Response (Linked):
 {
   "success": true,
   "authenticated": true,
   "user_id": "uuid"
-}
-
-Response (Not Linked):
-{
-  "success": false,
-  "authenticated": false
 }`}</pre>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 4. Balance */}
-            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
-                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/balance</code>
+              {/* Balance */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/balance</code>
+                  </div>
                 </div>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-slate-600 mb-2">Get user wallet balance and profile info</p>
-                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                  <pre className="text-xs font-mono text-slate-100">{`Request:
-{
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Get wallet balance</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
   "whatsapp_number": "+2349056458312"
 }
 
-Response:
 {
   "success": true,
   "user_id": "uuid",
   "wallet_balance": 15000,
-  "user_name": "Igangan Godspower",
-  "user_email": "user@example.com"
+  "user_name": "Igangan Godspower"
 }`}</pre>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 5. Deposit */}
-            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
-                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/deposit</code>
+              {/* Deposit */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/deposit</code>
+                  </div>
                 </div>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-slate-600 mb-2">Initiate wallet deposit for WhatsApp user</p>
-                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                  <pre className="text-xs font-mono text-slate-100">{`Request:
-{
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Initiate deposit</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
   "whatsapp_number": "+2349056458312",
-  "amount": 5000,
-  "description": "Top up wallet"
+  "amount": 5000
 }
 
-Response:
 {
   "success": true,
   "user_id": "uuid",
-  "user_email": "user@example.com",
-  "user_name": "Igangan Godspower",
-  "amount": 5000,
-  "next_step": "Use /api/deposit/start with user auth"
+  "amount": 5000
 }`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Disconnect */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/disconnect</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Unlink WhatsApp from account</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`Authorization: Bearer <jwt>
+
+{
+  "success": true
+}`}</pre>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* 6. Disconnect */}
-            <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-mono font-bold rounded">POST</span>
-                  <code className="text-sm font-mono font-semibold text-slate-900">/api/whatsapp/disconnect</code>
+          {/* Service Endpoints */}
+          <div className="mb-8">
+            <h3 className="text-sm font-bold text-slate-900 mb-3 uppercase">Services</h3>
+            <div className="space-y-3">
+              {/* Get Plans */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-mono font-bold rounded">GET</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/gsubz/plans</code>
+                  </div>
                 </div>
-                <span className="text-xs text-slate-500">Auth Required</span>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-slate-600 mb-2">Unlink WhatsApp from account (from profile)</p>
-                <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-                  <pre className="text-xs font-mono text-slate-100">{`Request:
-Authorization: Bearer <jwt_token>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Get available plans for service</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`GET /api/gsubz/plans?service=MTN&type=DATA
 
-Response:
 {
   "success": true,
-  "message": "WhatsApp disconnected"
+  "plans": [{
+    "id": "plan_1",
+    "name": "1GB",
+    "price": 250,
+    "duration": "30 days"
+  }]
 }`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Airtime Purchase */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/gsubz/airtime/purchase</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Buy airtime</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
+  "network": "MTN",
+  "phone": "09056458312",
+  "amount": 500
+}
+
+{
+  "success": true,
+  "message": "Airtime purchased"
+}`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Purchase */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/gsubz/data/purchase</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Buy data plan</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
+  "network": "MTN",
+  "phone": "09056458312",
+  "plan_id": "plan_1",
+  "amount": 250
+}
+
+{
+  "success": true,
+  "message": "Data purchased"
+}`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cable Subscribe */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/gsubz/cable/subscribe</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Subscribe to cable TV</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
+  "provider": "DSTV",
+  "customer_id": "12345",
+  "plan_id": "plan_1"
+}
+
+{
+  "success": true,
+  "message": "Subscription activated"
+}`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recharge Pins */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/gsubz/recharge-pins/purchase</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Generate recharge pins</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`{
+  "network": "MTN",
+  "value": 500,
+  "number": 5
+}
+
+{
+  "success": true,
+  "pins": ["1234-5678", "9012-3456"]
+}`}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Endpoints */}
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 mb-3 uppercase">Payments</h3>
+            <div className="space-y-3">
+              {/* Deposit Start */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-mono font-bold rounded">POST</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/deposit/start</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Initiate wallet deposit payment</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`Authorization: Bearer <jwt>
+
+{
+  "amount": 5000
+}
+
+{
+  "success": true,
+  "payment_reference": "ref_123"
+}`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Verify */}
+              <div className="rounded-lg bg-white border border-slate-200 overflow-hidden hover:border-blue-300 transition">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-mono font-bold rounded">GET</span>
+                    <code className="text-sm font-mono font-semibold text-slate-900">/api/payments/verify</code>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-600 mb-2">Verify payment status</p>
+                  <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-100">{`GET /api/payments/verify?reference=ref_123
+
+{
+  "success": true,
+  "status": "PAID",
+  "amount": 5000
+}`}</pre>
+                  </div>
                 </div>
               </div>
             </div>
