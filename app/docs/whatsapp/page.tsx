@@ -8,6 +8,24 @@ export const metadata: Metadata = {
   description: "Complete Mozosubz API documentation for WhatsApp integration",
 }
 
+function EndpointCard({ method, path, desc, code }: { method: string; path: string; desc: string; code: string }) {
+  const bgColor = method === "GET" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+  return (
+    <div className="rounded-lg bg-white border border-slate-200 overflow-hidden">
+      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+        <span className={`px-2 py-1 text-xs font-mono font-bold rounded ${bgColor}`}>{method}</span>
+        <code className="text-sm font-mono font-semibold text-slate-900">{path}</code>
+      </div>
+      <div className="px-4 py-3">
+        <p className="text-xs text-slate-600 mb-2">{desc}</p>
+        <div className="bg-slate-900 rounded p-3 overflow-x-auto">
+          <pre className="text-xs font-mono text-slate-100 whitespace-pre-wrap break-words">{code}</pre>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function WhatsAppDocsPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans flex flex-col">
@@ -85,6 +103,13 @@ token: "MZ_xxx"
               <EndpointCard method="POST" path="/api/whatsapp/authenticate" desc="Resolve WhatsApp to user_id" code={`whatsapp_number: "+2349056458312"
 
 { "success": true, "authenticated": true, "user_id": "uuid" }`} />
+              <EndpointCard method="POST" path="/api/whatsapp/generate-code" desc="Generate 6-digit verification code" code={`Authorization: Bearer <jwt>
+
+{ "code": "123456", "expiresIn": 600, "instructions": "Send VERIFY 123456" }`} />
+              <EndpointCard method="POST" path="/api/whatsapp/verify-code" desc="Verify code → get session token" code={`code: "123456"
+whatsappPhone: "+2349056458312"
+
+{ "success": true, "sessionToken": "abc123xyz...", "userId": "uuid" }`} />
               <EndpointCard method="POST" path="/api/whatsapp/balance" desc="Get wallet balance" code={`whatsapp_number: "+2349056458312"
 
 { "success": true, "user_id": "uuid", "wallet_balance": 15000, "user_name": "Name" }`} />
@@ -144,6 +169,27 @@ VALUES: 100,200,500,1000,2000,5000
             </div>
           </div>
 
+          {/* WhatsApp Transaction APIs */}
+          <div className="mb-12">
+            <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">WhatsApp Transaction APIs</h3>
+            <div className="space-y-3">
+              <EndpointCard method="GET" path="/api/whatsapp/plans" desc="Get all plans for a service" code={`?service=MTN&type=DATA
+
+RESPONSE: Same as /api/gsubz/plans but with WhatsApp auth`} />
+              <EndpointCard method="POST" path="/api/whatsapp/execute-transaction" desc="Execute transaction via WhatsApp" code={`sessionToken: "abc123xyz..."
+transactionType: "airtime|data|cable|electricity"
+service: "MTN"
+phone: "09056458312"
+plan: "1GB_30D"
+amount: "500"
+
+{ "success": true, "transactionId": "txn_123", "newBalance": 11500 }`} />
+              <EndpointCard method="GET" path="/api/whatsapp/history" desc="Get transaction history" code={`?sessionToken=abc123xyz...&limit=10&offset=0&type=data
+
+{ "transactions": [...], "total": 1, "limit": 10, "offset": 0 }`} />
+            </div>
+          </div>
+
           {/* Payment APIs */}
           <div>
             <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Payment APIs</h3>
@@ -161,24 +207,6 @@ amount: "5000"
       </section>
 
       <Footer />
-    </div>
-  )
-}
-
-function EndpointCard({ method, path, desc, code }: { method: string; path: string; desc: string; code: string }) {
-  const bgColor = method === "GET" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
-  return (
-    <div className="rounded-lg bg-white border border-slate-200 overflow-hidden">
-      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
-        <span className={`px-2 py-1 text-xs font-mono font-bold rounded ${bgColor}`}>{method}</span>
-        <code className="text-sm font-mono font-semibold text-slate-900">{path}</code>
-      </div>
-      <div className="px-4 py-3">
-        <p className="text-xs text-slate-600 mb-2">{desc}</p>
-        <div className="bg-slate-900 rounded p-3 overflow-x-auto">
-          <pre className="text-xs font-mono text-slate-100 whitespace-pre-wrap break-words">{code}</pre>
-        </div>
-      </div>
     </div>
   )
 }
