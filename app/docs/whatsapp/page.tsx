@@ -3,382 +3,351 @@ import { Footer } from "@/components/footer"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "WhatsApp API Documentation - Mozosubz",
-  description: "Complete Mozosubz WhatsApp API documentation with all services and examples",
+  title: "Mozosubz WhatsApp API Documentation",
+  description: "Complete API docs for Mozosubz WhatsApp integration",
 }
 
 export default function WhatsAppDocsPage() {
   return (
     <div className="min-h-screen bg-white">
       <SiteHeader />
-      <main className="max-w-6xl mx-auto px-4 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold mb-4">Mozosubz WhatsApp API</h1>
-          <p className="text-lg text-gray-600">
-            Complete documentation for integrating Mozosubz services via WhatsApp
+          <p className="text-lg text-gray-600 mb-6">
+            Complete documentation for WhatsApp bot integration with Mozosubz services.
           </p>
+          
+          {/* Base URL */}
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded mb-8">
+            <p className="text-sm font-semibold text-gray-600 mb-2">BASE URL</p>
+            <code className="text-lg font-mono text-blue-600">api.mozosubz.xyz</code>
+          </div>
         </div>
 
-        {/* Base URL */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-12">
-          <h2 className="text-xl font-bold mb-2">Base URL</h2>
-          <code className="text-lg font-mono bg-white px-3 py-2 rounded border">
-            api.mozosubz.xyz
-          </code>
-        </div>
+        {/* Authentication Section */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8">Authentication Flow</h2>
+          
+          {/* Connect Token */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/connect-token</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Generate 10-minute connection token for user</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`Authorization: Bearer <jwt>
 
-        {/* Authentication */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Authentication</h2>
-          <div className="bg-gray-50 p-6 rounded-lg mb-4">
-            <h3 className="font-bold mb-2">Step 1: Generate Connect Token</h3>
-            <code className="block bg-white p-3 rounded font-mono text-sm mb-3 whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/connect-token
-Authorization: Bearer <user_jwt>
-
-Response:
-{
+Headers:
+Content-Type: application/json`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
   "token": "MZ_abc123xyz",
   "expires_in_minutes": 10,
-  "instructions": "Send 'CONNECT MZ_abc123xyz' to WhatsApp bot"
-}`}
-            </code>
+  "instructions": "Send CONNECT MZ_abc123xyz"
+}`}</pre>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <h3 className="font-bold mb-2">Step 2: WhatsApp Bot Completes Link</h3>
-            <code className="block bg-white p-3 rounded font-mono text-sm whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/connect
-Content-Type: application/json
-
-{
+          {/* Connect Endpoint */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/connect</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Called by bot to complete WhatsApp link</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "whatsapp_phone": "+2349056458312",
   "token": "MZ_abc123xyz"
-}
-
-Response:
-{
+}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
   "user_id": "uuid",
-  "whatsapp_phone": "+2349056458312",
-  "verified_at": "2024-01-15T10:30:00Z"
-}`}
-            </code>
-          </div>
-        </section>
-
-        {/* User Authenticate */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Authenticate WhatsApp User</h2>
-          <p className="text-gray-600 mb-4">
-            Before any transaction, resolve the WhatsApp number to user profile:
-          </p>
-          <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto mb-4 whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/authenticate
-Content-Type: application/json
-
-{
   "whatsapp_phone": "+2349056458312"
-}
+}`}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
 
-Response (Linked):
-{
+          {/* Authenticate Endpoint */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/authenticate</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Resolve WhatsApp number to user profile. Call before transactions.</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
+  "whatsapp_phone": "+2349056458312"
+}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
   "authenticated": true,
   "user_id": "uuid",
   "profile": {
-    "id": "uuid",
     "email": "user@example.com",
     "full_name": "John Doe",
     "phone_number": "09056458312",
-    "wallet_balance": 15000,
-    "is_admin": false
+    "wallet_balance": 15000
   }
-}
-
-Response (Not Linked):
-{
-  "success": true,
-  "authenticated": false
-}`}
-          </code>
-        </section>
-
-        {/* Data Plans */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Data Service</h2>
-          
-          <div className="mb-6">
-            <h3 className="text-xl font-bold mb-3">Get Data Plans</h3>
-            <p className="text-gray-600 mb-4">
-              Each network has multiple plan types. Get all plans with markup already applied:
-            </p>
-            
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div>
-                <h4 className="font-bold mb-2">MTN Plan Types:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">mtn_sme</code> - SME Plans</li>
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">mtn_datashare</code> - Data Share</li>
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">mtn_gifting</code> - Gift Plans</li>
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">mtn_awoof</code> - Promo Plans</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-bold mb-2">Other Networks:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">glo_data</code> - Glo Data</li>
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">glo_sme</code> - Glo SME</li>
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">airtel_sme</code> - Airtel SME</li>
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">airtel_gifting</code> - Airtel Gift</li>
-                  <li><code className="bg-gray-100 px-2 py-1 rounded">etisalat_data</code> - Etisalat</li>
-                </ul>
+}`}</pre>
+                </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/data/plans
-Content-Type: application/json
-
-{
-  "network": "MTN"
+        {/* DATA SERVICES */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8">Data Services</h2>
+          
+          {/* Get Plans */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/data/plans</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Get all data plans with prices (includes markup)</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
+  "serviceID": "mtn_sme"
 }
 
-Response:
-{
+Supported serviceIDs:
+- mtn_sme
+- mtn_datashare
+- mtn_gifting
+- mtn_awoof
+- glo_data
+- glo_sme
+- airtel_sme
+- airtel_gifting
+- etisalat_data`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
-  "network": "MTN",
-  "planTypes": [
+  "serviceID": "mtn_sme",
+  "plans": [
     {
-      "id": "mtn_sme",
-      "label": "SME",
-      "plans": [
-        {
-          "displayName": "500MB",
-          "value": "500MB",
-          "price": 500,          // <-- INCLUDES MARKUP
-          "validity": "30 days"
-        },
-        {
-          "displayName": "1GB",
-          "value": "1GB",
-          "price": 1000,
-          "validity": "30 days"
-        },
-        {
-          "displayName": "2GB",
-          "value": "2GB",
-          "price": 2000,
-          "validity": "30 days"
-        }
-      ]
+      "id": "plan_1",
+      "displayName": "500MB",
+      "value": "500MB",
+      "price": 100
     },
     {
-      "id": "mtn_gifting",
-      "label": "Gifting",
-      "plans": [
-        {
-          "displayName": "500MB Gift",
-          "value": "500MB_GIFT",
-          "price": 450,
-          "validity": "7 days"
-        },
-        ...
-      ]
-    },
-    {
-      "id": "mtn_awoof",
-      "label": "Awoof Promo",
-      "plans": [...]
-    },
-    {
-      "id": "mtn_datashare",
-      "label": "Data Share",
-      "plans": [...]
+      "id": "plan_2",
+      "displayName": "1GB",
+      "value": "1GB",
+      "price": 250
     }
   ]
-}`}
-            </code>
+}`}</pre>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mb-6">
-            <h3 className="text-xl font-bold mb-3">Purchase Data</h3>
-            <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/data/purchase
-Content-Type: application/json
-
-{
+          {/* Purchase Data */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/data/purchase</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Buy data for customer</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "whatsappPhone": "+2349056458312",
-  "network": "MTN",
-  "planType": "mtn_sme",
-  "amount": "1000"
-}
-
-Response:
-{
+  "serviceID": "mtn_sme",
+  "phone": "09056458312",
+  "value": "1GB",
+  "amount": 250
+}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
-  "transactionId": "txn_12345abc",
-  "amount": "1000",
-  "network": "MTN",
-  "planType": "mtn_sme",
-  "message": "Data purchased successfully"
-}`}
-            </code>
+  "transactionId": "TXN_123456",
+  "phone": "09056458312",
+  "data": "1GB",
+  "amount": 250,
+  "status": "successful"
+}`}</pre>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Cable Plans */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Cable Service</h2>
+        {/* CABLE SERVICES */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8">Cable Services</h2>
           
-          <div className="mb-6">
-            <h3 className="text-xl font-bold mb-3">Get Cable Plans</h3>
-            <p className="text-gray-600 mb-4">
-              Each cable provider has different plan packages:
-            </p>
-
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div>
-                <h4 className="font-bold mb-2">DSTV Plans:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li>Starter</li>
-                  <li>Family</li>
-                  <li>Premium</li>
-                  <li>SuperFamily</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-bold mb-2">GOTV Plans:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li>Max</li>
-                  <li>Plus</li>
-                  <li>Standard</li>
-                  <li>Lite</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-bold mb-2">Startimes Plans:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li>SmartMax</li>
-                  <li>SmartPlus</li>
-                  <li>Smart</li>
-                  <li>Basic</li>
-                </ul>
+          {/* Get Plans */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/cable/plans</code>
               </div>
             </div>
-
-            <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/cable/plans
-Content-Type: application/json
-
-{
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Get cable provider plans with prices</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "provider": "DSTV"
 }
 
-Response:
-{
+Supported providers:
+- DSTV
+- GOTV
+- STARTIMES`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
   "provider": "DSTV",
   "plans": [
     {
       "id": "dstv_starter",
-      "label": "Starter",
-      "price": 2500,            // <-- INCLUDES MARKUP
-      "channels": 45,
-      "period": "1 month"
+      "displayName": "DSTV Starter",
+      "value": "dstv_starter",
+      "price": 2000
     },
     {
       "id": "dstv_family",
-      "label": "Family",
-      "price": 5000,
-      "channels": 100,
-      "period": "1 month"
-    },
-    {
-      "id": "dstv_premium",
-      "label": "Premium",
-      "price": 7500,
-      "channels": 150,
-      "period": "1 month"
-    },
-    {
-      "id": "dstv_superfamily",
-      "label": "SuperFamily",
-      "price": 10000,
-      "channels": 200,
-      "period": "1 month"
+      "displayName": "DSTV Family",
+      "value": "dstv_family",
+      "price": 4000
     }
   ]
-}`}
-            </code>
+}`}</pre>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mb-6">
-            <h3 className="text-xl font-bold mb-3">Subscribe to Cable</h3>
-            <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/cable/purchase
-Content-Type: application/json
-
-{
+          {/* Subscribe Cable */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/cable/purchase</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Subscribe customer to cable plan</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "whatsappPhone": "+2349056458312",
   "provider": "DSTV",
-  "plan": "dstv_family",
+  "plan": "dstv_starter",
   "customerId": "12345678",
-  "amount": "5000"
-}
-
-Response:
-{
+  "amount": 2000
+}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
-  "transactionId": "txn_67890def",
-  "amount": "5000",
+  "transactionId": "TXN_789012",
   "provider": "DSTV",
-  "plan": "dstv_family",
+  "plan": "dstv_starter",
   "customerId": "12345678",
-  "message": "Cable subscription successful"
-}`}
-            </code>
+  "amount": 2000,
+  "status": "successful"
+}`}</pre>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Electricity */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Electricity Service</h2>
-          <p className="text-gray-600 mb-4">
-            Electricity has ONE plan type (amount-based). Available DISCOs:
-          </p>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <h4 className="font-bold mb-2">North DISCOs:</h4>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li>KEDCO</li>
-                <li>PHED</li>
-                <li>YEDC</li>
-              </ul>
+        {/* ELECTRICITY SERVICES */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8">Electricity Services</h2>
+          
+          {/* Get DISCOs */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/electricity/plans</code>
+              </div>
             </div>
-            <div>
-              <h4 className="font-bold mb-2">South DISCOs:</h4>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li>IKEDC</li>
-                <li>EEDC</li>
-                <li>BEDC</li>
-                <li>AEDC</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="text-xl font-bold mb-3">Get Electricity Info</h3>
-            <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/electricity/plans
-Content-Type: application/json
-
-{}
-
-Response:
-{
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Get available DISCOs (electricity has amount-based pricing)</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
   "discos": [
     {
@@ -392,100 +361,87 @@ Response:
       "name": "Enugu Electric",
       "minAmount": 500,
       "maxAmount": 50000
-    },
-    {
-      "code": "KEDCO",
-      "name": "Kano Electricity",
-      "minAmount": 500,
-      "maxAmount": 50000
-    },
-    ...
+    }
   ],
-  "info": "Electricity has one plan type: amount-based purchase. Any amount from min to max per DISCO."
-}`}
-            </code>
+  "info": "Any amount from min to max"
+}`}</pre>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mb-6">
-            <h3 className="text-xl font-bold mb-3">Buy Electricity Token</h3>
-            <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`POST /api/whatsapp/electricity/purchase
-Content-Type: application/json
-
-{
+          {/* Purchase Electricity */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/electricity/purchase</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Buy electricity token</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "whatsappPhone": "+2349056458312",
   "disco": "IKEDC",
   "customerId": "87654321",
-  "amount": "5000"
-}
-
-Response:
-{
+  "amount": 5000
+}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
-  "transactionId": "txn_abc12345",
-  "amount": "5000",
+  "transactionId": "TXN_345678",
   "disco": "IKEDC",
   "customerId": "87654321",
-  "token": "1234-5678-9012-3456",
-  "message": "Electricity token purchased successfully"
-}`}
-            </code>
+  "amount": 5000,
+  "token": "1234567890123456",
+  "status": "successful"
+}`}</pre>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Error Handling */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-4">Error Handling</h2>
-          <code className="block bg-gray-900 text-white p-6 rounded-lg font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`All error responses follow this format:
-
-{
-  "success": false,
-  "error": "Error message here"
-}
-
-Common Status Codes:
-- 400: Invalid request (missing fields, invalid network, etc)
-- 401: WhatsApp not linked to account
-- 500: Server error`}
-          </code>
-        </section>
-
         {/* Quick Start */}
-        <section className="mb-12 bg-green-50 p-6 rounded-lg">
-          <h2 className="text-2xl font-bold mb-4">Quick Start Example</h2>
-          <code className="block bg-white p-4 rounded font-mono text-sm overflow-x-auto whitespace-pre-wrap break-words">
-{`// 1. Authenticate user
-const authRes = await fetch('https://api.mozosubz.xyz/api/whatsapp/authenticate', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ whatsapp_phone: '+2349056458312' })
-})
-const auth = await authRes.json()
-
-if (!auth.authenticated) return 'User not linked'
-
-// 2. Get available plans
-const plansRes = await fetch('https://api.mozosubz.xyz/api/whatsapp/data/plans', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ network: 'MTN' })
-})
-const plans = await plansRes.json()
-
-// 3. Purchase
-const purchaseRes = await fetch('https://api.mozosubz.xyz/api/whatsapp/data/purchase', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    whatsappPhone: '+2349056458312',
-    network: 'MTN',
-    planType: 'mtn_sme',
-    amount: '1000'
-  })
-})
-const result = await purchaseRes.json()`}
-          </code>
+        <section className="mb-16 bg-gray-50 p-8 rounded-lg">
+          <h2 className="text-2xl font-bold mb-6">Quick Start Guide</h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-bold mb-2">Step 1: Authenticate</h3>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`curl -X POST api.mozosubz.xyz/api/whatsapp/authenticate \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "whatsapp_phone": "+2349056458312"
+  }'`}</pre>
+            </div>
+            <div>
+              <h3 className="font-bold mb-2">Step 2: Get Plans</h3>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`curl -X POST api.mozosubz.xyz/api/whatsapp/data/plans \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "serviceID": "mtn_sme"
+  }'`}</pre>
+            </div>
+            <div>
+              <h3 className="font-bold mb-2">Step 3: Purchase</h3>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`curl -X POST api.mozosubz.xyz/api/whatsapp/data/purchase \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "whatsappPhone": "+2349056458312",
+    "serviceID": "mtn_sme",
+    "phone": "09056458312",
+    "value": "1GB",
+    "amount": 250
+  }'`}</pre>
+            </div>
+          </div>
         </section>
       </main>
       <Footer />
