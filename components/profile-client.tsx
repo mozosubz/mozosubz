@@ -15,11 +15,9 @@ import {
   Check,
   X,
   Settings,
-  MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { WhatsAppConnection } from "@/components/whatsapp-connection"
 import { createClient } from "@/lib/supabase/client"
 import { uploadAvatar } from "@/lib/actions/avatar"
 
@@ -565,31 +563,7 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
 
             <div className="h-px bg-gray-100" />
 
-            {/* WhatsApp Connection */}
-            <div className="px-4 py-4">
-              <button
-                onClick={() => setExpandedRow(expandedRow === "whatsapp" ? null : "whatsapp")}
-                className="w-full flex items-center gap-3 hover:bg-blue-50 transition-colors rounded-lg p-3"
-              >
-                <div className="w-9 h-9 bg-[#f0f5ff] rounded-md flex items-center justify-center flex-shrink-0">
-                  <MessageCircle className="w-5 h-5 text-[#1a56db]" />
-                </div>
-                <span className="text-sm font-semibold flex-1 text-left">WhatsApp</span>
-                <ChevronRight
-                  className={`w-4 h-4 text-muted-foreground transition-transform ${
-                    expandedRow === "whatsapp" ? "rotate-90" : ""
-                  }`}
-                />
-              </button>
-
-              {expandedRow === "whatsapp" && (
-                <div className="mt-3 px-3 pb-3">
-                  <WhatsAppConnection />
-                </div>
-              )}
-            </div>
-
-            <div className="h-px bg-gray-100" />
+            {/* Logout */}
             <button
               onClick={handleLogout}
               className="w-full px-4 py-4 flex items-center gap-3 hover:bg-red-50 transition-colors"
