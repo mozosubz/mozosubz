@@ -5,7 +5,7 @@ import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp"
 /**
  * POST /api/whatsapp/connect
  *
- * Auth: WhatsApp bot API key in `Authorization: Bearer <key>` header.
+ * OPEN API - No authentication required.
  *
  * Called by the external WhatsApp bot AFTER it receives a "CONNECT <token>"
  * message from a user. The bot supplies the WhatsApp number it saw the
@@ -15,25 +15,6 @@ import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp"
  */
 export async function POST(request: Request) {
   try {
-    // --- Authenticate the bot (optional but recommended) ---
-    // If WHATSAPP_BOT_API_KEY is set, callers MUST present it as a
-    // Bearer token. If it's not set, we accept any caller — useful for
-    // local dev, but in production you should always set the env var.
-    const botKey = process.env.WHATSAPP_BOT_API_KEY
-    if (botKey) {
-      const authHeader = request.headers.get("authorization") ?? ""
-      const presentedKey = authHeader.toLowerCase().startsWith("bearer ")
-        ? authHeader.slice(7).trim()
-        : ""
-
-      if (!presentedKey || presentedKey !== botKey) {
-        return NextResponse.json(
-          { success: false, error: "Unauthorized" },
-          { status: 401 },
-        )
-      }
-    }
-
     // --- Validate body ---
     let body: any
     try {

@@ -5,16 +5,13 @@ import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp"
 /**
  * POST /api/whatsapp/authenticate
  *
- * Auth: WhatsApp bot API key in `Authorization: Bearer <key>` header.
+ * OPEN API - No authentication required. External WhatsApp bots call this
+ * to resolve a WhatsApp phone number → Mozosubz user_id + full profile.
  *
- * Given a raw WhatsApp phone number (the bot sees the sender's wa.me number),
- * resolves it to the Mozosubz user_id + profile snapshot. This is the bridge
- * the bot uses BEFORE calling any other Mozosubz business API — it confirms
- * "this WhatsApp number belongs to a real Mozosubz user, here is who".
- *
- * No existing business APIs are modified by this layer. The bot is expected
- * to use the returned user_id when calling existing endpoints on behalf of
- * the user.
+ * Given a raw WhatsApp phone number (from wa.me or WhatsApp message sender),
+ * checks if it's linked to a Mozosubz account. If yes, returns user_id + profile.
+ * Bot then uses user_id for ALL subsequent business API calls (airtime, data,
+ * cable, electricity, wallet, etc).
  *
  * Body: { whatsapp_phone: string }
  *
@@ -26,25 +23,6 @@ import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp"
  */
 export async function POST(request: Request) {
   try {
-    // --- Authenticate the bot (optional but recommended) ---
-    // If WHATSAPP_BOT_API_KEY is set, callers MUST present it as a
-    // Bearer token. If it's not set, we accept any caller — useful for
-    // local dev, but in production you should always set the env var.
-    const botKey = process.env.WHATSAPP_BOT_API_KEY
-    if (botKey) {
-      const authHeader = request.headers.get("authorization") ?? ""
-      const presentedKey = authHeader.toLowerCase().startsWith("bearer ")
-        ? authHeader.slice(7).trim()
-        : ""
-
-      if (!presentedKey || presentedKey !== botKey) {
-        return NextResponse.json(
-          { success: false, error: "Unauthorized" },
-          { status: 401 },
-        )
-      }
-    }
-
     // --- Validate body ---
     let body: any
     try {
