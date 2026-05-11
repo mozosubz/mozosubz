@@ -26,25 +26,23 @@ import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp"
  */
 export async function POST(request: Request) {
   try {
-    // --- Authenticate the bot ---
+    // --- Authenticate the bot (optional but recommended) ---
+    // If WHATSAPP_BOT_API_KEY is set, callers MUST present it as a
+    // Bearer token. If it's not set, we accept any caller — useful for
+    // local dev, but in production you should always set the env var.
     const botKey = process.env.WHATSAPP_BOT_API_KEY
-    if (!botKey) {
-      return NextResponse.json(
-        { success: false, error: "WhatsApp bot is not configured" },
-        { status: 503 },
-      )
-    }
+    if (botKey) {
+      const authHeader = request.headers.get("authorization") ?? ""
+      const presentedKey = authHeader.toLowerCase().startsWith("bearer ")
+        ? authHeader.slice(7).trim()
+        : ""
 
-    const authHeader = request.headers.get("authorization") ?? ""
-    const presentedKey = authHeader.toLowerCase().startsWith("bearer ")
-      ? authHeader.slice(7).trim()
-      : ""
-
-    if (!presentedKey || presentedKey !== botKey) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      )
+      if (!presentedKey || presentedKey !== botKey) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized" },
+          { status: 401 },
+        )
+      }
     }
 
     // --- Validate body ---

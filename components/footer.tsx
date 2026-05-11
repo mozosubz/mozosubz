@@ -30,6 +30,7 @@ const MAIN_LINKS = [
   { label: "Services", href: "/services" },
   { label: "Login", href: "/login" },
   { label: "Create account", href: "/register" },
+  { label: "WhatsApp API", href: "/docs/whatsapp" },
 ]
 
 const SERVICE_LINKS = [
