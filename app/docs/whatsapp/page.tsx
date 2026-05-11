@@ -212,6 +212,71 @@ Response (Not Linked):
                   4
                 </div>
                 <div className="flex-1">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/balance</h3>
+                  <p className="text-slate-600 mb-4 leading-relaxed">
+                    Get the wallet balance for a connected WhatsApp user. Returns current balance, user info, and name.
+                  </p>
+                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-700">{`Request:
+{
+  "whatsapp_number": "+2349056458312"
+}
+
+Response:
+{
+  "success": true,
+  "user_id": "uuid",
+  "wallet_balance": 15000,
+  "user_name": "Igangan Godspower"
+}`}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Deposit */}
+            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
+                  5
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/deposit</h3>
+                  <p className="text-slate-600 mb-4 leading-relaxed">
+                    Initiate a wallet deposit for a connected WhatsApp user. Returns the user_id to use with the standard deposit flow.
+                  </p>
+                  <div className="bg-slate-50 rounded-lg p-4 mb-4 overflow-x-auto">
+                    <pre className="text-xs font-mono text-slate-700">{`Request:
+{
+  "whatsapp_number": "+2349056458312",
+  "amount": 5000,
+  "description": "Top up wallet"
+}
+
+Response:
+{
+  "success": true,
+  "user_id": "uuid",
+  "user_email": "user@example.com",
+  "user_name": "Igangan Godspower",
+  "amount": 5000,
+  "next_step": "POST /api/deposit/start with user context"
+}`}</pre>
+                  </div>
+                  <p className="text-sm text-slate-600">
+                    <strong>Note:</strong> After getting user_id, use existing /api/deposit/start with authenticated user.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Disconnect */}
+            <div className="rounded-2xl bg-white border border-slate-200 p-8 hover:border-blue-200 transition">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm">
+                  6
+                </div>
+                <div className="flex-1">
                   <h3 className="text-xl font-bold text-slate-900 mb-2 font-mono">POST /api/whatsapp/disconnect</h3>
                   <p className="text-slate-600 mb-4 leading-relaxed">
                     Unlink a WhatsApp number from a Mozosubz account. Called from the user's profile.
