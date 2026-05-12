@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
+import { WhatsAppDocsDownload } from "@/components/whatsapp-docs-download"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -12,15 +13,20 @@ export default function WhatsAppDocsPage() {
     <div className="min-h-screen bg-white">
       <SiteHeader />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
+        {/* Header with Download */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-4">Mozosubz WhatsApp API</h1>
-          <p className="text-lg text-gray-600 mb-6">
-            Complete documentation for WhatsApp bot integration with Mozosubz services.
-          </p>
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-4xl font-bold mb-4">Mozosubz WhatsApp API</h1>
+              <p className="text-lg text-gray-600">
+                Complete documentation for WhatsApp bot integration with Mozosubz services.
+              </p>
+            </div>
+            <WhatsAppDocsDownload />
+          </div>
           
           {/* Base URL */}
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded mb-8">
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
             <p className="text-sm font-semibold text-gray-600 mb-2">BASE URL</p>
             <code className="text-lg font-mono text-blue-600">api.mozosubz.xyz</code>
           </div>
@@ -30,73 +36,7 @@ export default function WhatsAppDocsPage() {
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-8">Authentication Flow</h2>
           
-          {/* Connect Token */}
           <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
-            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
-                <code className="font-mono text-gray-800">/api/whatsapp/connect-token</code>
-              </div>
-            </div>
-            <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">Generate 10-minute connection token for user</p>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-bold mb-3 text-sm">Request</h4>
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`Authorization: Bearer <jwt>
-
-Headers:
-Content-Type: application/json`}</pre>
-                </div>
-                
-                <div>
-                  <h4 className="font-bold mb-3 text-sm">Response</h4>
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
-  "success": true,
-  "token": "MZ_abc123xyz",
-  "expires_in_minutes": 10,
-  "instructions": "Send CONNECT MZ_abc123xyz"
-}`}</pre>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Connect Endpoint */}
-          <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
-            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
-                <code className="font-mono text-gray-800">/api/whatsapp/connect</code>
-              </div>
-            </div>
-            <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">Called by bot to complete WhatsApp link</p>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-bold mb-3 text-sm">Request</h4>
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
-  "whatsapp_phone": "+2349056458312",
-  "token": "MZ_abc123xyz"
-}`}</pre>
-                </div>
-                
-                <div>
-                  <h4 className="font-bold mb-3 text-sm">Response</h4>
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
-  "success": true,
-  "user_id": "uuid",
-  "whatsapp_phone": "+2349056458312"
-}`}</pre>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Authenticate Endpoint */}
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
@@ -123,7 +63,6 @@ Content-Type: application/json`}</pre>
   "profile": {
     "email": "user@example.com",
     "full_name": "John Doe",
-    "phone_number": "09056458312",
     "wallet_balance": 15000
   }
 }`}</pre>
@@ -137,7 +76,6 @@ Content-Type: application/json`}</pre>
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-8">Data Services</h2>
           
-          {/* Get Plans */}
           <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
             <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -146,7 +84,7 @@ Content-Type: application/json`}</pre>
               </div>
             </div>
             <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">Get all data plans with prices (includes markup)</p>
+              <p className="text-sm text-gray-600 mb-4">Get all data plans with prices</p>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
@@ -155,15 +93,11 @@ Content-Type: application/json`}</pre>
   "serviceID": "mtn_sme"
 }
 
-Supported serviceIDs:
-- mtn_sme
-- mtn_datashare
-- mtn_gifting
-- mtn_awoof
-- glo_data
-- glo_sme
-- airtel_sme
-- airtel_gifting
+Supported:
+- mtn_sme, mtn_datashare
+- mtn_gifting, mtn_awoof
+- glo_data, glo_sme
+- airtel_sme, airtel_gifting
 - etisalat_data`}</pre>
                 </div>
                 
@@ -178,12 +112,6 @@ Supported serviceIDs:
       "displayName": "500MB",
       "value": "500MB",
       "price": 100
-    },
-    {
-      "id": "plan_2",
-      "displayName": "1GB",
-      "value": "1GB",
-      "price": 250
     }
   ]
 }`}</pre>
@@ -192,7 +120,6 @@ Supported serviceIDs:
             </div>
           </div>
 
-          {/* Purchase Data */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -235,7 +162,6 @@ Supported serviceIDs:
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-8">Cable Services</h2>
           
-          {/* Get Plans */}
           <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
             <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -253,7 +179,7 @@ Supported serviceIDs:
   "provider": "DSTV"
 }
 
-Supported providers:
+Providers:
 - DSTV
 - GOTV
 - STARTIMES`}</pre>
@@ -270,12 +196,6 @@ Supported providers:
       "displayName": "DSTV Starter",
       "value": "dstv_starter",
       "price": 2000
-    },
-    {
-      "id": "dstv_family",
-      "displayName": "DSTV Family",
-      "value": "dstv_family",
-      "price": 4000
     }
   ]
 }`}</pre>
@@ -284,7 +204,6 @@ Supported providers:
             </div>
           </div>
 
-          {/* Subscribe Cable */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -315,8 +234,7 @@ Supported providers:
   "provider": "DSTV",
   "plan": "dstv_starter",
   "customerId": "12345678",
-  "amount": 2000,
-  "status": "successful"
+  "amount": 2000
 }`}</pre>
                 </div>
               </div>
@@ -328,7 +246,6 @@ Supported providers:
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-8">Electricity Services</h2>
           
-          {/* Get DISCOs */}
           <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
             <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -337,7 +254,7 @@ Supported providers:
               </div>
             </div>
             <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">Get available DISCOs (electricity has amount-based pricing)</p>
+              <p className="text-sm text-gray-600 mb-4">Get available DISCOs (amount-based pricing)</p>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
@@ -355,22 +272,14 @@ Supported providers:
       "name": "Ikeja Electric",
       "minAmount": 500,
       "maxAmount": 50000
-    },
-    {
-      "code": "EEDC",
-      "name": "Enugu Electric",
-      "minAmount": 500,
-      "maxAmount": 50000
     }
-  ],
-  "info": "Any amount from min to max"
+  ]
 }`}</pre>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Purchase Electricity */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -400,8 +309,53 @@ Supported providers:
   "disco": "IKEDC",
   "customerId": "87654321",
   "amount": 5000,
-  "token": "1234567890123456",
-  "status": "successful"
+  "token": "1234567890123456"
+}`}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* DEPOSIT SERVICES */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8">Deposit Services</h2>
+          
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/deposit/initiate</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Initiate a wallet deposit. Returns bank account and USSD details.</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
+  "whatsappPhone": "+2349056458312",
+  "amount": "10000",
+  "description": "Fund wallet"
+}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
+  "success": true,
+  "paymentReference": "MZ_...",
+  "amount": 10000,
+  "processingFee": 100,
+  "netAmount": 9900,
+  "bankAccount": {
+    "accountNumber": "0123456789",
+    "bankName": "GTBank",
+    "accountName": "Mozosubz",
+    "bankCode": "058"
+  },
+  "ussdCode": "*737*...*amount#"
 }`}</pre>
                 </div>
               </div>
@@ -411,35 +365,28 @@ Supported providers:
 
         {/* Quick Start */}
         <section className="mb-16 bg-gray-50 p-8 rounded-lg">
-          <h2 className="text-2xl font-bold mb-6">Quick Start Guide</h2>
+          <h2 className="text-2xl font-bold mb-6">Quick Start</h2>
           <div className="space-y-4">
             <div>
               <h3 className="font-bold mb-2">Step 1: Authenticate</h3>
-              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`curl -X POST api.mozosubz.xyz/api/whatsapp/authenticate \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "whatsapp_phone": "+2349056458312"
-  }'`}</pre>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`POST /api/whatsapp/authenticate
+{"whatsapp_phone": "+2349056458312"}`}</pre>
             </div>
             <div>
               <h3 className="font-bold mb-2">Step 2: Get Plans</h3>
-              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`curl -X POST api.mozosubz.xyz/api/whatsapp/data/plans \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "serviceID": "mtn_sme"
-  }'`}</pre>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`POST /api/whatsapp/data/plans
+{"serviceID": "mtn_sme"}`}</pre>
             </div>
             <div>
               <h3 className="font-bold mb-2">Step 3: Purchase</h3>
-              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`curl -X POST api.mozosubz.xyz/api/whatsapp/data/purchase \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "whatsappPhone": "+2349056458312",
-    "serviceID": "mtn_sme",
-    "phone": "09056458312",
-    "value": "1GB",
-    "amount": 250
-  }'`}</pre>
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm">{`POST /api/whatsapp/data/purchase
+{
+  "whatsappPhone": "+2349056458312",
+  "serviceID": "mtn_sme",
+  "phone": "09056458312",
+  "value": "1GB",
+  "amount": 250
+}`}</pre>
             </div>
           </div>
         </section>
