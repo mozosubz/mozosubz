@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getWalletBalance } from '@/lib/api/gsubz'
+import { getProviderBalance } from '@/lib/api/gsubz'
 
 /**
  * GET /api/admin/provider-balance
@@ -33,8 +33,8 @@ export async function GET(request: Request) {
       )
     }
 
-    // Call existing getWalletBalance function
-    const balanceData = await getWalletBalance()
+    // Call existing getProviderBalance function
+    const balanceData = await getProviderBalance()
 
     if (!balanceData || !balanceData.balance) {
       return NextResponse.json(

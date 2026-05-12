@@ -263,6 +263,13 @@ export async function getWalletBalance(): Promise<{ balance: string }> {
   return makeApiRequest("/api/balance/", "POST", formData)
 }
 
+export async function getProviderBalance(): Promise<{ balance: string }> {
+  const formData = new FormData()
+  formData.append("api", API_KEY)
+
+  return makeApiRequest("/api/balance/", "POST", formData)
+}
+
 export async function verifyTransaction(requestID: string): Promise<ApiResponse> {
   const formData = new FormData()
   formData.append("api", API_KEY)
