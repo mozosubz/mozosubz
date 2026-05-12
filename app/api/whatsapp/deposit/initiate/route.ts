@@ -189,9 +189,18 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       paymentReference,
-      amount: parsedAmount,
-      processingFee,
-      netAmount,
+      transferDetails: {
+        grossAmount: parsedAmount,
+        description: 'Amount you need to transfer',
+      },
+      feeBreakdown: {
+        processingFee,
+        feePercentage: depositRules ? '1-2%' : 'Standard rate',
+      },
+      amountYouReceive: {
+        amount: netAmount,
+        description: 'This will be added to your wallet after processing',
+      },
       bankAccount: {
         accountNumber: initPayResult.accountNumber,
         bankName: initPayResult.bankName,
@@ -199,7 +208,13 @@ export async function POST(request: Request) {
         bankCode: initPayResult.bankCode,
       },
       ussdCode: initPayResult.ussdCode,
-      message: 'Transfer the amount to the bank account or dial USSD code to complete deposit',
+      instructions: [
+        `1. Transfer exactly ₦${parsedAmount.toLocaleString()} to the account above`,
+        `2. Or dial ${initPayResult.ussdCode} and follow the prompts`,
+        `3. After transfer, your balance will be updated to ₦${netAmount.toLocaleString()}`,
+        `4. Keep your payment reference: ${paymentReference}`,
+      ],
+      summary: `Transfer ₦${parsedAmount.toLocaleString()} to receive ₦${netAmount.toLocaleString()} (after ₦${processingFee} fee)`,
     })
   } catch (error) {
     console.error('[v0] whatsapp deposit error:', error)

@@ -317,6 +317,44 @@ Providers:
           </div>
         </section>
 
+        {/* WALLET & BALANCE */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8">Wallet & Balance</h2>
+          
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-bold">POST</span>
+                <code className="font-mono text-gray-800">/api/whatsapp/balance</code>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">Check user's wallet balance</p>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Request</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
+  "whatsappPhone": "+2349056458312"
+}`}</pre>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
+  "success": true,
+  "authenticated": true,
+  "balance": 15000,
+  "currency": "NGN",
+  "formatted": "₦15,000.00",
+  "message": "Your wallet balance is ₦15,000.00"
+}`}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* DEPOSIT SERVICES */}
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-8">Deposit Services</h2>
@@ -329,7 +367,7 @@ Providers:
               </div>
             </div>
             <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">Initiate a wallet deposit. Returns bank account and USSD details.</p>
+              <p className="text-sm text-gray-600 mb-4">Initiate a wallet deposit with transparent fee breakdown. Bot can show user exactly how much they'll receive.</p>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
@@ -342,20 +380,30 @@ Providers:
                 </div>
                 
                 <div>
-                  <h4 className="font-bold mb-3 text-sm">Response</h4>
+                  <h4 className="font-bold mb-3 text-sm">Response (Transparent Breakdown)</h4>
                   <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto">{`{
   "success": true,
   "paymentReference": "MZ_...",
-  "amount": 10000,
-  "processingFee": 100,
-  "netAmount": 9900,
+  "transferDetails": {
+    "grossAmount": 10000,
+    "description": "Amount to transfer"
+  },
+  "feeBreakdown": {
+    "processingFee": 100,
+    "feePercentage": "1%"
+  },
+  "amountYouReceive": {
+    "amount": 9900,
+    "description": "Added to wallet"
+  },
   "bankAccount": {
     "accountNumber": "0123456789",
     "bankName": "GTBank",
     "accountName": "Mozosubz",
     "bankCode": "058"
   },
-  "ussdCode": "*737*...*amount#"
+  "ussdCode": "*737*...*10000#",
+  "summary": "Transfer ₦10,000 → Receive ₦9,900"
 }`}</pre>
                 </div>
               </div>

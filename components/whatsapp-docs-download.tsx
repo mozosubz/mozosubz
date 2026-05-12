@@ -64,26 +64,24 @@ Buy electricity token
 Body: { "whatsappPhone": "+2349056458312", "disco": "IKEDC", "customerId": "87654321", "amount": 5000 }
 Response: { "success": true, "transactionId": "TXN_345678", "disco": "IKEDC", "token": "1234567890123456" }
 
+## WALLET & BALANCE
+
+### POST /api/whatsapp/balance
+Check user's wallet balance
+Body: { "whatsappPhone": "+2349056458312" }
+Response: { "success": true, "authenticated": true, "balance": 15000, "currency": "NGN", "formatted": "₦15,000.00" }
+
 ## DEPOSIT SERVICES
 
 ### POST /api/whatsapp/deposit/initiate
-Initiate a wallet deposit. Returns bank account and USSD details.
+Initiate deposit with transparent fee breakdown
 Body: { "whatsappPhone": "+2349056458312", "amount": "10000", "description": "Fund wallet" }
-
 Response: {
   "success": true,
-  "paymentReference": "MZ_...",
-  "amount": 10000,
-  "processingFee": 100,
-  "netAmount": 9900,
-  "bankAccount": {
-    "accountNumber": "0123456789",
-    "bankName": "GTBank",
-    "accountName": "Mozosubz Limited",
-    "bankCode": "058"
-  },
-  "ussdCode": "*737*...*amount#",
-  "message": "Transfer to complete deposit"
+  "transferDetails": { "grossAmount": 10000 },
+  "feeBreakdown": { "processingFee": 100, "feePercentage": "1%" },
+  "amountYouReceive": { "amount": 9900, "description": "Added to wallet" },
+  "summary": "Transfer ₦10,000 → Receive ₦9,900"
 }
 
 ## QUICK START
