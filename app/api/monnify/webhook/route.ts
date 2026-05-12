@@ -70,21 +70,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'success' })
     }
 
+    // Parse payment reference format: MOZO_xxx|user_id (Monnify appends user_id)
+    // Extract clean reference and user_id for dual-key lookup
+    const referenceparts = paymentReference.split('|')
+    const cleanPaymentReference = referenceparts[0]
+    const webhookUserId = referenceparts[1] || null
+
     console.log('[WEBHOOK] Processing successful payment:', {
-      paymentReference,
+      paymentReference: cleanPaymentReference,
       paymentStatus,
       monnifyTransactionRef,
       amount: eventData?.amountPaid,
     })
 
-    // SECURITY 2: Check for duplicate webhook processing
-    // Get DB transaction to see if already processed
-    const supabase = await createServerClient()
-    const { data: existingTx, error: queryError } = await supabase
+    // SECURITY 2: Dual-key lookup - verify both payment_reference AND user_id match
+    // This ensures we find the correct transaction even if payment reference format changes
+    let query = supabase
       .from('monnify_transactions')
-      .select('status, webhook_received_at')
-      .eq('payment_reference', paymentReference)
-      .maybeSingle()
+      .select('status, webhook_received_at, user_id')
+      .eq('payment_reference', cleanPaymentReference)
+
+    // If user_id was appended by Monnify, add it to the query for extra validation
+    if (webhookUserId) {
+      query = query.eq('user_id', webhookUserId)
+    }
+
+    const { data: existingTx, error: queryError } = await query.maybeSingle()
 
     if (queryError) {
       console.error('[WEBHOOK] Error querying transaction:', queryError)
@@ -93,26 +104,26 @@ export async function POST(request: NextRequest) {
 
     // CRITICAL: If already SUCCESS, this is a duplicate webhook - don't process again
     if (existingTx?.status === 'SUCCESS') {
-      console.log('[WEBHOOK] ⏭️  Duplicate webhook - transaction already credited:', paymentReference)
+      console.log('[WEBHOOK] ⏭️  Duplicate webhook - transaction already credited:', cleanPaymentReference)
       return NextResponse.json({ status: 'success' })
     }
 
     // SECURITY 3: Verify payment status is PAID before crediting
     if (paymentStatus !== 'PAID') {
       console.warn('[WEBHOOK] Payment status not PAID, not crediting:', {
-        paymentReference,
+        paymentReference: cleanPaymentReference,
         paymentStatus,
       })
       return NextResponse.json({ status: 'success' })
     }
 
-    // Credit the wallet (idempotent - marks SUCCESS immediately)
-    console.log('[WEBHOOK] Crediting wallet for:', paymentReference)
-    const creditResult = await verifyAndCreditPayment(paymentReference)
+    // Credit the wallet using clean payment reference (idempotent - marks SUCCESS immediately)
+    console.log('[WEBHOOK] Crediting wallet for:', cleanPaymentReference)
+    const creditResult = await verifyAndCreditPayment(cleanPaymentReference)
 
     if (!creditResult.success) {
       console.error('[WEBHOOK] Failed to credit wallet:', {
-        paymentReference,
+        paymentReference: cleanPaymentReference,
         error: creditResult.error,
       })
       // Still return 200 to prevent Monnify retries
@@ -124,10 +135,10 @@ export async function POST(request: NextRequest) {
     await supabase
       .from('monnify_transactions')
       .update({ webhook_received_at: new Date().toISOString() })
-      .eq('payment_reference', paymentReference)
+      .eq('payment_reference', cleanPaymentReference)
 
     console.log('[WEBHOOK] ✅ Payment processed successfully:', {
-      paymentReference,
+      paymentReference: cleanPaymentReference,
       credited: true,
     })
 
