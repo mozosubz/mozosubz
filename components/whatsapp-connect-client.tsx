@@ -102,12 +102,13 @@ export function WhatsAppConnectClient({
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Link
-            href="/profile"
+          <button
+            onClick={() => window.history.back()}
             className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-gray-100 transition"
+            type="button"
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </Link>
+          </button>
           <div>
             <h1 className="text-base font-semibold text-gray-900">WhatsApp</h1>
             <p className="text-xs text-gray-500">Use Mozosubz from chat</p>
