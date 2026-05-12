@@ -1,4 +1,4 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAndCreditPayment } from '@/lib/actions/transactions'
@@ -85,7 +85,8 @@ export async function POST(request: NextRequest) {
 
     // SECURITY 2: Dual-key lookup - verify both payment_reference AND user_id match
     // This ensures we find the correct transaction even if payment reference format changes
-    const supabase = await createServerClient()
+    // Use admin client to bypass RLS policies (webhook is a trusted backend process from Monnify)
+    const supabase = createAdminClient()
     
     let query = supabase
       .from('monnify_transactions')
