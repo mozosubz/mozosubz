@@ -25,6 +25,9 @@ const adminLinks = [
   { name: 'Pricing Rules', href: '/admin/pricing', icon: Settings },
   { name: 'Deposit Rules', href: '/admin/deposit-rules', icon: Banknote },
   { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
+]
+
+const quickLinks = [
   { name: 'User Dashboard', href: '/', icon: BarChart3 },
 ]
 
@@ -112,6 +115,26 @@ export function AdminSidebar() {
         </nav>
 
         <div className="admin-sidebar-divider" style={{borderTop: '1px solid #e5e7eb', margin: '12px 0', opacity: 0.5}} />
+
+        <div style={{padding: '0 12px'}}>
+          <p style={{fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px'}}>Quick Links</p>
+          <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+            {quickLinks.map((link) => {
+              const Icon = link.icon
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  className="admin-nav-item"
+                  style={{fontSize: '14px'}}
+                >
+                  <Icon size={16} />
+                  <span>{link.name}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
 
         <div className="admin-sidebar-footer">
           <Link href="/api/auth/signout" className="admin-nav-item logout">

@@ -9,7 +9,6 @@ import { RevenueMetrics } from '@/components/admin/revenue-metrics'
 import { CategoryPerformance } from '@/components/admin/category-performance'
 import { RevenueForecast } from '@/components/admin/revenue-forecast'
 import { WeekComparison } from '@/components/admin/week-comparison'
-import { ProviderBalance } from '@/components/admin/provider-balance'
 import { Users, DollarSign, TrendingUp, Zap, Activity } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -86,8 +85,6 @@ export default async function AdminDashboard() {
             <div className="stat-value">₦{totalEarnings.toLocaleString()}</div>
             <p className="stat-trend">Fees + Markups combined</p>
           </div>
-
-          <ProviderBalance />
 
           <div className="stat-card">
             <div className="stat-header">
