@@ -9,13 +9,18 @@ import { calculateDepositFee } from '@/lib/utils/deposit-fee'
 /**
  * POST /api/whatsapp/deposit/initiate
  *
- * Initiate a deposit for a WhatsApp user. Returns payment details (bank account,
- * USSD code, etc.) for the user to complete the transfer.
+ * WhatsApp bot calls this to initiate a deposit for a WhatsApp user.
+ * Returns payment details (bank account, USSD code, etc.) and transparent fee breakdown.
+ *
+ * Bot uses the same logic as /api/deposit/start but:
+ * - Takes whatsappPhone instead of session auth
+ * - Returns transparent fee breakdown
+ * - Status 200 for all responses
  *
  * Body: {
- *   whatsappPhone: "+2349056458312",
- *   amount: "5000",
- *   description?: "Fund wallet"
+ *   "whatsappPhone": "+2349056458312",
+ *   "amount": "10000",
+ *   "description": "Fund wallet"
  * }
  */
 export async function POST(request: Request) {
@@ -23,7 +28,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { whatsappPhone, amount, description } = body
 
-    // Validate inputs
+    // --- Validate inputs ---
     if (!whatsappPhone || !amount) {
       return NextResponse.json(
         {
@@ -48,7 +53,7 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient()
 
-    // Resolve WhatsApp to user
+    // --- Resolve WhatsApp to user_id ---
     const { data: session } = await admin
       .from('whatsapp_sessions')
       .select('user_id, is_verified')
@@ -77,11 +82,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get user profile
+    const userId = session.user_id
+
+    // --- Get user profile ---
     const { data: profile } = await admin
       .from('profiles')
       .select('email, full_name')
-      .eq('id', session.user_id)
+      .eq('id', userId)
       .maybeSingle()
 
     if (!profile) {
@@ -94,7 +101,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Calculate deposit fee
+    // --- Calculate deposit fee ---
     const depositRules = await getDepositRules()
     let processingFee = 50
     let netAmount = parsedAmount - processingFee
@@ -105,11 +112,11 @@ export async function POST(request: Request) {
       netAmount = feeCalc.netAmount
     }
 
-    // Generate payment reference
-    const paymentReference = generatePaymentReference(session.user_id)
+    // --- Generate payment reference ---
+    const paymentReference = generatePaymentReference(userId)
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString()
 
-    // Create transaction
+    // --- Create transaction in DB ---
     const createTxResult = await createTransaction(
       paymentReference,
       parsedAmount,
@@ -134,12 +141,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Initialize with Monnify
+    // --- Initialize with Monnify ---
     const initTxResult = await initTransaction(
       parsedAmount,
       description || 'Wallet deposit',
       paymentReference,
-      session.user_id,
+      userId,
       profile.email,
       profile.full_name || 'User'
     )
@@ -154,7 +161,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get payment details
+    // --- Get payment details ---
     const initPayResult = await initializePayment(initTxResult.transactionReference)
 
     if (!initPayResult.success) {
@@ -167,7 +174,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update transaction with Monnify data
+    // --- Update transaction with Monnify data ---
     await updateTransactionWithMonnifyData(paymentReference, {
       transactionReference: initTxResult.transactionReference,
       accountNumber: initPayResult.accountNumber,
@@ -178,14 +185,15 @@ export async function POST(request: Request) {
       monnifyResponse: initPayResult,
     })
 
-    // Log success
+    // --- Log success ---
     void admin.from('whatsapp_audit_logs').insert({
-      user_id: session.user_id,
+      user_id: userId,
       whatsapp_phone: whatsappPhone,
       event_type: 'deposit_initiated',
       details: { amount: parsedAmount },
     })
 
+    // --- Return transparent response ---
     return NextResponse.json({
       success: true,
       paymentReference,
