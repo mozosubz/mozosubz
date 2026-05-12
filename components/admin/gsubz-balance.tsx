@@ -1,99 +1,80 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Wallet } from 'lucide-react'
-
-interface BalanceData {
-  balance: number | string
-  formatted?: string
-  error?: string
-}
+import { Wallet, RefreshCw } from 'lucide-react'
 
 export function GSubzBalance() {
-  const [balance, setBalance] = useState<BalanceData | null>(null)
+  const [balance, setBalance] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        setLoading(true)
-        const apiKey = process.env.NEXT_PUBLIC_GSUBZ_API_KEY
-        
-        if (!apiKey) {
-          setBalance({ balance: 0, error: 'API key not configured' })
-          setLoading(false)
-          return
-        }
+  const fetchBalance = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch('/api/admin/gsubz-balance', {
+        method: 'GET',
+        cache: 'no-store',
+      })
+      
+      const data = await response.json()
 
-        const formData = new FormData()
-        formData.append('api', apiKey)
-
-        const response = await fetch('https://api.gsubz.com/api/balance/', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: formData,
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-
-        const data = await response.json()
-        const balanceAmount = parseFloat(data.balance || 0)
-        const formatted = `₦${balanceAmount.toLocaleString('en-NG', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`
-
-        setBalance({
-          balance: balanceAmount,
-          formatted,
-        })
-      } catch (err) {
-        console.error('Failed to fetch gSubz balance:', err)
-        setBalance({
-          balance: 0,
-          error: err instanceof Error ? err.message : 'Failed to fetch balance',
-        })
-      } finally {
-        setLoading(false)
+      if (data.success) {
+        setBalance(data.formatted)
+      } else {
+        setError(data.message || 'Failed to load balance')
       }
+    } catch (err) {
+      setError('Error fetching balance')
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  // Fetch on mount
+  useEffect(() => {
     fetchBalance()
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchBalance, 30000)
-    return () => clearInterval(interval)
   }, [])
 
-  if (loading) {
-    return (
-      <div className="stat-card">
-        <div className="stat-header">
-          <h3 className="stat-title">gSubz Wallet Balance</h3>
-          <div className="stat-icon">
-            <Wallet size={18} />
-          </div>
-        </div>
-        <div className="stat-value">Loading...</div>
-      </div>
-    )
-  }
+  // Poll every 30 seconds for real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchBalance()
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="stat-card">
       <div className="stat-header">
-        <h3 className="stat-title">gSubz Wallet Balance</h3>
+        <h3 className="stat-title">gSubz Wallet</h3>
         <div className="stat-icon">
           <Wallet size={18} />
         </div>
       </div>
-      <div className="stat-value">{balance?.formatted || '₦0.00'}</div>
-      <p className="stat-trend">
-        {balance?.error ? `Error: ${balance.error}` : 'Current balance'}
-      </p>
+      
+      {loading && !balance ? (
+        <div className="stat-value text-gray-400">Loading...</div>
+      ) : error ? (
+        <div className="stat-value text-red-500 text-sm">{error}</div>
+      ) : (
+        <div className="stat-value">{balance}</div>
+      )}
+      
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+        <p className="stat-trend">Live balance • Updated every 30s</p>
+        <button
+          onClick={fetchBalance}
+          disabled={loading}
+          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          title="Refresh balance"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
     </div>
   )
 }
