@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
 
     // SECURITY 2: Dual-key lookup - verify both payment_reference AND user_id match
     // This ensures we find the correct transaction even if payment reference format changes
+    const supabase = await createServerClient()
+    
     let query = supabase
       .from('monnify_transactions')
       .select('status, webhook_received_at, user_id')
