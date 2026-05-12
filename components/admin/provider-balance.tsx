@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Wallet, RefreshCw } from 'lucide-react'
 
-export function GSubzBalance() {
+export function ProviderBalance() {
   const [balance, setBalance] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -13,7 +13,7 @@ export function GSubzBalance() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/admin/gsubz-balance', {
+      const response = await fetch('/api/admin/provider-balance', {
         method: 'GET',
         cache: 'no-store',
       })
@@ -50,7 +50,7 @@ export function GSubzBalance() {
   return (
     <div className="stat-card">
       <div className="stat-header">
-        <h3 className="stat-title">gSubz Wallet</h3>
+        <h3 className="stat-title">Provider Balance</h3>
         <div className="stat-icon">
           <Wallet size={18} />
         </div>

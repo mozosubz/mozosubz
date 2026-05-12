@@ -9,7 +9,7 @@ import { RevenueMetrics } from '@/components/admin/revenue-metrics'
 import { CategoryPerformance } from '@/components/admin/category-performance'
 import { RevenueForecast } from '@/components/admin/revenue-forecast'
 import { WeekComparison } from '@/components/admin/week-comparison'
-import { GSubzBalance } from '@/components/admin/gsubz-balance'
+import { ProviderBalance } from '@/components/admin/provider-balance'
 import { Users, DollarSign, TrendingUp, Zap, Activity } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -87,7 +87,7 @@ export default async function AdminDashboard() {
             <p className="stat-trend">Fees + Markups combined</p>
           </div>
 
-          <GSubzBalance />
+          <ProviderBalance />
 
           <div className="stat-card">
             <div className="stat-header">
