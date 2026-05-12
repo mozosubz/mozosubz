@@ -83,12 +83,12 @@ export async function POST(request: NextRequest) {
     })
 
     // SECURITY 2: Check for duplicate webhook processing
-    // Get DB transaction to see if already processed
-    const supabase = await createServerClient()
+    // Query for payment reference that STARTS WITH the clean reference
+    // (database might have user_id appended with |)
     const { data: existingTx, error: queryError } = await supabase
       .from('monnify_transactions')
-      .select('status, webhook_received_at')
-      .eq('payment_reference', cleanPaymentReference)
+      .select('status, webhook_received_at, payment_reference')
+      .ilike('payment_reference', `${cleanPaymentReference}%`)
       .maybeSingle()
 
     if (queryError) {
@@ -111,13 +111,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'success' })
     }
 
-    // Credit the wallet (idempotent - marks SUCCESS immediately)
-    console.log('[WEBHOOK] Crediting wallet for:', cleanPaymentReference)
-    const creditResult = await verifyAndCreditPayment(cleanPaymentReference)
+    // Credit the wallet using the actual stored payment reference from DB
+    console.log('[WEBHOOK] Crediting wallet for:', existingTx?.payment_reference || cleanPaymentReference)
+    const creditResult = await verifyAndCreditPayment(existingTx?.payment_reference || cleanPaymentReference)
 
     if (!creditResult.success) {
       console.error('[WEBHOOK] Failed to credit wallet:', {
-        paymentReference: cleanPaymentReference,
+        paymentReference: existingTx?.payment_reference || cleanPaymentReference,
         error: creditResult.error,
       })
       // Still return 200 to prevent Monnify retries
@@ -129,10 +129,10 @@ export async function POST(request: NextRequest) {
     await supabase
       .from('monnify_transactions')
       .update({ webhook_received_at: new Date().toISOString() })
-      .eq('payment_reference', cleanPaymentReference)
+      .ilike('payment_reference', `${cleanPaymentReference}%`)
 
     console.log('[WEBHOOK] ✅ Payment processed successfully:', {
-      paymentReference: cleanPaymentReference,
+      paymentReference: existingTx?.payment_reference || cleanPaymentReference,
       credited: true,
     })
 
