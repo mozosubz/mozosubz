@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp"
+import { sendWhatsAppEventEmail } from "@/lib/email/send-whatsapp-event-email"
 
 /**
  * POST /api/whatsapp/connect
@@ -80,27 +81,65 @@ export async function POST(request: Request) {
       )
     }
 
+    // --- Check if this WhatsApp number is in cooldown from a previous disconnect ---
+    const { data: cooldownSession } = await admin
+      .from("whatsapp_sessions")
+      .select("disconnect_cooldown_until, user_id")
+      .eq("whatsapp_phone", whatsappPhone)
+      .is("user_id", null)
+      .maybeSingle()
+
+    if (cooldownSession && cooldownSession.disconnect_cooldown_until) {
+      if (new Date(cooldownSession.disconnect_cooldown_until).getTime() > Date.now()) {
+        void admin.from("whatsapp_audit_logs").insert({
+          whatsapp_phone: whatsappPhone,
+          event_type: "connect_failed",
+          details: { reason: "in_cooldown" },
+        })
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "This WhatsApp number is temporarily unavailable (24-hour security cooldown after disconnection). Please try again later.",
+          },
+          { status: 400 },
+        )
+      }
+    }
+
     // --- Ensure this WhatsApp number isn't already linked to a different user ---
     const { data: existingForPhone } = await admin
       .from("whatsapp_sessions")
-      .select("user_id")
+      .select("user_id, is_verified")
       .eq("whatsapp_phone", whatsappPhone)
+      .is_not("user_id", null)
       .maybeSingle()
 
-    if (existingForPhone && existingForPhone.user_id !== session.user_id) {
-      void admin.from("whatsapp_audit_logs").insert({
-        user_id: session.user_id,
-        whatsapp_phone: whatsappPhone,
-        event_type: "connect_failed",
-        details: { reason: "phone_already_linked" },
-      })
-      return NextResponse.json(
-        {
-          success: false,
-          error: "This WhatsApp number is already linked to another account",
-        },
-        { status: 409 },
-      )
+    if (existingForPhone) {
+      if (existingForPhone.user_id !== session.user_id) {
+        void admin.from("whatsapp_audit_logs").insert({
+          user_id: session.user_id,
+          whatsapp_phone: whatsappPhone,
+          event_type: "connect_failed",
+          details: { reason: "phone_already_linked" },
+        })
+        return NextResponse.json(
+          {
+            success: false,
+            error: "This WhatsApp number is already connected to another account. Please disconnect it from that account first.",
+          },
+          { status: 409 },
+        )
+      }
+      // If it's the same user but already verified, just return success
+      if (existingForPhone.is_verified) {
+        return NextResponse.json({
+          success: true,
+          user_id: session.user_id,
+          whatsapp_phone: whatsappPhone,
+          message: "WhatsApp already connected",
+        })
+      }
     }
 
     // --- Finalize ---
@@ -130,6 +169,13 @@ export async function POST(request: Request) {
       user_id: session.user_id,
       whatsapp_phone: whatsappPhone,
       event_type: "connect_success",
+    })
+
+    // Send connection email (fire and forget)
+    void sendWhatsAppEventEmail({
+      userId: session.user_id,
+      eventType: "CONNECTED",
+      whatsappPhone: whatsappPhone,
     })
 
     return NextResponse.json({
