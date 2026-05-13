@@ -30,8 +30,6 @@ export async function POST(request: Request) {
     const whatsappPhone = normalizeWhatsAppPhone(body?.whatsapp_phone)
     const token = typeof body?.token === "string" ? body.token.trim() : ""
 
-    console.log("[v0] whatsapp connect start:", { whatsappPhone, tokenLength: token.length })
-
     if (!whatsappPhone) {
       return NextResponse.json(
         { success: false, error: "whatsapp_phone is invalid or missing" },
@@ -45,19 +43,14 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log("[v0] creating admin client...")
     const admin = createAdminClient()
-    console.log("[v0] admin client created")
 
     // --- Look up the pending session by token ---
-    console.log("[v0] looking up session by token...")
     const { data: session, error: sessionError } = await admin
       .from("whatsapp_sessions")
       .select("id, user_id, connect_token, token_expires_at, is_verified")
       .eq("connect_token", token)
       .maybeSingle()
-
-    console.log("[v0] session lookup result:", { sessionError, sessionFound: !!session })
 
     if (sessionError) {
       console.error("[v0] whatsapp connect session lookup error:", sessionError)
