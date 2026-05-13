@@ -43,6 +43,24 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check env vars
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl) {
+      return NextResponse.json(
+        { success: false, error: "Missing NEXT_PUBLIC_SUPABASE_URL" },
+        { status: 503 },
+      )
+    }
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        { success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 503 },
+      )
+    }
+
+    // Create admin client
     const admin = createAdminClient()
 
     // --- Look up the pending session by token ---
@@ -61,11 +79,11 @@ export async function POST(request: Request) {
     }
 
     if (!session) {
-    void admin.from("whatsapp_audit_logs").insert({
-      whatsapp_phone: whatsappPhone,
-      event_type: "connect_failed",
-      details: { reason: "token_not_found" },
-    }).catch(err => console.error("[v0] audit log error:", err))
+      void admin.from("whatsapp_audit_logs").insert({
+        whatsapp_phone: whatsappPhone,
+        event_type: "connect_failed",
+        details: { reason: "token_not_found" },
+      }).catch(err => console.error("[v0] audit log error:", err))
       return NextResponse.json(
         { success: false, error: "Invalid or expired token" },
         { status: 400 },
@@ -115,8 +133,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error:
-              "This WhatsApp number is temporarily unavailable (24-hour security cooldown after disconnection). Please try again later.",
+            error: "This WhatsApp number is temporarily unavailable (24-hour security cooldown after disconnection). Please try again later.",
           },
           { status: 400 },
         )
@@ -209,7 +226,10 @@ export async function POST(request: Request) {
       verified_at: now,
     })
   } catch (err) {
-    console.error("[v0] whatsapp connect fatal:", err)
+    console.error("[v0] whatsapp connect fatal error:", {
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    })
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 },
