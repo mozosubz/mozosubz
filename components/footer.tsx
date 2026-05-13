@@ -30,7 +30,7 @@ const MAIN_LINKS = [
   { label: "Services", href: "/services" },
   { label: "Login", href: "/login" },
   { label: "Create account", href: "/register" },
-  { label: "WhatsApp API", href: "/docs/whatsapp" },
+  { label: "Integration API", href: "/integrations/docs" },
 ]
 
 const SERVICE_LINKS = [
@@ -42,12 +42,18 @@ const SERVICE_LINKS = [
   { label: "Transactions", href: "/dashboard/transactions" },
 ]
 
+const DEVELOPER_LINKS = [
+  { label: "API Documentation", href: "/integrations/docs" },
+  { label: "Connect Keys", href: "/integrations/keys" },
+  { label: "Integration Guide", href: "/integrations/docs" },
+]
+
 export function Footer() {
   const year = new Date().getFullYear()
   return (
     <footer className="bg-slate-950 text-slate-400 border-t border-slate-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-4">
@@ -111,6 +117,20 @@ export function Footer() {
             <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">Services</h3>
             <ul className="space-y-3">
               {SERVICE_LINKS.map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href} className="text-sm text-slate-400 hover:text-white transition">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Developers */}
+          <div>
+            <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">Developers</h3>
+            <ul className="space-y-3">
+              {DEVELOPER_LINKS.map((l) => (
                 <li key={l.href}>
                   <Link href={l.href} className="text-sm text-slate-400 hover:text-white transition">
                     {l.label}
