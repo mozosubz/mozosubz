@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp"
 import { sendWhatsAppEventEmail } from "@/lib/email/send-whatsapp-event-email"
@@ -14,10 +14,18 @@ import { sendWhatsAppEventEmail } from "@/lib/email/send-whatsapp-event-email"
  *
  * Body: { whatsapp_phone: string, token: string }
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     // --- Validate body ---
-    const body = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Invalid JSON body" },
+        { status: 400 },
+      )
+    }
 
     const whatsappPhone = normalizeWhatsAppPhone(body?.whatsapp_phone)
     const token = typeof body?.token === "string" ? body.token.trim() : ""
@@ -38,22 +46,18 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
 
     // --- Look up the pending session by token ---
-    const { data: session, error: sessionError } = await admin
+    const { data: session } = await admin
       .from("whatsapp_sessions")
       .select("id, user_id, connect_token, token_expires_at, is_verified")
       .eq("connect_token", token)
       .maybeSingle()
 
-    if (sessionError) {
-      console.error("[WHATSAPP_CONNECT] session lookup error:", sessionError)
-      return NextResponse.json(
-        { success: false, error: "Database error" },
-        { status: 500 },
-      )
-    }
-
     if (!session) {
-      console.log("[WHATSAPP_CONNECT] Token not found:", token)
+      void admin.from("whatsapp_audit_logs").insert({
+        whatsapp_phone: whatsappPhone,
+        event_type: "connect_failed",
+        details: { reason: "token_not_found" },
+      })
       return NextResponse.json(
         { success: false, error: "Invalid or expired token" },
         { status: 400 },
@@ -65,7 +69,12 @@ export async function POST(request: NextRequest) {
       session.token_expires_at &&
       new Date(session.token_expires_at).getTime() < Date.now()
     ) {
-      console.log("[WHATSAPP_CONNECT] Token expired:", token)
+      void admin.from("whatsapp_audit_logs").insert({
+        user_id: session.user_id,
+        whatsapp_phone: whatsappPhone,
+        event_type: "connect_failed",
+        details: { reason: "token_expired" },
+      })
       return NextResponse.json(
         { success: false, error: "Invalid or expired token" },
         { status: 400 },
@@ -73,28 +82,25 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Check if this WhatsApp number is in cooldown from a previous disconnect ---
-    const { data: cooldownSession, error: cooldownError } = await admin
+    const { data: cooldownSession } = await admin
       .from("whatsapp_sessions")
       .select("disconnect_cooldown_until, user_id")
       .eq("whatsapp_phone", whatsappPhone)
       .is("user_id", null)
       .maybeSingle()
 
-    if (cooldownError) {
-      console.error("[WHATSAPP_CONNECT] cooldown check error:", cooldownError)
-      return NextResponse.json(
-        { success: false, error: "Database error" },
-        { status: 500 },
-      )
-    }
-
-    if (cooldownSession?.disconnect_cooldown_until) {
+    if (cooldownSession && cooldownSession.disconnect_cooldown_until) {
       if (new Date(cooldownSession.disconnect_cooldown_until).getTime() > Date.now()) {
-        console.log("[WHATSAPP_CONNECT] Phone in cooldown:", whatsappPhone)
+        void admin.from("whatsapp_audit_logs").insert({
+          whatsapp_phone: whatsappPhone,
+          event_type: "connect_failed",
+          details: { reason: "in_cooldown" },
+        })
         return NextResponse.json(
           {
             success: false,
-            error: "This WhatsApp number is temporarily unavailable (24-hour security cooldown after disconnection).",
+            error:
+              "This WhatsApp number is temporarily unavailable (24-hour security cooldown after disconnection). Please try again later.",
           },
           { status: 400 },
         )
@@ -102,80 +108,84 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Ensure this WhatsApp number isn't already linked to a different user ---
-    const { data: existingForPhone, error: existingError } = await admin
+    const { data: existingForPhone } = await admin
       .from("whatsapp_sessions")
       .select("user_id, is_verified")
       .eq("whatsapp_phone", whatsappPhone)
-      .not("user_id", "is", null)
+      .is_not("user_id", null)
       .maybeSingle()
 
-    if (existingError) {
-      console.error("[WHATSAPP_CONNECT] existing phone check error:", existingError)
-      return NextResponse.json(
-        { success: false, error: "Database error" },
-        { status: 500 },
-      )
+    if (existingForPhone) {
+      if (existingForPhone.user_id !== session.user_id) {
+        void admin.from("whatsapp_audit_logs").insert({
+          user_id: session.user_id,
+          whatsapp_phone: whatsappPhone,
+          event_type: "connect_failed",
+          details: { reason: "phone_already_linked" },
+        })
+        return NextResponse.json(
+          {
+            success: false,
+            error: "This WhatsApp number is already connected to another account. Please disconnect it from that account first.",
+          },
+          { status: 409 },
+        )
+      }
+      // If it's the same user but already verified, just return success
+      if (existingForPhone.is_verified) {
+        return NextResponse.json({
+          success: true,
+          user_id: session.user_id,
+          whatsapp_phone: whatsappPhone,
+          message: "WhatsApp already connected",
+        })
+      }
     }
 
-    if (existingForPhone && existingForPhone.user_id !== session.user_id) {
-      console.log("[WHATSAPP_CONNECT] Phone already linked to different user:", whatsappPhone)
-      return NextResponse.json(
-        { success: false, error: "This WhatsApp number is already linked to another account." },
-        { status: 400 },
-      )
-    }
-
-    // --- Execute the connection: update the pending session with the phone number and mark verified ---
+    // --- Finalize ---
+    const now = new Date().toISOString()
     const { error: updateError } = await admin
       .from("whatsapp_sessions")
       .update({
         whatsapp_phone: whatsappPhone,
         is_verified: true,
-        verified_at: new Date().toISOString(),
-        disconnect_cooldown_until: null,
+        verified_at: now,
+        connect_token: null,
+        token_expires_at: null,
+        last_activity: now,
+        updated_at: now,
       })
       .eq("id", session.id)
 
     if (updateError) {
-      console.error("[WHATSAPP_CONNECT] failed to update session:", updateError)
+      console.error("[v0] whatsapp connect update error:", updateError)
       return NextResponse.json(
-        { success: false, error: "Failed to complete connection" },
+        { success: false, error: "Failed to link WhatsApp" },
         { status: 500 },
       )
     }
 
-    // Fire-and-forget: Log to audit log
-    void admin
-      .from("whatsapp_audit_logs")
-      .insert({
-        user_id: session.user_id,
-        whatsapp_phone: whatsappPhone,
-        event_type: "connect_success",
-      })
-      .catch(err => console.error("[WHATSAPP_CONNECT] audit log error:", err))
+    void admin.from("whatsapp_audit_logs").insert({
+      user_id: session.user_id,
+      whatsapp_phone: whatsappPhone,
+      event_type: "connect_success",
+    })
 
-    // Fire-and-forget: Send connection email
+    // Send connection email (fire and forget)
     void sendWhatsAppEventEmail({
       userId: session.user_id,
       eventType: "CONNECTED",
       whatsappPhone: whatsappPhone,
-    }).catch(err => console.error("[WHATSAPP_CONNECT] email error:", err))
-
-    console.log("[WHATSAPP_CONNECT] Successfully connected:", {
-      userId: session.user_id,
-      whatsappPhone,
     })
 
     return NextResponse.json({
       success: true,
-      message: "WhatsApp successfully connected",
-      whatsappPhone,
+      user_id: session.user_id,
+      whatsapp_phone: whatsappPhone,
+      verified_at: now,
     })
   } catch (err) {
-    console.error("[WHATSAPP_CONNECT] Fatal error:", {
-      message: err instanceof Error ? err.message : String(err),
-      type: typeof err,
-    })
+    console.error("[v0] whatsapp connect fatal:", err)
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 },
