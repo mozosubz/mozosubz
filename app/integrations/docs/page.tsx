@@ -22,7 +22,7 @@ export default function IntegrationDocsPage() {
             All API requests require a Connect Key in the <code className="bg-gray-100 px-2 py-1 rounded">X-Connect-Key</code> header.
           </p>
           <div className="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto">
-            <pre>{`curl -X POST https://mozosubz.xyz/api/integrations/services/data/plans \\
+            <pre>{`curl -X POST https://mozosubz.xyz/api/mozosubz/v1/services/data/plans \\
   -H "X-Connect-Key: your_connect_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{"network": "MTN"}'`}</pre>
@@ -36,7 +36,7 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Get Data Plans</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/data/plans</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/data/plans</p>
             </div>
             <div className="space-y-3 text-sm">
               <div>
@@ -67,7 +67,7 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Purchase Data</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/data/purchase</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/data/purchase</p>
             </div>
             <div className="space-y-3 text-sm">
               <div>
@@ -86,7 +86,7 @@ export default function IntegrationDocsPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-4">Airtime Services</h2>
           <div className="bg-gray-50 p-4 rounded mb-4">
-            <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/airtime/purchase</p>
+            <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/airtime/purchase</p>
           </div>
           <div className="text-sm">
             <p className="font-semibold mb-1">Request:</p>
@@ -105,7 +105,7 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Get Cable Plans</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/cable/plans</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/cable/plans</p>
             </div>
             <div className="text-sm">
               <p className="font-semibold mb-1">Request:</p>
@@ -118,7 +118,7 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Subscribe to Cable</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/cable/subscribe</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/cable/subscribe</p>
             </div>
             <div className="text-sm">
               <p className="font-semibold mb-1">Request:</p>
@@ -137,7 +137,7 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Get Electricity Plans (DISCOs)</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/electricity/plans</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/electricity/plans</p>
             </div>
             <div className="text-sm">
               <p className="font-semibold mb-1">Response includes available DISCOs and purchase options</p>
@@ -147,7 +147,7 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Purchase Electricity</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/electricity/purchase</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/electricity/purchase</p>
             </div>
             <div className="text-sm">
               <p className="font-semibold mb-1">Request:</p>
@@ -167,7 +167,7 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Check Balance</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">GET /api/integrations/services/balance</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">GET /api/mozosubz/v1/services/balance</p>
             </div>
             <div className="text-sm">
               <p className="font-semibold mb-1">Response:</p>
@@ -183,14 +183,14 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Get Transactions</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">GET /api/integrations/services/transactions</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">GET /api/mozosubz/v1/services/transactions</p>
             </div>
           </div>
 
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Initiate Deposit</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/integrations/services/deposit/initiate</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/deposit/initiate</p>
             </div>
             <div className="text-sm">
               <p className="font-semibold mb-1">Request:</p>

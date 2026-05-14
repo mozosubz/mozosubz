@@ -37,7 +37,7 @@ export function ConnectKeysManager() {
 
   async function fetchKeys() {
     try {
-      const res = await fetch('/api/integrations/keys/list')
+      const res = await fetch('/api/mozosubz/v1/keys/list')
       const data = await res.json()
       if (data.success) {
         setKeys(data.keys)
@@ -57,7 +57,7 @@ export function ConnectKeysManager() {
     setError('')
 
     try {
-      const res = await fetch('/api/integrations/keys/create', {
+      const res = await fetch('/api/mozosubz/v1/keys/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newKeyName }),
@@ -93,7 +93,7 @@ export function ConnectKeysManager() {
     if (!confirm('Are you sure? This action cannot be undone.')) return
 
     try {
-      const res = await fetch('/api/integrations/keys/revoke', {
+      const res = await fetch('/api/mozosubz/v1/keys/revoke', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyId }),
