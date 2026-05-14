@@ -45,7 +45,7 @@ const SERVICE_LINKS = [
 const DEVELOPER_LINKS = [
   { label: "API Documentation", href: "/integrations/docs" },
   { label: "Connect Keys", href: "/integrations/keys" },
-  { label: "API Reference", href: "/integrations/docs" },
+  { label: "Getting Started", href: "/integrations/docs" },
 ]
 
 export function Footer() {

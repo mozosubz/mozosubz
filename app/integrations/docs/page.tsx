@@ -21,12 +21,12 @@ export default function IntegrationDocsPage() {
           <p className="text-gray-700 mb-4">
             All API requests require a Connect Key in the <code className="bg-gray-100 px-2 py-1 rounded">X-Connect-Key</code> header.
           </p>
-          <div className="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto">
-            <pre>{`curl -X POST https://mozosubz.xyz/api/mozosubz/v1/services/data/plans \\
+            <div className="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto">
+            <pre>{`curl -X POST https://www.mozosubz.xyz/api/mozosubz/v1/services/data/plans \\
   -H "X-Connect-Key: your_connect_key_here" \\
   -H "Content-Type: application/json" \\
-  -d '{"network": "MTN"}'`}</pre>
-          </div>
+  -d '{"serviceID": "mtn_sme"}'`}</pre>
+            </div>
         </section>
 
         {/* Data Services */}
@@ -40,9 +40,9 @@ export default function IntegrationDocsPage() {
             </div>
             <div className="space-y-3 text-sm">
               <div>
-                <p className="font-semibold mb-1">Request:</p>
-                <pre className="bg-gray-100 p-3 rounded overflow-x-auto">{`{
-  "network": "MTN" | "GLO" | "AIRTEL" | "9MOBILE"
+                <p className="font-semibold mb-1">Request Body:</p>
+                <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">{`{
+  "serviceID": "mtn_sme" | "mtn_datashare" | "mtn_gifting" | "mtn_awoof" | "glo_data" | "glo_sme" | "airtel_sme" | "etisalat_data"
 }`}</pre>
               </div>
               <div>
