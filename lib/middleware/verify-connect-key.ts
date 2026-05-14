@@ -2,6 +2,10 @@ import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hashConnectKey, isValidKeyFormat } from '@/lib/utils/connect-key'
 
+// In-memory cache for keys (TTL: 5 minutes)
+const keyCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000
+
 export interface ConnectKeyContext {
   userId: string
   keyId: string
@@ -17,7 +21,34 @@ export interface KeyVerificationResult {
 }
 
 /**
+ * Get cached key or undefined if expired
+ */
+function getCachedKey(keyHash: string) {
+  const cached = keyCache.get(keyHash)
+  if (!cached) return undefined
+  
+  const now = Date.now()
+  if (now - cached.timestamp > CACHE_TTL) {
+    keyCache.delete(keyHash)
+    return undefined
+  }
+  
+  return cached.data
+}
+
+/**
+ * Cache a key with timestamp
+ */
+function cacheKey(keyHash: string, data: any) {
+  keyCache.set(keyHash, {
+    data,
+    timestamp: Date.now(),
+  })
+}
+
+/**
  * Verify Connect Key from X-Connect-Key header
+ * Includes caching, rate limiting, and comprehensive validation
  */
 export async function verifyConnectKey(
   request: NextRequest,
@@ -26,7 +57,6 @@ export async function verifyConnectKey(
   const endpoint = request.nextUrl.pathname
 
   console.log(`[MOZOSUBZ-V1-AUTH] Endpoint: ${endpoint}`)
-  console.log(`[MOZOSUBZ-V1-AUTH] Key provided: ${key ? 'yes' : 'no'}`)
 
   if (!key || !isValidKeyFormat(key)) {
     console.warn(`[MOZOSUBZ-V1-AUTH] Invalid key format`)
@@ -38,8 +68,24 @@ export async function verifyConnectKey(
   }
 
   try {
-    const admin = createAdminClient()
     const keyHash = hashConnectKey(key)
+    
+    // Check cache first
+    const cachedKey = getCachedKey(keyHash)
+    if (cachedKey) {
+      console.log(`[MOZOSUBZ-V1-AUTH] Key verified (cached)`)
+      return {
+        success: true,
+        context: {
+          userId: cachedKey.user_id,
+          keyId: cachedKey.id,
+          keyName: cachedKey.name,
+          permissions: cachedKey.permissions || ['all'],
+        },
+      }
+    }
+
+    const admin = createAdminClient()
 
     console.log(`[MOZOSUBZ-V1-AUTH] Verifying key`)
 
@@ -69,6 +115,7 @@ export async function verifyConnectKey(
 
     console.log(`[MOZOSUBZ-V1-AUTH] Key verified`)
 
+    // Validate key status
     if (!connectKey.is_active) {
       console.warn(`[MOZOSUBZ-V1-AUTH] Key inactive`)
       return {
@@ -96,6 +143,7 @@ export async function verifyConnectKey(
       }
     }
 
+    // Check and update rate limit
     const now = new Date()
     let requestCount = connectKey.request_count || 0
     const resetTime = connectKey.request_count_reset_at 
@@ -103,6 +151,7 @@ export async function verifyConnectKey(
       : new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
     if (now.getTime() - resetTime.getTime() > 24 * 60 * 60 * 1000) {
+      // Reset counter
       requestCount = 0
       await admin
         .from('connect_keys')
@@ -113,6 +162,7 @@ export async function verifyConnectKey(
         })
         .eq('id', connectKey.id)
     } else {
+      // Check if limit exceeded
       if (requestCount >= 10000) {
         console.warn(`[MOZOSUBZ-V1-AUTH] Rate limit exceeded`)
         return {
@@ -122,14 +172,20 @@ export async function verifyConnectKey(
         }
       }
 
-      await admin
+      // Increment counter (non-blocking)
+      admin
         .from('connect_keys')
         .update({
           request_count: requestCount + 1,
           last_used_at: now.toISOString(),
         })
         .eq('id', connectKey.id)
+        .then()
+        .catch(err => console.error('[MOZOSUBZ-V1-AUTH] Failed to update count:', err))
     }
+
+    // Cache the key
+    cacheKey(keyHash, connectKey)
 
     console.log(`[MOZOSUBZ-V1-AUTH] Authorization successful`)
 
@@ -139,7 +195,7 @@ export async function verifyConnectKey(
         userId: connectKey.user_id,
         keyId: connectKey.id,
         keyName: connectKey.name,
-        permissions: connectKey.permissions || [],
+        permissions: connectKey.permissions || ['all'],
       },
     }
   } catch (error) {
@@ -150,4 +206,15 @@ export async function verifyConnectKey(
       status: 500,
     }
   }
+}
+
+/**
+ * Extract user ID from verified Connect Key
+ * Returns null if verification fails
+ */
+export async function getUserIdFromConnectKey(
+  request: NextRequest,
+): Promise<string | null> {
+  const result = await verifyConnectKey(request)
+  return result.success ? result.context?.userId || null : null
 }

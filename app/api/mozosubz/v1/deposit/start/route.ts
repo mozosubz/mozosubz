@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
+import { v1AuthOrRespond } from '@/lib/middleware/v1-auth-helper'
 
 export async function POST(request: NextRequest) {
   console.log('[MOZOSUBZ-V1-DEPOSIT] POST /deposit/start')
   
   try {
-    const keyVerification = await verifyConnectKey(request)
-    
-    if (!keyVerification.success) {
-      console.warn('[MOZOSUBZ-V1-DEPOSIT] Authorization failed')
-      return NextResponse.json(
-        { success: false, error: keyVerification.error },
-        { status: keyVerification.status || 401 },
-      )
-    }
+    const auth = await v1AuthOrRespond(request)
+    if (!auth) return
+
+    console.log(`[MOZOSUBZ-V1-DEPOSIT] User: ${auth.userId}`)
 
     const body = await request.json()
     const { amount, description } = body
@@ -26,11 +21,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[MOZOSUBZ-V1-DEPOSIT] Forwarding to internal endpoint')
+    console.log('[MOZOSUBZ-V1-DEPOSIT] Calling internal endpoint')
     
     const internalResponse = await fetch(new URL('/api/deposit/start', request.url), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-ID': auth.userId,
+        'X-Key-ID': auth.keyId,
+      },
       body: JSON.stringify({ amount, description }),
     })
 

@@ -1,25 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
+import { v1AuthOrRespond } from '@/lib/middleware/v1-auth-helper'
 
 export async function GET(request: NextRequest) {
   console.log('[MOZOSUBZ-V1-BALANCE] GET /balance')
   
   try {
-    const keyVerification = await verifyConnectKey(request)
-    
-    if (!keyVerification.success) {
-      console.warn('[MOZOSUBZ-V1-BALANCE] Authorization failed')
-      return NextResponse.json(
-        { success: false, error: keyVerification.error },
-        { status: keyVerification.status || 401 },
-      )
-    }
+    const auth = await v1AuthOrRespond(request)
+    if (!auth) return
 
-    console.log('[MOZOSUBZ-V1-BALANCE] Forwarding to internal endpoint')
+    console.log(`[MOZOSUBZ-V1-BALANCE] User: ${auth.userId}`)
     
     const internalResponse = await fetch(new URL('/api/gsubz/balance', request.url), {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-ID': auth.userId,
+        'X-Key-ID': auth.keyId,
+      },
     })
 
     const data = await internalResponse.json()
