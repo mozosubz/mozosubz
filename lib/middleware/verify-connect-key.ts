@@ -23,15 +23,13 @@ export async function verifyConnectKey(
   request: NextRequest,
 ): Promise<KeyVerificationResult> {
   const key = request.headers.get('X-Connect-Key')
-  const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
   const endpoint = request.nextUrl.pathname
 
-  console.log(`[MOZOSUBZ-V1-API] Endpoint: ${endpoint}`)
-  console.log(`[MOZOSUBZ-V1-API] IP: ${ipAddress}`)
-  console.log(`[MOZOSUBZ-V1-API] Key status: ${key ? 'provided' : 'missing'}`)
+  console.log(`[MOZOSUBZ-V1-AUTH] Endpoint: ${endpoint}`)
+  console.log(`[MOZOSUBZ-V1-AUTH] Key provided: ${key ? 'yes' : 'no'}`)
 
   if (!key || !isValidKeyFormat(key)) {
-    console.warn(`[MOZOSUBZ-V1-API] Invalid key format`)
+    console.warn(`[MOZOSUBZ-V1-AUTH] Invalid key format`)
     return {
       success: false,
       error: 'Invalid API key format',
@@ -43,7 +41,7 @@ export async function verifyConnectKey(
     const admin = createAdminClient()
     const keyHash = hashConnectKey(key)
 
-    console.log(`[MOZOSUBZ-V1-API] Verifying key...`)
+    console.log(`[MOZOSUBZ-V1-AUTH] Verifying key`)
 
     const { data: connectKey, error } = await admin
       .from('connect_keys')
@@ -52,7 +50,7 @@ export async function verifyConnectKey(
       .maybeSingle()
 
     if (error) {
-      console.error('[MOZOSUBZ-V1-API] Database error')
+      console.error('[MOZOSUBZ-V1-AUTH] Database error during verification')
       return {
         success: false,
         error: 'Authentication service error',
@@ -61,7 +59,7 @@ export async function verifyConnectKey(
     }
 
     if (!connectKey) {
-      console.warn(`[MOZOSUBZ-V1-API] Key not found`)
+      console.warn(`[MOZOSUBZ-V1-AUTH] Key not found`)
       return {
         success: false,
         error: 'Invalid API key',
@@ -69,10 +67,10 @@ export async function verifyConnectKey(
       }
     }
 
-    console.log(`[MOZOSUBZ-V1-API] Key verified: ${connectKey.name}`)
+    console.log(`[MOZOSUBZ-V1-AUTH] Key verified`)
 
     if (!connectKey.is_active) {
-      console.warn(`[MOZOSUBZ-V1-API] Key inactive`)
+      console.warn(`[MOZOSUBZ-V1-AUTH] Key inactive`)
       return {
         success: false,
         error: 'API key is inactive',
@@ -81,7 +79,7 @@ export async function verifyConnectKey(
     }
 
     if (connectKey.revoked_at) {
-      console.warn(`[MOZOSUBZ-V1-API] Key revoked`)
+      console.warn(`[MOZOSUBZ-V1-AUTH] Key revoked`)
       return {
         success: false,
         error: 'API key has been revoked',
@@ -90,7 +88,7 @@ export async function verifyConnectKey(
     }
 
     if (connectKey.expires_at && new Date(connectKey.expires_at) < new Date()) {
-      console.warn(`[MOZOSUBZ-V1-API] Key expired`)
+      console.warn(`[MOZOSUBZ-V1-AUTH] Key expired`)
       return {
         success: false,
         error: 'API key has expired',
@@ -116,7 +114,7 @@ export async function verifyConnectKey(
         .eq('id', connectKey.id)
     } else {
       if (requestCount >= 10000) {
-        console.warn(`[MOZOSUBZ-V1-API] Rate limit exceeded`)
+        console.warn(`[MOZOSUBZ-V1-AUTH] Rate limit exceeded`)
         return {
           success: false,
           error: 'Rate limit exceeded. Max 10,000 requests per day.',
@@ -133,7 +131,7 @@ export async function verifyConnectKey(
         .eq('id', connectKey.id)
     }
 
-    console.log(`[MOZOSUBZ-V1-API] Authorization successful`)
+    console.log(`[MOZOSUBZ-V1-AUTH] Authorization successful`)
 
     return {
       success: true,
@@ -145,7 +143,7 @@ export async function verifyConnectKey(
       },
     }
   } catch (error) {
-    console.error('[MOZOSUBZ-V1-API] Verification error')
+    console.error('[MOZOSUBZ-V1-AUTH] Verification error')
     return {
       success: false,
       error: 'Internal server error',

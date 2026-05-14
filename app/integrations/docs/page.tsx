@@ -10,9 +10,14 @@ export default function IntegrationDocsPage() {
         {/* Header */}
         <div className="mb-12 border-b pb-8">
           <h1 className="text-4xl font-bold mb-2">Integration API Documentation</h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-gray-600 mb-4">
             Access all our services programmatically with secure API keys
           </p>
+          <div className="bg-blue-50 p-4 rounded">
+            <p className="text-sm text-gray-700"><strong>Base URL:</strong> <code className="bg-gray-100 px-2 py-1 rounded">https://mozosubz.xyz/api/mozosubz/v1</code></p>
+            <p className="text-sm text-gray-700 mt-2"><strong>Authentication:</strong> All endpoints require <code className="bg-gray-100 px-2 py-1 rounded">X-Connect-Key</code> header</p>
+            <p className="text-sm text-gray-700 mt-2"><strong>Rate Limit:</strong> 10,000 requests per day per Connect Key</p>
+          </div>
         </div>
 
         {/* Authentication */}
