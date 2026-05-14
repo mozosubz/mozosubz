@@ -9,28 +9,31 @@ export interface ConnectKeyContext {
   permissions: string[]
 }
 
+export interface KeyVerificationResult {
+  success: boolean
+  error?: string
+  status?: number
+  context?: ConnectKeyContext
+}
+
 /**
  * Verify Connect Key from X-Connect-Key header
- * Returns null if invalid, otherwise returns user context
- * 
- * Security features:
- * - Validates key format before DB lookup
- * - Uses constant-time comparison
- * - Tracks usage and rate limits
- * - Logs failed attempts for suspicious activity detection
- * - Updates last_used_at timestamp
  */
 export async function verifyConnectKey(
   request: NextRequest,
-): Promise<ConnectKeyContext | null> {
+): Promise<KeyVerificationResult> {
   const key = request.headers.get('X-Connect-Key')
   const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
   const userAgent = request.headers.get('user-agent') || ''
 
-  // Validate key format first (fail fast)
+  // Validate key format first
   if (!key || !isValidKeyFormat(key)) {
     console.warn(`[SECURITY] Invalid key format attempt from ${ipAddress}`)
-    return null
+    return {
+      success: false,
+      error: 'Invalid API key format',
+      status: 400,
+    }
   }
 
   try {
@@ -40,112 +43,107 @@ export async function verifyConnectKey(
     // Fetch key from database
     const { data: connectKey, error } = await admin
       .from('connect_keys')
-      .select('id, user_id, name, permissions, is_active, revoked_at, expires_at, request_count, request_count_reset_at, max_requests_per_day')
+      .select('id, user_id, name, permissions, is_active, revoked_at, expires_at, request_count, request_count_reset_at')
       .eq('key_hash', keyHash)
       .maybeSingle()
 
     if (error) {
-      console.error('[SECURITY] Key verification DB error:', error.message)
-      return null
+      console.error('[SECURITY] Key verification DB error:', error)
+      return {
+        success: false,
+        error: 'Authentication service error',
+        status: 500,
+      }
     }
 
     if (!connectKey) {
-      // Log failed attempt for suspicious activity detection
-      await logSuspiciousActivity('invalid_key', ipAddress, userAgent)
-      return null
+      return {
+        success: false,
+        error: 'Invalid API key',
+        status: 401,
+      }
     }
 
     // Check if key is active
     if (!connectKey.is_active) {
-      await logSuspiciousActivity('inactive_key', ipAddress, userAgent)
-      return null
+      return {
+        success: false,
+        error: 'API key is inactive',
+        status: 401,
+      }
     }
 
     // Check if key is revoked
     if (connectKey.revoked_at) {
-      await logSuspiciousActivity('revoked_key', ipAddress, userAgent)
-      return null
+      return {
+        success: false,
+        error: 'API key has been revoked',
+        status: 401,
+      }
     }
 
     // Check if key is expired
     if (connectKey.expires_at && new Date(connectKey.expires_at) < new Date()) {
-      await logSuspiciousActivity('expired_key', ipAddress, userAgent)
-      return null
+      return {
+        success: false,
+        error: 'API key has expired',
+        status: 401,
+      }
     }
 
-    // Check rate limit
+    // Check rate limit (10,000 requests per day)
     const now = new Date()
     let requestCount = connectKey.request_count || 0
-    const resetTime = connectKey.request_count_reset_at ? new Date(connectKey.request_count_reset_at) : now
+    const resetTime = connectKey.request_count_reset_at 
+      ? new Date(connectKey.request_count_reset_at)
+      : new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
-    if (now.getTime() - resetTime.getTime() > (connectKey.max_requests_per_day || 10000) * 1000) {
-      // Reset counter
-      requestCount = 1
+    // Reset counter if more than 24 hours have passed
+    if (now.getTime() - resetTime.getTime() > 24 * 60 * 60 * 1000) {
+      requestCount = 0
+      await admin
+        .from('connect_keys')
+        .update({
+          request_count: 1,
+          request_count_reset_at: now.toISOString(),
+          last_used_at: now.toISOString(),
+        })
+        .eq('id', connectKey.id)
     } else {
-      requestCount += 1
+      // Check if limit exceeded
+      if (requestCount >= 10000) {
+        return {
+          success: false,
+          error: 'Rate limit exceeded. Max 10,000 requests per day.',
+          status: 429,
+        }
+      }
+
+      // Increment counter
+      await admin
+        .from('connect_keys')
+        .update({
+          request_count: requestCount + 1,
+          last_used_at: now.toISOString(),
+        })
+        .eq('id', connectKey.id)
     }
-
-    if (requestCount > (connectKey.max_requests_per_day || 10000)) {
-      await logSuspiciousActivity('rate_limit_exceeded', ipAddress, userAgent)
-      return null
-    }
-
-    // Update usage tracking
-    await admin
-      .from('connect_keys')
-      .update({
-        last_used_at: now.toISOString(),
-        request_count: requestCount,
-        request_count_reset_at: now.toISOString(),
-      })
-      .eq('id', connectKey.id)
-      .catch(err => console.error('[MIDDLEWARE] Failed to update key usage:', err))
-
-    // Log successful API call
-    await admin
-      .from('connect_key_logs')
-      .insert({
-        user_id: connectKey.user_id,
-        key_id: connectKey.id,
-        endpoint: request.nextUrl.pathname,
-        method: request.method,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-      })
-      .catch(err => console.error('[MIDDLEWARE] Failed to log API call:', err))
 
     return {
-      userId: connectKey.user_id,
-      keyId: connectKey.id,
-      keyName: connectKey.name,
-      permissions: connectKey.permissions || [],
+      success: true,
+      context: {
+        userId: connectKey.user_id,
+        keyId: connectKey.id,
+        keyName: connectKey.name,
+        permissions: connectKey.permissions || [],
+      },
     }
-  } catch (err) {
-    console.error('[MIDDLEWARE] Connect key verification error:', err)
-    return null
-  }
-}
-
-/**
- * Log suspicious activity for admin review
- */
-async function logSuspiciousActivity(
-  activityType: string,
-  ipAddress: string,
-  userAgent: string,
-) {
-  try {
-    const admin = createAdminClient()
-    await admin
-      .from('suspicious_activity_logs')
-      .insert({
-        activity_type: `connect_key_${activityType}`,
-        ip_address: ipAddress,
-        description: `Connect key ${activityType}: ${userAgent}`,
-        severity: 'medium',
-      })
-      .catch(err => console.error('[LOGGING] Failed to log suspicious activity:', err))
-  } catch (err) {
-    console.error('[LOGGING] Suspicious activity logging error:', err)
+  } catch (error) {
+    console.error('[v0] Connect key verification error:', error)
+    return {
+      success: false,
+      error: 'Internal server error',
+      status: 500,
+    }
   }
 }
