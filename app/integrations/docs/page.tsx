@@ -53,24 +53,19 @@ export default function IntegrationDocsPage() {
               <div>
                 <p className="font-semibold mb-1">Response:</p>
                 <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">{`{
-  "service": "mtn_sme",
-  "PlanName": "MTN SME Data Plans",
-  "fixedPrice": true,
+  "success": true,
   "plans": [
     {
-      "displayName": "500MB",
-      "value": "500",
-      "price": "155"
+      "name": "500MB",
+      "price": 155
     },
     {
-      "displayName": "1GB",
-      "value": "1024",
-      "price": "310"
+      "name": "1GB",
+      "price": 310
     },
     {
-      "displayName": "2GB",
-      "value": "2048",
-      "price": "620"
+      "name": "2GB",
+      "price": 620
     }
   ]
 }`}</pre>

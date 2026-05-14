@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v1AuthOrRespond } from '@/lib/middleware/v1-auth-helper'
+import { cleanDataPlans } from '@/lib/middleware/v1-response-helpers'
 
 export async function POST(request: NextRequest) {
   console.log('[MOZOSUBZ-V1-DATA-PLANS] POST /data/plans')
@@ -42,11 +43,20 @@ export async function POST(request: NextRequest) {
     })
 
     const data = await internalResponse.json()
+    
+    if (!data.plans) {
+      console.error('[MOZOSUBZ-V1-DATA-PLANS] No plans in response')
+      return NextResponse.json(
+        { success: false, error: 'No plans available' },
+        { status: 500 },
+      )
+    }
+
     console.log('[MOZOSUBZ-V1-DATA-PLANS] Success')
     
     return NextResponse.json({
       success: true,
-      data,
+      plans: cleanDataPlans(data.plans),
     })
   } catch (error) {
     console.error('[MOZOSUBZ-V1-DATA-PLANS] Error')

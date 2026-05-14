@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
+import { v1AuthOrRespond } from '@/lib/middleware/v1-auth-helper'
 
 export async function POST(request: NextRequest) {
   console.log('[MOZOSUBZ-V1-VERIFY] POST /verify')
   
   try {
-    const keyVerification = await verifyConnectKey(request)
-    
-    if (!keyVerification.success) {
-      console.warn('[MOZOSUBZ-V1-VERIFY] Authorization failed')
-      return NextResponse.json(
-        { success: false, error: keyVerification.error },
-        { status: keyVerification.status || 401 },
-      )
-    }
+    const auth = await v1AuthOrRespond(request)
+    if (!auth) return
+
+    console.log(`[MOZOSUBZ-V1-VERIFY] User: ${auth.userId}`)
 
     const body = await request.json()
     const { requestID } = body
@@ -26,11 +21,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[MOZOSUBZ-V1-VERIFY] Forwarding to internal endpoint')
+    console.log('[MOZOSUBZ-V1-VERIFY] Calling internal endpoint')
     
     const internalResponse = await fetch(new URL('/api/gsubz/verify', request.url), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-ID': auth.userId,
+        'X-Key-ID': auth.keyId,
+      },
       body: JSON.stringify({ requestID }),
     })
 
