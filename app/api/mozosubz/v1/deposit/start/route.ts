@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
+import { createServerClient } from '@/lib/supabase/server'
 import { initTransaction, initializePayment } from '@/lib/actions/monnify'
 import { createTransaction, updateTransactionWithMonnifyData } from '@/lib/actions/transactions'
 import { generatePaymentReference } from '@/lib/utils/payment-reference'
@@ -7,13 +8,13 @@ import { getDepositRules } from '@/lib/actions/deposit-rules'
 import { calculateDepositFee } from '@/lib/utils/deposit-fee'
 
 export async function POST(request: NextRequest) {
-  console.log('[MOZOSUBZ-V1] POST /deposit/start')
+  console.log('[MOZOSUBZ-V1-DEPOSIT] POST /deposit/start')
   
   try {
     const keyVerification = await verifyConnectKey(request)
     
     if (!keyVerification.success) {
-      console.warn('[MOZOSUBZ-V1] Auth failed')
+      console.warn('[MOZOSUBZ-V1-DEPOSIT] Authorization failed')
       return NextResponse.json(
         { success: false, error: keyVerification.error },
         { status: keyVerification.status || 401 },
@@ -23,8 +24,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { amount, description } = body
 
+    console.log('[MOZOSUBZ-V1-DEPOSIT] Request: amount=' + amount)
+
     if (!amount || parseFloat(amount) <= 0) {
-      console.warn('[MOZOSUBZ-V1] Invalid amount')
+      console.warn('[MOZOSUBZ-V1-DEPOSIT] Invalid amount: ' + amount)
       return NextResponse.json(
         { success: false, error: 'Valid amount is required' },
         { status: 400 },
@@ -33,10 +36,26 @@ export async function POST(request: NextRequest) {
 
     const userId = keyVerification.context?.userId
     if (!userId) {
-      console.warn('[MOZOSUBZ-V1] User ID not found')
+      console.warn('[MOZOSUBZ-V1-DEPOSIT] User ID missing')
       return NextResponse.json(
         { success: false, error: 'User not authenticated' },
         { status: 401 },
+      )
+    }
+
+    // Get user profile for email and name
+    const supabase = await createServerClient()
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (profileError || !profile) {
+      console.error('[MOZOSUBZ-V1-DEPOSIT] Failed to get profile')
+      return NextResponse.json(
+        { success: false, error: 'Failed to get user information' },
+        { status: 400 },
       )
     }
 
@@ -51,7 +70,7 @@ export async function POST(request: NextRequest) {
       netAmount = feeCalc.netAmount
     }
 
-    console.log('[MOZOSUBZ-V1] Processing deposit')
+    console.log('[MOZOSUBZ-V1-DEPOSIT] Fee calculated: ' + processingFee)
 
     const paymentReference = generatePaymentReference(userId)
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString()
@@ -72,12 +91,14 @@ export async function POST(request: NextRequest) {
     )
 
     if (!createTxResult.success) {
-      console.error('[MOZOSUBZ-V1] Failed to create transaction')
+      console.error('[MOZOSUBZ-V1-DEPOSIT] Transaction creation failed')
       return NextResponse.json(
         { success: false, error: 'Failed to create transaction' },
         { status: 500 },
       )
     }
+
+    console.log('[MOZOSUBZ-V1-DEPOSIT] Transaction created: ' + createTxResult.transactionId)
 
     // Initialize with Monnify
     const initTxResult = await initTransaction(
@@ -85,30 +106,34 @@ export async function POST(request: NextRequest) {
       description || 'Wallet deposit',
       paymentReference,
       userId,
-      'user@example.com',
-      'User'
+      profile.email,
+      profile.full_name || 'User'
     )
 
     if (!initTxResult.success) {
-      console.error('[MOZOSUBZ-V1] Monnify init failed')
+      console.error('[MOZOSUBZ-V1-DEPOSIT] Monnify initialization failed')
       return NextResponse.json(
         { success: false, error: initTxResult.error || 'Failed to initialize payment' },
         { status: 400 },
       )
     }
 
-    // Initialize payment
+    console.log('[MOZOSUBZ-V1-DEPOSIT] Monnify initialized')
+
+    // Initialize payment to get temporary account details
     const initPayResult = await initializePayment(initTxResult.transactionReference)
 
     if (!initPayResult.success) {
-      console.error('[MOZOSUBZ-V1] Payment init failed')
+      console.error('[MOZOSUBZ-V1-DEPOSIT] Payment initialization failed')
       return NextResponse.json(
         { success: false, error: initPayResult.error || 'Failed to initialize payment' },
         { status: 400 },
       )
     }
 
-    // Update transaction
+    console.log('[MOZOSUBZ-V1-DEPOSIT] Payment initialized')
+
+    // Update transaction with Monnify data
     const updateResult = await updateTransactionWithMonnifyData(paymentReference, {
       transactionReference: initTxResult.transactionReference,
       accountNumber: initPayResult.accountNumber,
@@ -120,14 +145,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (!updateResult.success) {
-      console.error('[MOZOSUBZ-V1] Failed to update transaction')
+      console.error('[MOZOSUBZ-V1-DEPOSIT] Failed to update transaction')
       return NextResponse.json(
         { success: false, error: 'Failed to update payment details' },
         { status: 500 },
       )
     }
 
-    console.log('[MOZOSUBZ-V1] Deposit initiated successfully')
+    console.log('[MOZOSUBZ-V1-DEPOSIT] Success')
 
     return NextResponse.json({
       success: true,
@@ -136,7 +161,7 @@ export async function POST(request: NextRequest) {
       checkoutUrl: `/checkout/${paymentReference}`,
     })
   } catch (error) {
-    console.error('[MOZOSUBZ-V1] Error:', error instanceof Error ? error.message : 'Unknown error')
+    console.error('[MOZOSUBZ-V1-DEPOSIT] Error')
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 },

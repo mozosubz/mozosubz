@@ -47,16 +47,25 @@ export default function IntegrationDocsPage() {
               </div>
               <div>
                 <p className="font-semibold mb-1">Response:</p>
-                <pre className="bg-gray-100 p-3 rounded overflow-x-auto">{`{
-  "success": true,
-  "network": "MTN",
-  "planTypes": [
+                <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">{`{
+  "service": "mtn_sme",
+  "PlanName": "MTN SME Data Plans",
+  "fixedPrice": true,
+  "plans": [
     {
-      "plan_id": "mtn_sme_500",
-      "name": "SME 500 - 500MB",
-      "size": "500MB",
-      "price": 500,
-      "duration": "30 days"
+      "displayName": "500MB",
+      "value": "500",
+      "price": "155"
+    },
+    {
+      "displayName": "1GB",
+      "value": "1024",
+      "price": "310"
+    },
+    {
+      "displayName": "2GB",
+      "value": "2048",
+      "price": "620"
     }
   ]
 }`}</pre>
@@ -171,11 +180,9 @@ export default function IntegrationDocsPage() {
             </div>
             <div className="text-sm">
               <p className="font-semibold mb-1">Response:</p>
-              <pre className="bg-gray-100 p-3 rounded overflow-x-auto">{`{
+              <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">{`{
   "success": true,
-  "balance": 50000,
-  "currency": "NGN",
-  "formattedBalance": "₦50,000.00"
+  "balance": 50000
 }`}</pre>
             </div>
           </div>
@@ -190,14 +197,32 @@ export default function IntegrationDocsPage() {
           <div className="mb-8">
             <h3 className="text-xl font-semibold mb-3">Initiate Deposit</h3>
             <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/services/deposit/initiate</p>
+              <p className="font-mono text-sm text-gray-700 mb-2">POST /api/mozosubz/v1/deposit/start</p>
             </div>
-            <div className="text-sm">
-              <p className="font-semibold mb-1">Request:</p>
-              <pre className="bg-gray-100 p-3 rounded overflow-x-auto">{`{
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="font-semibold mb-1">Request:</p>
+                <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">{`{
   "amount": 10000,
-  "description": "Integration deposit"
+  "description": "Wallet deposit"
 }`}</pre>
+              </div>
+              <div>
+                <p className="font-semibold mb-1">Response Success:</p>
+                <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">{`{
+  "success": true,
+  "paymentReference": "MZ20250514090534UAB1234",
+  "transactionId": "trx_abc123xyz",
+  "checkoutUrl": "/checkout/MZ20250514090534UAB1234"
+}`}</pre>
+              </div>
+              <div className="mt-3">
+                <p className="font-semibold mb-1">Response Error:</p>
+                <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs">{`{
+  "success": false,
+  "error": "Valid amount is required"
+}`}</pre>
+              </div>
             </div>
           </div>
         </section>
