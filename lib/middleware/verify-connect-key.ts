@@ -55,7 +55,8 @@ export async function verifyConnectKey(
       .maybeSingle()
 
     if (error) {
-      console.error('[MOZOSUBZ-API] Key verification DB error:', error)
+      console.error('[MOZOSUBZ-API] Key verification DB error:', error.message, error.code, error.status)
+      console.error('[MOZOSUBZ-API] Full error:', JSON.stringify(error, null, 2))
       return {
         success: false,
         error: 'Authentication service error',
