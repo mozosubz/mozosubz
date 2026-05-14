@@ -12,14 +12,19 @@ import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
  * When a new key is created, all old keys are automatically revoked
  */
 export async function POST(request: NextRequest) {
+  console.log('[MOZOSUBZ-V1-KEYS-CREATE] Request started')
   try {
     // Verify user is authenticated
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] Creating server client...')
     const client = await createServerClient()
     const {
       data: { user },
     } = await client.auth.getUser()
 
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] User ID:', user?.id)
+
     if (!user) {
+      console.warn('[MOZOSUBZ-V1-KEYS-CREATE] User not authenticated')
       return NextResponse.json(
         { success: false, error: 'Unauthorized - Please log in' },
         { status: 401 },
@@ -28,6 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Rate limiting
     const ip = getRateLimitIdentifier(request)
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] Checking rate limit for IP:', ip)
     const { allowed } = await checkRateLimit(ip, {
       interval: 3600000, // 1 hour
       maxRequests: 5, // Max 5 keys per hour
@@ -35,6 +41,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!allowed) {
+      console.warn('[MOZOSUBZ-V1-KEYS-CREATE] Rate limit exceeded for IP:', ip)
       return NextResponse.json(
         { success: false, error: 'Too many key creation attempts. Try again later.' },
         { status: 429 }
@@ -43,8 +50,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { name } = body
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] Requested key name:', name)
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      console.warn('[MOZOSUBZ-V1-KEYS-CREATE] Invalid key name')
       return NextResponse.json(
         { success: false, error: 'Key name is required' },
         { status: 400 },
@@ -52,6 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (name.length > 100) {
+      console.warn('[MOZOSUBZ-V1-KEYS-CREATE] Key name too long')
       return NextResponse.json(
         { success: false, error: 'Key name must be less than 100 characters' },
         { status: 400 },
@@ -59,6 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate new secure key
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] Generating new key...')
     const plainKey = generateConnectKey()
     const hashedKey = hashConnectKey(plainKey)
     const keyPreview = getKeyPreview(plainKey)
@@ -66,6 +77,7 @@ export async function POST(request: NextRequest) {
     expiresAt.setFullYear(expiresAt.getFullYear() + 1)
 
     // Revoke all old keys for this user
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] Revoking old keys for user:', user.id)
     await client
       .from('connect_keys')
       .update({ is_active: false, revoked_at: new Date().toISOString() })
@@ -73,6 +85,7 @@ export async function POST(request: NextRequest) {
       .eq('is_active', true)
 
     // Insert new key
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] Inserting new key...')
     const { data: newKey, error: insertError } = await client
       .from('connect_keys')
       .insert({
@@ -89,12 +102,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error('[v0] Connect key creation error:', insertError)
+      console.error('[MOZOSUBZ-V1-KEYS-CREATE] Insert error:', insertError)
       return NextResponse.json(
         { success: false, error: 'Failed to create key' },
         { status: 500 },
       )
     }
+
+    console.log('[MOZOSUBZ-V1-KEYS-CREATE] Key created successfully:', newKey.id)
 
     return NextResponse.json({
       success: true,
@@ -107,7 +122,7 @@ export async function POST(request: NextRequest) {
       warning: 'IMPORTANT: Save your key now. You won\'t be able to see it again!',
     })
   } catch (error) {
-    console.error('[v0] Key creation error:', error)
+    console.error('[MOZOSUBZ-V1-KEYS-CREATE] Error:', error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 },
