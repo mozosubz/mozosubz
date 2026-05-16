@@ -2,12 +2,22 @@
 
 import { buyCableSubscription, getCablePlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount } from "@/lib/utils/input-validation"
 import { revalidatePath } from "next/cache"
 
-export async function subscribeCable(formData: FormData) {
+/**
+ * Subscribe to a cable plan.
+ *
+ * @param formData  Standard form payload (provider, package, packageDisplayName, smartcard, phone).
+ * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
+ *   authenticated v1 endpoint), the user is treated as authenticated as that
+ *   id and the cookie/session lookup is skipped. ONLY pass this from a route
+ *   that has already authenticated the caller via a trusted credential.
+ */
+export async function subscribeCable(formData: FormData, trustedUserId?: string) {
   const provider = formData.get("provider") as string
   const package_name = formData.get("package") as string
   const packageDisplayName = formData.get("packageDisplayName") as string
@@ -16,15 +26,22 @@ export async function subscribeCable(formData: FormData) {
 
   try {
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
 
-    if (!user) {
-      return { success: false, message: "You must be logged in to make a purchase" }
+    let userId = trustedUserId
+    if (!userId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        return { success: false, message: "You must be logged in to make a purchase" }
+      }
+      userId = user.id
     }
 
-    const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
+    // Use admin client for the profile read so this works for both UI users
+    // and trusted v1 callers without a Supabase session cookie.
+    const admin = createAdminClient()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
 
     if (!profile) {
       return { success: false, message: "Profile not found. Please contact support." }
@@ -69,7 +86,7 @@ export async function subscribeCable(formData: FormData) {
       const transactionId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
-      const deductResult = await atomicDeductWallet(user.id, purchaseAmount)
+      const deductResult = await atomicDeductWallet(userId, purchaseAmount)
 
       if (!deductResult.success) {
         console.error("[v0] Deduction failed - contact support")
@@ -83,7 +100,7 @@ export async function subscribeCable(formData: FormData) {
 
       // Save transaction (smartcard stored in phone field)
       await saveTransaction({
-        userId: user.id,
+        userId,
         transactionId,
         category: "CABLE",
         serviceId: serviceID,
@@ -100,7 +117,7 @@ export async function subscribeCable(formData: FormData) {
 
       // Send transaction email (fire-and-forget - don't await)
       sendTransactionEmail({
-        userId: user.id,
+        userId,
         category: "CABLE",
         serviceName: `${provider} TV`,
         amount: purchaseAmount,
@@ -136,7 +153,7 @@ export async function subscribeCable(formData: FormData) {
     const failedTransactionId = String(response.transactionID || requestID)
 
     await saveTransaction({
-      userId: user.id,
+      userId,
       transactionId: failedTransactionId,
       category: "CABLE",
       serviceId: serviceID,
@@ -153,7 +170,7 @@ export async function subscribeCable(formData: FormData) {
 
     // Send failure email
     await sendTransactionEmail({
-      userId: user.id,
+      userId,
       category: "CABLE",
       serviceName: `${provider} TV`,
       amount: purchaseAmount,

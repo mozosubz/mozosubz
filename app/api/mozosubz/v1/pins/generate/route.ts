@@ -1,47 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v1AuthOrRespond } from '@/lib/middleware/v1-auth-helper'
+import { generateRechargePins } from '@/lib/actions/recharge-pins'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
-  console.log('[MOZOSUBZ-V1-PINS-GENERATE] POST /pins/generate')
-  
+  console.log('[V1-PINS-GENERATE] POST')
+
   try {
     const auth = await v1AuthOrRespond(request)
-    if (!auth) return
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 },
+      )
+    }
 
-    console.log(`[MOZOSUBZ-V1-PINS-GENERATE] User: ${auth.userId}`)
-
-    const body = await request.json()
-    const { network, value, number } = body
+    const body = await request.json().catch(() => ({} as any))
+    const { network, value, number } = body || {}
 
     if (!network || !value || !number) {
-      console.warn('[MOZOSUBZ-V1-PINS-GENERATE] Missing required fields')
       return NextResponse.json(
         { success: false, error: 'network, value, and number are required' },
         { status: 400 },
       )
     }
 
-    console.log('[MOZOSUBZ-V1-PINS-GENERATE] Calling internal endpoint')
-    
-    const internalResponse = await fetch(new URL('/api/gsubz/recharge-pins/purchase', request.url), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-ID': auth.userId,
-        'X-Key-ID': auth.keyId,
-      },
-      body: JSON.stringify({ network, value, number }),
-    })
+    // Look up the user's email so the receipt can be delivered.
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('email')
+      .eq('id', auth.userId)
+      .maybeSingle()
 
-    const data = await internalResponse.json()
-    console.log('[MOZOSUBZ-V1-PINS-GENERATE] Success')
-    
-    return NextResponse.json({
-      success: true,
-      data,
-    })
+    const result = await generateRechargePins(
+      {
+        network: String(network),
+        value: String(value),
+        number: String(number),
+      },
+      auth.userId,
+      profile?.email || undefined,
+    )
+
+    return NextResponse.json(result, { status: result.success ? 200 : 400 })
   } catch (error) {
-    console.error('[MOZOSUBZ-V1-PINS-GENERATE] Error')
+    console.error('[V1-PINS-GENERATE] Error')
     return NextResponse.json(
       { success: false, error: 'Failed to generate pins' },
       { status: 500 },

@@ -15,25 +15,20 @@ const CONTRACT_CODE = process.env.MONNIFY_CONTRACT_CODE || ''
  */
 export async function getMonnifyAccessToken(): Promise<string | null> {
   try {
-    // Validate credentials exist
+    // Validate credentials exist (never log credential values or prefixes)
     if (!API_KEY || !SECRET_KEY) {
-      console.error('[MONNIFY] ❌ Missing API credentials:', {
+      console.error('[MONNIFY] Missing API credentials', {
         hasApiKey: !!API_KEY,
         hasSecretKey: !!SECRET_KEY,
         hasContractCode: !!CONTRACT_CODE,
-        apiKeyLength: API_KEY?.length || 0,
-        secretKeyLength: SECRET_KEY?.length || 0,
       })
       return null
     }
 
     // Encode credentials in base64 format: API_KEY:SECRET_KEY
     const credentials = Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString('base64')
-    
-    console.log('[MONNIFY] 🔐 Authenticating with:', {
-      apiKeyPrefix: API_KEY?.substring(0, 8) + '...',
-      secretKeyPrefix: SECRET_KEY?.substring(0, 8) + '...',
-    })
+
+    console.log('[MONNIFY] Authenticating')
 
     const response = await fetch(MONNIFY_AUTH_URL, {
       method: 'POST',
@@ -65,10 +60,7 @@ export async function getMonnifyAccessToken(): Promise<string | null> {
         return null
       }
       
-      console.log('[MONNIFY] ✅ Auth successful, token received:', {
-        tokenLength: token.length,
-        tokenPrefix: token.substring(0, 20) + '...',
-      })
+      console.log('[MONNIFY] Auth successful')
       return token
     } catch (parseError) {
       console.error('[MONNIFY] Failed to parse auth response:', parseError)

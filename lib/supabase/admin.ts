@@ -5,10 +5,12 @@ export function createAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  console.log('[ADMIN-CLIENT] Supabase URL:', supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'NOT SET')
-  console.log('[ADMIN-CLIENT] Service Role Key:', serviceRoleKey ? `${serviceRoleKey.substring(0, 30)}...` : 'NOT SET')
-
   if (!supabaseUrl || !serviceRoleKey) {
+    // Log only presence flags, never the values themselves.
+    console.error('[ADMIN-CLIENT] Missing credentials', {
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!serviceRoleKey,
+    })
     throw new Error('Missing Supabase admin credentials')
   }
 

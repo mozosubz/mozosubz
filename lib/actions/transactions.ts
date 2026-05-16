@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getMonnifyAccessToken } from './monnify'
 import { sendTransactionEmail } from '@/lib/email/send-transaction-email'
 import { isValidTransactionReference, isValidAmount } from '@/lib/utils/input-validation'
@@ -305,7 +306,14 @@ export async function updateTransactionWithMonnifyData(
  */
 export async function verifyAndCreditPayment(paymentReference: string) {
   try {
-    const supabase = await createServerClient()
+    // SECURITY: Use admin client (bypass RLS) — this function is only called from
+    // trusted backend paths:
+    //   1) Monnify webhook, after HMAC-SHA512 signature verification.
+    //   2) /api/payments/verify, after the route confirms the auth user owns the row
+    //      AND Monnify itself reports paymentStatus === 'PAID'.
+    // Without admin, the webhook (which has no user session/cookies) hits RLS and
+    // always returns "Transaction not found", even though the row exists.
+    const supabase = createAdminClient()
 
     // Get transaction details from monnify_transactions table
     const { data: transaction, error: txError } = await supabase

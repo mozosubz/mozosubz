@@ -2,27 +2,53 @@
 
 import { generateRechargePins as generatePinsAPI } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendEmail } from "@/lib/email/client"
 import { renderShell, escapeHtml, formatNaira, formatDateTime } from "@/lib/email/templates/shell"
 import { revalidatePath } from "next/cache"
 
-export async function generateRechargePins(data: { network: string; value: string; number: string }) {
+/**
+ * Generate recharge pins.
+ *
+ * @param data  Pin generation request (network, value, number).
+ * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
+ *   authenticated v1 endpoint), the user is treated as authenticated as that
+ *   id and the cookie/session lookup is skipped. ONLY pass this from a route
+ *   that has already authenticated the caller via a trusted credential.
+ * @param trustedUserEmail  Optional. Email override paired with trustedUserId so
+ *   that the receipt email can still be delivered when there is no session.
+ */
+export async function generateRechargePins(
+  data: { network: string; value: string; number: string },
+  trustedUserId?: string,
+  trustedUserEmail?: string,
+) {
   try {
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
 
-    if (!user) {
-      return {
-        success: false,
-        error: "You must be logged in to generate pins",
+    let userId = trustedUserId
+    let userEmail: string | null = trustedUserEmail || null
+    if (!userId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        return {
+          success: false,
+          error: "You must be logged in to generate pins",
+        }
       }
+      userId = user.id
+      userEmail = user.email || null
     }
 
     // Check wallet balance
-    const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
+    // Use admin client for the profile read and transaction insert so this
+    // works for both UI users and trusted v1 callers without a Supabase
+    // session cookie.
+    const admin = createAdminClient()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
 
     const totalCost = Number(data.value) * Number(data.number)
 
@@ -58,7 +84,7 @@ export async function generateRechargePins(data: { network: string; value: strin
     if (response.status === "success" && response.pins && Array.isArray(response.pins)) {
       // Deduct from wallet atomically
       try {
-        await atomicDeductWallet(user.id, totalCost)
+        await atomicDeductWallet(userId, totalCost)
       } catch (walletError) {
         return {
           success: false,
@@ -70,7 +96,7 @@ export async function generateRechargePins(data: { network: string; value: strin
       const pinsArray = response.pins || []
 
       const transactionData = {
-        user_id: user.id,
+        user_id: userId,
         transaction_id: transactionId,
         amount: totalCost,
         service_name: "Recharge Pins",
@@ -81,11 +107,11 @@ export async function generateRechargePins(data: { network: string; value: strin
         api_response: JSON.stringify(response),
       }
 
-      await supabase.from("transactions").insert(transactionData)
+      await admin.from("transactions").insert(transactionData)
 
       // Send email with pins
       try {
-        const recipient = user.email || "User"
+        const recipient = userEmail || "User"
         const html = buildRechargePinsEmailHtml({
           network: data.network.toUpperCase(),
           value: Number(data.value),
@@ -97,7 +123,7 @@ export async function generateRechargePins(data: { network: string; value: strin
 
         await sendEmail({
           to: recipient,
-          userId: user.id,
+          userId,
           subject: `Your ${data.network.toUpperCase()} Recharge Pins - ${pinsArray.length} pins`,
           html,
           category: "transactional",

@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { processReferralEarning } from "@/lib/referral"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
@@ -32,7 +32,11 @@ export interface SaveTransactionPayload {
  */
 export async function saveTransaction(payload: SaveTransactionPayload) {
   try {
-    const supabase = await createClient()
+    // Use admin client so this works for both authenticated UI users (RLS would
+    // also allow it, but admin is consistent) and trusted backend callers like
+    // the v1 API where there is no Supabase session cookie. The userId is
+    // explicitly passed in the payload, so there is no ambient-trust risk.
+    const supabase = createAdminClient()
 
     const transactionData = {
       user_id: payload.userId,
@@ -127,7 +131,10 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
  */
 export async function atomicDeductWallet(userId: string, amount: number) {
   try {
-    const supabase = await createClient()
+    // Same reasoning as saveTransaction: needs to work for v1 API callers
+    // without a Supabase session. The RPC is safe because it operates on the
+    // explicit userId argument.
+    const supabase = createAdminClient()
 
     // Use RPC call for atomic transaction - deduct and get new balance in one operation
     const { data, error } = await supabase.rpc('deduct_wallet_balance', {
@@ -169,7 +176,7 @@ export async function atomicDeductWallet(userId: string, amount: number) {
  */
 export async function atomicRefundWallet(userId: string, amount: number) {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     const { data, error } = await supabase.rpc('refund_wallet_balance', {
       user_id: userId,

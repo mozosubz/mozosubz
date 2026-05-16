@@ -2,11 +2,21 @@
 
 import { buyElectricityToken } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { revalidatePath } from "next/cache"
 
-export async function payElectricity(formData: FormData) {
+/**
+ * Pay for electricity.
+ *
+ * @param formData  Standard form payload (disco, meterType, meterNumber, amount, phone).
+ * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
+ *   authenticated v1 endpoint), the user is treated as authenticated as that
+ *   id and the cookie/session lookup is skipped. ONLY pass this from a route
+ *   that has already authenticated the caller via a trusted credential.
+ */
+export async function payElectricity(formData: FormData, trustedUserId?: string) {
   const disco = formData.get("disco") as string
   const meterType = formData.get("meterType") as string
   const meterNumber = formData.get("meterNumber") as string
@@ -15,15 +25,22 @@ export async function payElectricity(formData: FormData) {
 
   try {
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
 
-    if (!user) {
-      return { success: false, message: "You must be logged in to make a purchase" }
+    let userId = trustedUserId
+    if (!userId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        return { success: false, message: "You must be logged in to make a purchase" }
+      }
+      userId = user.id
     }
 
-    const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
+    // Use admin client for the profile read so this works for both UI users
+    // and trusted v1 callers without a Supabase session cookie.
+    const admin = createAdminClient()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
 
     if (!profile) {
       return { success: false, message: "Profile not found. Please contact support." }
@@ -77,7 +94,7 @@ export async function payElectricity(formData: FormData) {
       const transactionId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
-      const deductResult = await atomicDeductWallet(user.id, purchaseAmount)
+      const deductResult = await atomicDeductWallet(userId, purchaseAmount)
 
       if (!deductResult.success) {
         console.error("[v0] Deduction failed - contact support")
@@ -91,7 +108,7 @@ export async function payElectricity(formData: FormData) {
 
       // Save transaction (meter number stored in phone field)
       await saveTransaction({
-        userId: user.id,
+        userId,
         transactionId,
         category: "ELECTRICITY",
         serviceId: serviceID,
@@ -107,7 +124,7 @@ export async function payElectricity(formData: FormData) {
 
       // Send transaction email (fire-and-forget - don't await)
       sendTransactionEmail({
-        userId: user.id,
+        userId,
         category: "ELECTRICITY",
         serviceName: `${disco} Electricity`,
         amount: purchaseAmount,
@@ -144,7 +161,7 @@ export async function payElectricity(formData: FormData) {
     const failedTransactionId = String(response.transactionID || requestID)
 
     await saveTransaction({
-      userId: user.id,
+      userId,
       transactionId: failedTransactionId,
       category: "ELECTRICITY",
       serviceId: serviceID,
@@ -160,7 +177,7 @@ export async function payElectricity(formData: FormData) {
 
     // Send failure email
     await sendTransactionEmail({
-      userId: user.id,
+      userId,
       category: "ELECTRICITY",
       serviceName: "Electricity",
       amount: purchaseAmount,
