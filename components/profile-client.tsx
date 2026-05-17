@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   User,
   Lock,
-  Bell,
   LogOut,
   ChevronRight,
   Camera,
@@ -536,15 +535,6 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
                 </div>
               )}
             </div>
-
-            {/* Notifications */}
-            <button className="w-full px-4 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100">
-              <div className="w-9 h-9 bg-[#f0f5ff] rounded-md flex items-center justify-center flex-shrink-0">
-                <Bell className="w-5 h-5 text-[#1a56db]" />
-              </div>
-              <span className="text-sm font-semibold flex-1 text-left">Notifications</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
 
             {/* API Keys */}
             <Link

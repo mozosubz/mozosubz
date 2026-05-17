@@ -582,20 +582,6 @@ export default function DocsPage() {
 }`}</CodeBlock>
             </Section>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 mb-12">
-              <h3 className="font-bold text-slate-900 mb-1">Need help integrating?</h3>
-              <p className="text-[14px] text-slate-600 mb-4">
-                Reach out on WhatsApp and we&apos;ll get you live on the API.
-              </p>
-              <a
-                href="https://wa.me/message/Mozosubz"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition"
-              >
-                Chat on WhatsApp
-              </a>
-            </div>
           </main>
         </div>
       </div>
