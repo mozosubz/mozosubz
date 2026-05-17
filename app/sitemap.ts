@@ -1,70 +1,21 @@
 import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://www.mozosubz.xyz'
-  
-  // All public pages that Google should crawl and index
-  const publicPages: MetadataRoute.Sitemap = [
-    // Homepage - highest priority
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
-    // Main pages
-    {
-      url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/services`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    // Authentication pages
-    {
-      url: `${baseUrl}/login`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/register`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/forgot-password`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    // Legal pages
-    {
-      url: `${baseUrl}/privacy`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/terms`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.5,
-    },
-    // Account management
-    {
-      url: `${baseUrl}/unsubscribe`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.4,
-    },
-  ]
+  // IMPORTANT: must match the canonical host used in layout.tsx metadataBase,
+  // robots.ts, OG tags, and JSON-LD. Mismatched hosts split ranking signals.
+  const baseUrl = 'https://mozosubz.xyz'
+  const lastModified = new Date()
 
-  return publicPages
+  return [
+    { url: baseUrl,                       lastModified, changeFrequency: 'daily',   priority: 1.0 },
+    { url: `${baseUrl}/about`,            lastModified, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${baseUrl}/services`,         lastModified, changeFrequency: 'weekly',  priority: 0.9 },
+    { url: `${baseUrl}/doc`,              lastModified, changeFrequency: 'weekly',  priority: 0.8 },
+    { url: `${baseUrl}/login`,            lastModified, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/register`,         lastModified, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/forgot-password`,  lastModified, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/privacy`,          lastModified, changeFrequency: 'yearly',  priority: 0.5 },
+    { url: `${baseUrl}/terms`,            lastModified, changeFrequency: 'yearly',  priority: 0.5 },
+    { url: `${baseUrl}/unsubscribe`,      lastModified, changeFrequency: 'yearly',  priority: 0.3 },
+  ]
 }

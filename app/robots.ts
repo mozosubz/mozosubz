@@ -1,100 +1,79 @@
 import { MetadataRoute } from 'next'
 
+// Canonical host MUST match layout.tsx metadataBase, sitemap.ts, OG tags,
+// and JSON-LD. Mismatched hosts split Google ranking signals across two
+// "preferred" URLs. We standardize on https://mozosubz.xyz (no www).
+const HOST = 'https://mozosubz.xyz'
+
+const PUBLIC_ALLOW = [
+  '/',
+  '/about',
+  '/services',
+  '/doc',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/privacy',
+  '/terms',
+  '/unsubscribe',
+]
+
+const PRIVATE_DISALLOW = [
+  '/admin',
+  '/admin/',
+  '/api/',
+  '/dashboard',
+  '/dashboard/',
+  '/integrations',
+  '/integrations/',
+  '/checkout',
+  '/checkout/',
+  '/confirm-email',
+  '/reset-password',
+  '/register-success',
+  '/profile',
+  '/profile/',
+  '/*.json$',
+]
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: '*',
-        allow: [
-          '/',
-          '/about',
-          '/login',
-          '/register',
-          '/services',
-          '/privacy',
-          '/terms',
-        ],
-        disallow: [
-          '/admin',
-          '/api/',
-          '/dashboard',
-          '/checkout',
-          '/confirm-email',
-          '/reset-password',
-          '/register-success',
-          '/*.json$',
-        ],
+        allow: PUBLIC_ALLOW,
+        disallow: PRIVATE_DISALLOW,
       },
       {
         userAgent: 'Googlebot',
-        allow: [
-          '/',
-          '/about',
-          '/login',
-          '/register',
-          '/forgot-password',
-          '/services',
-          '/privacy',
-          '/terms',
-        ],
+        allow: PUBLIC_ALLOW,
+        disallow: PRIVATE_DISALLOW,
         crawlDelay: 0,
       },
       {
         userAgent: 'Bingbot',
-        allow: [
-          '/',
-          '/about',
-          '/login',
-          '/register',
-          '/forgot-password',
-          '/services',
-          '/privacy',
-          '/terms',
-        ],
+        allow: PUBLIC_ALLOW,
+        disallow: PRIVATE_DISALLOW,
         crawlDelay: 0,
       },
       {
         userAgent: 'DuckDuckBot',
-        allow: [
-          '/',
-          '/about',
-          '/login',
-          '/register',
-          '/forgot-password',
-          '/services',
-          '/privacy',
-          '/terms',
-        ],
+        allow: PUBLIC_ALLOW,
+        disallow: PRIVATE_DISALLOW,
       },
       {
         userAgent: 'YandexBot',
-        allow: [
-          '/',
-          '/about',
-          '/login',
-          '/register',
-          '/forgot-password',
-          '/services',
-          '/privacy',
-          '/terms',
-        ],
+        allow: PUBLIC_ALLOW,
+        disallow: PRIVATE_DISALLOW,
       },
       {
         userAgent: 'Baiduspider',
-        allow: [
-          '/',
-          '/about',
-          '/login',
-          '/register',
-          '/forgot-password',
-          '/services',
-          '/privacy',
-          '/terms',
-        ],
+        allow: PUBLIC_ALLOW,
+        disallow: PRIVATE_DISALLOW,
         crawlDelay: 1,
       },
     ],
-    sitemap: 'https://www.mozosubz.xyz/sitemap.xml',
-    host: 'https://www.mozosubz.xyz',
+    sitemap: `${HOST}/sitemap.xml`,
+    host: HOST,
   }
 }

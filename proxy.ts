@@ -121,6 +121,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Protect /integrations/* (e.g. Connect Keys) — not public.
+    if (!user && request.nextUrl.pathname.startsWith("/integrations")) {
+      const url = request.nextUrl.clone()
+      url.pathname = "/login"
+      return NextResponse.redirect(url)
+    }
+
     // Also protect admin routes for unauthenticated users
     if (!user && request.nextUrl.pathname.startsWith("/admin")) {
       const url = request.nextUrl.clone()
