@@ -30,7 +30,7 @@ const MAIN_LINKS = [
   { label: "Services", href: "/services" },
   { label: "Login", href: "/login" },
   { label: "Create account", href: "/register" },
-  { label: "Integration API", href: "/integrations/docs" },
+  { label: "API Docs", href: "/doc" },
 ]
 
 const SERVICE_LINKS = [
@@ -43,9 +43,9 @@ const SERVICE_LINKS = [
 ]
 
 const DEVELOPER_LINKS = [
-  { label: "API Documentation", href: "/integrations/docs" },
+  { label: "API Documentation", href: "/doc" },
   { label: "Connect Keys", href: "/integrations/keys" },
-  { label: "Getting Started", href: "/integrations/docs" },
+  { label: "Getting Started", href: "/doc#introduction" },
 ]
 
 export function Footer() {
