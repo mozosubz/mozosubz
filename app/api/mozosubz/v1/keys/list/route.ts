@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
       .from('connect_keys')
       .select('id, name, key_preview, is_active, created_at, expires_at, last_used_at')
       .eq('user_id', user.id)
+      .eq('is_active', true)
+      .is('revoked_at', null)
       .order('created_at', { ascending: false })
 
     if (error) {
