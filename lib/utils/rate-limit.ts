@@ -33,16 +33,20 @@ export async function checkRateLimit(
   const intervalSeconds = Math.ceil(config.interval / 1000)
 
   try {
-    // Use INCR and EXPIRE with Redis
-    const count = await redis.incr(key)
+    // PERF: Pipeline INCR + EXPIRE into a single round-trip instead of 2-3
+    // sequential Redis calls. We always set EXPIRE — Redis treats it as a
+    // no-op refresh on existing keys with TTL, but since we want a sliding
+    // start only on first request, we use NX to only set when no TTL exists.
+    const pipeline = redis.pipeline()
+    pipeline.incr(key)
+    pipeline.expire(key, intervalSeconds, "NX")
+    const results = (await pipeline.exec()) as [number, number]
+    const count = Number(results?.[0] ?? 1)
 
-    // Set expiration on first request
-    if (count === 1) {
-      await redis.expire(key, intervalSeconds)
-    }
-
-    const ttl = await redis.ttl(key)
-    const resetAt = now + (ttl > 0 ? ttl * 1000 : config.interval)
+    // We no longer call TTL — derive resetAt from interval. This is slightly
+    // less precise for the Retry-After header but saves a round-trip and the
+    // worst case is the user retries up to `interval` ms early.
+    const resetAt = now + config.interval
 
     const allowed = count <= config.maxRequests
     const remaining = Math.max(0, config.maxRequests - count)

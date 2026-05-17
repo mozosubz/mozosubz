@@ -137,25 +137,31 @@ export default function AirtimePage() {
       setShowConfirm(false)
 
       if (data.success) {
-        const newBal = await getWalletBalance()
-        // Save phone to Supabase
-        await saveRecentPhone(currentPhone)
-        // Reload recent phones
-        const recentRes = await getRecentPhones()
-        setRecentPhones(recentRes.phones || [])
-        
+        // PERF: Use server-returned balance instead of an extra round-trip.
+        const balanceAfter =
+          typeof data.transaction?.balance === "number"
+            ? data.transaction.balance
+            : balanceBefore - currentAmount
+
+        // PERF: Fire-and-forget save + optimistic local update of recents.
+        saveRecentPhone(currentPhone).catch(() => {})
+        setRecentPhones((prev) => {
+          const without = prev.filter((p) => p !== currentPhone)
+          return [currentPhone, ...without].slice(0, 5)
+        })
+
         setSuccessData({
           phone: currentPhone,
           amount: currentAmount,
           balanceBefore: balanceBefore,
-          balanceAfter: newBal.balance,
+          balanceAfter,
           transactionId: data.transaction?.id?.toString() || data.transaction?.transactionID?.toString() || '',
           network: currentNetwork
         })
         setShowSuccess(true)
         setPhone("")
         setAmount("")
-        setBalance(newBal.balance)
+        setBalance(balanceAfter)
       } else {
         setError(data.error || data.message || "Transaction failed. Please try again.")
       }

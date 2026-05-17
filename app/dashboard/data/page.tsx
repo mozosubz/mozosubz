@@ -194,26 +194,35 @@ export default function DataPage() {
       setShowConfirm(false)
 
       if (data.success) {
-        const newBal = await getWalletBalance()
-        // Save phone to Supabase
-        await saveRecentPhone(currentPhone)
-        // Reload recent phones
-        const recentRes = await getRecentPhones()
-        setRecentPhones(recentRes.phones || [])
-        
+        // PERF: Server already returned the new balance in data.transaction.balance.
+        // Skip the extra getWalletBalance round-trip. Fall back to local math if absent.
+        const balanceAfter =
+          typeof data.transaction?.balance === "number"
+            ? data.transaction.balance
+            : balanceBefore - currentAmount
+
+        // PERF: Fire-and-forget the recent-phone save and skip the re-fetch.
+        // Optimistically prepend locally so UI updates instantly. If the save
+        // fails, the phone simply won't appear on next visit (no money impact).
+        saveRecentPhone(currentPhone).catch(() => {})
+        setRecentPhones((prev) => {
+          const without = prev.filter((p) => p !== currentPhone)
+          return [currentPhone, ...without].slice(0, 5)
+        })
+
         setSuccessData({
           phone: currentPhone,
           plan: currentPlan,
           amount: currentAmount,
           balanceBefore: balanceBefore,
-          balanceAfter: newBal.balance,
+          balanceAfter,
           transactionId: data.transaction?.id?.toString() || data.transaction?.transactionID?.toString() || '',
           network: currentNetwork
         })
         setShowSuccess(true)
         setPhone("")
         setSelectedPlan(null)
-        setBalance(newBal.balance)
+        setBalance(balanceAfter)
       } else {
         setError(data.error || data.message || "Transaction failed. Please try again.")
       }
