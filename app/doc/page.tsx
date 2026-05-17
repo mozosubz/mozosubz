@@ -231,7 +231,7 @@ export default function DocsPage() {
                   <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
                     Auth header
                   </p>
-                  <code className="text-[13px] font-mono text-slate-900">X-Connect-Key: mzsk_…</code>
+                  <code className="text-[13px] font-mono text-slate-900">X-Connect-Key: connect_…</code>
                 </div>
               </div>
             </div>
@@ -262,7 +262,7 @@ export default function DocsPage() {
                 . Each user can have one active key at a time; creating a new one revokes the previous.
               </p>
               <CodeBlock lang="bash">{`curl ${API_BASE}/v1/balance \\
-  -H "X-Connect-Key: mzsk_live_xxxxxxxxxxxxxxxxxxxxxxxx"`}</CodeBlock>
+  -H "X-Connect-Key: connect_live_xxxxxxxxxxxxxxxxxxxxxxxx"`}</CodeBlock>
               <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-[13.5px] text-orange-900">
                 <strong className="font-bold">Treat your key like a password.</strong> Store it in your
                 server&apos;s environment variables. Never expose it in client code, mobile apps, or
