@@ -1,17 +1,23 @@
 /**
  * Resend email client.
  *
- * Design goals (unchanged from prior provider):
+ * API details (verified against https://resend.com/docs):
+ *  - Base URL: https://api.resend.com (UNVERSIONED — no /v1/ prefix)
+ *  - Endpoint: POST /emails
+ *  - Auth:     Authorization: Bearer re_xxx
+ *  - REQUIRED: User-Agent header. Missing it returns 403 / error code 1010
+ *              even with a valid API key. We set it explicitly below.
+ *  - Tags:     array of { name, value }. Values must match /^[A-Za-z0-9_-]+$/
+ *              and be <= 256 chars (sanitized below).
+ *  - Rate:     5 req/s per team (default).
+ *
+ * Design goals:
  *  - Never throws. Email is a side-effect — a failure here must NEVER roll
  *    back a successful wallet credit or purchase.
- *  - Fire-and-forget from the call site. Callers should not `await` this in
- *    a transaction-critical path.
+ *  - Fire-and-forget from the call site.
  *  - Respects email_preferences (marketing vs transactional).
  *
- * Migration note: this module previously called UnoSend. The exported
- * `sendEmail` signature is identical so no caller needed to change.
- *
- * Env vars (in priority order — first non-empty wins):
+ * Env vars (priority order — first non-empty wins):
  *   RESEND_API_KEY            (required)
  *   RESEND_FROM_EMAIL  | UNOSEND_FROM_EMAIL  (legacy fallback)
  *   RESEND_FROM_NAME   | UNOSEND_FROM_NAME   (legacy fallback)
@@ -134,6 +140,9 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        // Required by Resend — requests without User-Agent are rejected
+        // with 403 / error code 1010. See client header docs.
+        "User-Agent": "mozosubz/1.0 (+https://mozosubz.com)",
       },
       body: JSON.stringify(body),
     })

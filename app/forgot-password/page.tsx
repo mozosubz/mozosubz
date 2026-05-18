@@ -26,10 +26,28 @@ export default function ForgotPasswordPage() {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
       })
-      if (error) throw error
+
+      // SECURITY: never reveal whether the email is registered.
+      // The only error we surface is a rate-limit, which is a real
+      // problem the user can act on (wait + retry). Everything else is
+      // swallowed and we always show the generic success screen — this
+      // matches Supabase's recommended pattern and prevents account
+      // enumeration via the forgot-password endpoint.
+      if (error) {
+        const msg = error.message?.toLowerCase() || ""
+        if (msg.includes("rate") || msg.includes("too many")) {
+          setError("Too many attempts. Please wait a minute and try again.")
+          return
+        }
+        // Log for ops visibility but don't expose to the client.
+        console.error("[v0] resetPasswordForEmail error (suppressed):", error.message)
+      }
+
       setSuccess(true)
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Something went wrong. Please try again.")
+    } catch (err) {
+      // Network / unexpected failure — log internally, show generic message.
+      console.error("[v0] forgot-password unexpected error:", err)
+      setError("Something went wrong. Please try again.")
     } finally {
       setIsLoading(false)
     }

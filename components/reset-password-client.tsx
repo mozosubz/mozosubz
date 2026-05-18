@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Lock,
@@ -34,50 +34,81 @@ export function ResetPasswordClient() {
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
+  const [linkInvalid, setLinkInvalid] = useState(false)
+  // Recovery codes are single-use. React Strict Mode (and Fast Refresh in
+  // dev) re-runs effects, which would cause the second exchange to fail
+  // with "code already used" → false "invalid link" message. Guard with a
+  // ref so we only attempt the exchange once per mount.
+  const exchangeAttempted = useRef(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
   // Check if user has a valid recovery session or code
   useEffect(() => {
     const checkSession = async () => {
+      if (exchangeAttempted.current) return
+      exchangeAttempted.current = true
+
       const supabase = createClient()
+
+      // Supabase appends these on expired/invalid links instead of a code.
+      // Surface the actual reason instead of bouncing to /forgot-password
+      // with no explanation.
+      const errParam = searchParams.get("error")
+      const errCode = searchParams.get("error_code")
+      const errDesc = searchParams.get("error_description")
+      if (errParam || errCode) {
+        const friendly =
+          errCode === "otp_expired"
+            ? "This recovery link has expired. Please request a new one."
+            : errDesc?.replace(/\+/g, " ") ||
+              "This recovery link is invalid or has already been used. Please request a new one."
+        setError(friendly)
+        setLinkInvalid(true)
+        return
+      }
+
       const code = searchParams.get("code")
 
-      // If there's a recovery code from the URL, exchange it
+      // If there's a recovery code from the URL, exchange it.
       if (code) {
         try {
+          // If the visitor is already signed in as a different user, clear
+          // that session first so the recovery exchange doesn't silently
+          // hijack their existing login.
+          const { data: existing } = await supabase.auth.getSession()
+          if (existing.session) {
+            await supabase.auth.signOut({ scope: "local" })
+          }
+
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
           if (exchangeError) {
             console.error("[v0] Recovery code exchange failed:", exchangeError.message)
             setError("Invalid or expired recovery link. Please request a new one.")
-            setSessionReady(false)
+            setLinkInvalid(true)
             return
           }
-          // Code exchanged successfully
-          console.log("[v0] Recovery code exchanged successfully")
           setSessionReady(true)
           return
         } catch (err) {
           console.error("[v0] Recovery code exchange error:", err)
           setError("Failed to verify recovery link. Please try again.")
-          setSessionReady(false)
+          setLinkInvalid(true)
           return
         }
       }
 
-      // If no code, check if there's already an active session
-      // (from Supabase redirecting after token verification)
-      const { data: { session } } = await supabase.auth.getSession()
-      
+      // No code → check for an active recovery session (Supabase may have
+      // already verified the token on its side and just dropped us here).
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
       if (!session) {
-        // No code and no session - redirect to forgot password
-        console.log("[v0] No recovery session found - redirecting to forgot-password")
         router.push("/forgot-password")
         return
       }
 
-      // Session exists, they can reset password
-      console.log("[v0] Recovery session found - allowing password reset")
       setSessionReady(true)
     }
 
@@ -125,7 +156,27 @@ export function ResetPasswordClient() {
 
   return (
     <>
-      {!sessionReady ? (
+      {linkInvalid ? (
+        // Invalid / expired recovery link — give the user a clear path
+        // forward instead of an infinite spinner.
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden">
+          <div className="px-7 py-10 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-red-50 border border-red-100 mb-5">
+              <AlertCircle className="w-7 h-7 text-red-600" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Recovery link unavailable</h2>
+            <p className="text-sm text-slate-600 mb-6 text-pretty">
+              {error || "This recovery link is invalid or has already been used."}
+            </p>
+            <a
+              href="/forgot-password"
+              className="inline-flex items-center justify-center w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors"
+            >
+              Request a new link
+            </a>
+          </div>
+        </div>
+      ) : !sessionReady ? (
         // Loading state while checking session
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden">
           <div className="px-7 py-12 text-center">
