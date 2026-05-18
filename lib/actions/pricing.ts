@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { PricingRule } from '@/lib/pricing/calculator'
 
 export async function createPricingRule(
@@ -44,6 +44,9 @@ export async function createPricingRule(
     }
 
     revalidatePath('/admin/pricing')
+    // Invalidate the cached pricing-rules used by the data/cable plan endpoints
+    // so users see new markup immediately on the next plan-list request.
+    revalidateTag('pricing-rules', 'max')
     return { success: true, data }
   } catch (error) {
     console.error('[v0] Error in createPricingRule:', error)
@@ -90,6 +93,7 @@ export async function updatePricingRule(
     }
 
     revalidatePath('/admin/pricing')
+    revalidateTag('pricing-rules', 'max')
     return { success: true }
   } catch (error) {
     console.error('[v0] Error in updatePricingRule:', error)
@@ -121,6 +125,7 @@ export async function deletePricingRule(ruleId: string): Promise<{ success: bool
     }
 
     revalidatePath('/admin/pricing')
+    revalidateTag('pricing-rules', 'max')
     return { success: true }
   } catch (error) {
     console.error('[v0] Error in deletePricingRule:', error)
@@ -159,6 +164,7 @@ export async function bulkUpdatePricingRules(
     }
 
     revalidatePath('/admin/pricing')
+    revalidateTag('pricing-rules', 'max')
     return { success: true, updated: ruleIds.length }
   } catch (error) {
     console.error('[v0] Error in bulkUpdatePricingRules:', error)

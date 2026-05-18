@@ -205,6 +205,33 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
   }
 }
 
+/**
+ * Cached pricing-rules lookup for a single cable service. Same pattern as
+ * data plans — invalidated by the "pricing-rules" tag when an admin edits
+ * any rule (see lib/actions/pricing.ts).
+ */
+async function getCablePricingRulesForService(service: string) {
+  const { unstable_cache } = await import("next/cache")
+  const getCached = unstable_cache(
+    async () => {
+      const { createClient } = await import("@supabase/supabase-js")
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      const { data } = await supabase
+        .from("pricing_rules")
+        .select("plan_name, base_price, markup_type, markup_value")
+        .eq("service_id", service)
+        .eq("is_active", true)
+      return data || []
+    },
+    [`pricing-rules-${service}`],
+    { revalidate: 1800, tags: ["pricing-rules", `pricing-rules-${service}`] }
+  )
+  return getCached()
+}
+
 export async function fetchCablePlans(provider: string) {
   try {
     const serviceIdMap: Record<string, string> = {
@@ -214,20 +241,12 @@ export async function fetchCablePlans(provider: string) {
     }
 
     const service = serviceIdMap[provider.toLowerCase()] || "dstv"
-    const plans = await getCablePlans(service)
 
-    // Fetch pricing rules for this service to apply markup
-    const { createClient } = await import("@supabase/supabase-js")
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    const { data: pricingRules } = await supabase
-      .from("pricing_rules")
-      .select("plan_name, base_price, markup_type, markup_value")
-      .eq("service_id", service)
-      .eq("is_active", true)
+    // Fetch gsubz plans and cached pricing rules in parallel.
+    const [plans, pricingRules] = await Promise.all([
+      getCablePlans(service),
+      getCablePricingRulesForService(service),
+    ])
 
     // Apply markup to plans if pricing rules exist
     const enhancedPlans = (plans.plans || []).map((plan: any) => {

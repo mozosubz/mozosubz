@@ -224,17 +224,42 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
   }
 }
 
+/**
+ * Cached pricing-rules lookup for a single service.
+ *
+ * Why: every plan-list request used to hit Supabase to fetch markup rules,
+ * which dominated the response time (gsubz plans themselves are already
+ * cached via unstable_cache). Pricing rules change rarely (admin-only), so
+ * we cache them per service and invalidate via the "pricing-rules" tag in
+ * lib/actions/pricing.ts on any create/update/delete.
+ *
+ * Note: imported lazily inside the function to keep the module tree-shake
+ * friendly and to scope the cache key per serviceId.
+ */
+async function getPricingRulesForService(serviceId: string) {
+  const { unstable_cache } = await import("next/cache")
+  const getCached = unstable_cache(
+    async () => {
+      const { createClient } = await import("@supabase/supabase-js")
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      const { data } = await supabase
+        .from("pricing_rules")
+        .select("plan_name, base_price, markup_type, markup_value")
+        .eq("service_id", serviceId)
+        .eq("is_active", true)
+      return data || []
+    },
+    [`pricing-rules-${serviceId}`],
+    { revalidate: 1800, tags: ["pricing-rules", `pricing-rules-${serviceId}`] }
+  )
+  return getCached()
+}
+
 export async function fetchDataPlans(serviceID: string) {
   try {
-    const plans = await getDataPlans(serviceID)
-    
-    // Fetch pricing rules for this service to apply markup
-    const { createClient } = await import("@supabase/supabase-js")
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-    
     const serviceMap: Record<string, string> = {
       mtn_sme: "mtn",
       mtn_datashare: "mtn",
@@ -246,17 +271,14 @@ export async function fetchDataPlans(serviceID: string) {
       airtel_gifting: "airtel",
       etisalat_data: "etisalat",
     }
-    
+
     const serviceId = serviceMap[serviceID.toLowerCase()] || serviceID
-    
-    const { data: pricingRules } = await supabase
-      .from("pricing_rules")
-      .select("plan_name, base_price, markup_type, markup_value")
-      .eq("service_id", serviceId)
-      .eq("is_active", true)
-    
-    console.log(`[v0] Fetched pricing rules for ${serviceId}:`, pricingRules)
-    console.log(`[v0] Original plans:`, plans.plans)
+
+    // Fetch gsubz plans and cached pricing rules in parallel.
+    const [plans, pricingRules] = await Promise.all([
+      getDataPlans(serviceID),
+      getPricingRulesForService(serviceId),
+    ])
     
     // Apply markup to plans if pricing rules exist
     const enhancedPlans = (plans.plans || []).map((plan: any) => {

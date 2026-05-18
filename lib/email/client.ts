@@ -1,12 +1,20 @@
 /**
- * UnoSend email client.
+ * Resend email client.
  *
- * Design goals:
+ * Design goals (unchanged from prior provider):
  *  - Never throws. Email is a side-effect — a failure here must NEVER roll
  *    back a successful wallet credit or purchase.
  *  - Fire-and-forget from the call site. Callers should not `await` this in
  *    a transaction-critical path.
  *  - Respects email_preferences (marketing vs transactional).
+ *
+ * Migration note: this module previously called UnoSend. The exported
+ * `sendEmail` signature is identical so no caller needed to change.
+ *
+ * Env vars (in priority order — first non-empty wins):
+ *   RESEND_API_KEY            (required)
+ *   RESEND_FROM_EMAIL  | UNOSEND_FROM_EMAIL  (legacy fallback)
+ *   RESEND_FROM_NAME   | UNOSEND_FROM_NAME   (legacy fallback)
  */
 
 import { createClient } from "@supabase/supabase-js"
@@ -19,18 +27,34 @@ export interface SendEmailOptions {
   subject: string
   html: string
   category: EmailCategory
-  // UnoSend accepts a category/tag for filtering in dashboards.
+  // A short label used to group emails in the Resend dashboard.
   tag?: string
 }
 
-const UNOSEND_ENDPOINT = "https://api.unosend.co/v1/emails"
+const RESEND_ENDPOINT = "https://api.resend.com/emails"
+
+function pickEnv(...keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = process.env[k]
+    if (v && v.trim()) return v.trim()
+  }
+  return undefined
+}
 
 function getFromHeader(): string {
-  const email = process.env.UNOSEND_FROM_EMAIL
-  const name = process.env.UNOSEND_FROM_NAME || "Mozosubz"
+  const email = pickEnv("RESEND_FROM_EMAIL", "UNOSEND_FROM_EMAIL")
+  const name = pickEnv("RESEND_FROM_NAME", "UNOSEND_FROM_NAME") || "Mozosubz"
   if (!email) return "Mozosubz <no-reply@mozosubz.com>"
   // RFC 5322 display-name format: "Name <email@domain>"
   return `${name} <${email}>`
+}
+
+/**
+ * Resend tag values must match /^[A-Za-z0-9_-]+$/ and be <= 256 chars.
+ * Sanitize defensively so a stray character never breaks a send.
+ */
+function sanitizeTag(value: string): string {
+  return value.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 256) || "general"
 }
 
 /**
@@ -73,9 +97,9 @@ async function shouldSend(userId: string | undefined, category: EmailCategory): 
 
 export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean; skipped?: string }> {
   try {
-    const apiKey = process.env.UNOSEND_API_KEY
+    const apiKey = process.env.RESEND_API_KEY
     if (!apiKey) {
-      console.warn("[email] UNOSEND_API_KEY not set — skipping send")
+      console.warn("[email] RESEND_API_KEY not set — skipping send")
       return { sent: false, skipped: "no_api_key" }
     }
 
@@ -89,15 +113,23 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean
       return { sent: false, skipped: "opted_out" }
     }
 
+    const tagValue = sanitizeTag(opts.tag || opts.category)
+
     const body = {
       from: getFromHeader(),
       to: [opts.to],
       subject: opts.subject,
       html: opts.html,
-      tag: opts.tag || opts.category,
+      // Resend uses an array of {name, value} pairs (different shape from
+      // the previous provider which took a single string). We expose two
+      // tags so the dashboard groups by both category and event type.
+      tags: [
+        { name: "category", value: sanitizeTag(opts.category) },
+        { name: "type", value: tagValue },
+      ],
     }
 
-    const res = await fetch(UNOSEND_ENDPOINT, {
+    const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -108,7 +140,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean
 
     if (!res.ok) {
       const text = await res.text().catch(() => "")
-      console.error("[email] UnoSend failed", res.status, text)
+      console.error("[email] Resend failed", res.status, text)
       return { sent: false, skipped: `http_${res.status}` }
     }
 
