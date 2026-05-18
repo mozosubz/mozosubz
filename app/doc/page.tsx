@@ -326,6 +326,7 @@ export default function DocsPage() {
               <ParamTable
                 rows={[
                   { name: "amount", type: "number", required: true, description: "Amount to deposit, NGN. Min ₦100, max ₦1,000,000." },
+                  { name: "description", type: "string", description: "Optional description for the payment, shown on the customer's statement." },
                 ]}
               />
               <CodeBlock lang="bash">{`curl ${API_BASE}/v1/deposit/start \\
@@ -338,10 +339,14 @@ export default function DocsPage() {
   "amount": 5000,
   "processingFee": 50,
   "netAmount": 4950,
-  "accountNumber": "1234567890",
-  "bankName": "Wema Bank",
-  "accountName": "MOZOSUBZ-USER",
-  "expiresAt": "2026-05-17T09:20:00.000Z"
+  "expiresAt": "2026-05-17T09:20:00.000Z",
+  "account": {
+    "accountNumber": "1234567890",
+    "accountName": "MOZOSUBZ-USER",
+    "bankName": "Wema Bank",
+    "bankCode": "035"
+  },
+  "checkoutUrl": "https://mozosubz.xyz/checkout/MOZO_a1b2c3d4_1731000000000_xyz"
 }`}</CodeBlock>
             </Section>
 
@@ -386,11 +391,14 @@ export default function DocsPage() {
               <p>
                 Look up either a service <code className="font-mono text-[13px]">transaction_id</code> or a
                 deposit <code className="font-mono text-[13px]">paymentReference</code>. Only transactions
-                belonging to the key holder are returned.
+                belonging to the key holder are returned. The endpoint also accepts{" "}
+                <code className="font-mono text-[13px]">requestID</code> or{" "}
+                <code className="font-mono text-[13px]">transactionId</code> as aliases for{" "}
+                <code className="font-mono text-[13px]">reference</code>.
               </p>
               <ParamTable
                 rows={[
-                  { name: "reference", type: "string", required: true, description: "transaction_id or paymentReference." },
+                  { name: "reference", type: "string", required: true, description: "transaction_id or paymentReference. Aliases: requestID, transactionId." },
                 ]}
               />
               <CodeBlock lang="bash">{`curl ${API_BASE}/v1/verify \\
@@ -441,24 +449,30 @@ export default function DocsPage() {
 
             {/* DATA PLANS */}
             <Section id="data-plans" title="Data plans">
-              <Endpoint method="GET" path="/v1/data/plans" />
+              <Endpoint method="POST" path="/v1/data/plans" />
               <p>
-                Returns the live data plan catalog for the requested network (sourced from the same VTU
-                provider that powers the Mozosubz dashboard).
+                Returns the live data plan catalog for the requested network with your wallet markup
+                already applied. The plan <code className="font-mono text-[13px]">id</code> returned here
+                is what you pass as <code className="font-mono text-[13px]">plan</code> to{" "}
+                <a href="#data-purchase" className="text-blue-700 font-semibold hover:underline">
+                  /v1/data/purchase
+                </a>
+                .
               </p>
               <ParamTable
                 rows={[
-                  { name: "network", type: "string", required: true, description: "mtn, airtel, glo, 9mobile (or etisalat)." },
+                  { name: "serviceID", type: "string", required: true, description: "mtn_sme, mtn_gifting, mtn_datashare, mtn_awoof, glo_data, glo_sme, airtel_sme, airtel_gifting, etisalat_data." },
                 ]}
               />
-              <CodeBlock lang="bash">{`curl "${API_BASE}/v1/data/plans?network=mtn" \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY"`}</CodeBlock>
+              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/data/plans \\
+  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "serviceID": "mtn_sme" }'`}</CodeBlock>
               <CodeBlock lang="json">{`{
   "success": true,
-  "network": "mtn",
   "plans": [
-    { "name": "MTN 1GB · 30 days", "price": 750 },
-    { "name": "MTN 2GB · 30 days", "price": 1200 }
+    { "id": "mtn-1gb-30", "displayName": "MTN 1GB · 30 days", "price": 750 },
+    { "id": "mtn-2gb-30", "displayName": "MTN 2GB · 30 days", "price": 1200 }
   ]
 }`}</CodeBlock>
             </Section>
@@ -466,49 +480,71 @@ export default function DocsPage() {
             {/* DATA PURCHASE */}
             <Section id="data-purchase" title="Buy data">
               <Endpoint method="POST" path="/v1/data/purchase" />
+              <p>
+                The price is recomputed server‑side from the live catalog returned by{" "}
+                <a href="#data-plans" className="text-blue-700 font-semibold hover:underline">
+                  /v1/data/plans
+                </a>
+                . You do not send <code className="font-mono text-[13px]">amount</code> — any value
+                supplied is ignored. This prevents tampering and guarantees the wallet is debited at the
+                correct, marked‑up price.
+              </p>
               <ParamTable
                 rows={[
-                  { name: "serviceID", type: "string", required: true, description: "mtn, airtel, glo, 9mobile (or etisalat)." },
-                  { name: "plan", type: "string", required: true, description: "Plan id (key) returned by /v1/data/plans." },
-                  { name: "phone", type: "string", required: true, description: "Recipient phone number." },
-                  { name: "amount", type: "number", required: true, description: "Plan price in NGN — must match the catalog." },
-                  { name: "planDisplayName", type: "string", description: "Optional readable plan name for receipts." },
-                  { name: "requestID", type: "string", description: "Optional client‑side idempotency key." },
+                  { name: "serviceID", type: "string", required: true, description: "Same identifier you passed to /v1/data/plans (e.g. mtn_sme)." },
+                  { name: "plan", type: "string", required: true, description: "Plan id returned by /v1/data/plans." },
+                  { name: "phone", type: "string", required: true, description: "Recipient phone number, 11 digits." },
+                  { name: "requestID", type: "string", description: "Optional client‑side idempotency key (echoed back)." },
                 ]}
               />
               <CodeBlock lang="bash">{`curl ${API_BASE}/v1/data/purchase \\
   -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "serviceID": "mtn",
+    "serviceID": "mtn_sme",
     "plan": "mtn-2gb-30",
-    "phone": "08012345678",
-    "amount": 1200
+    "phone": "08012345678"
   }'`}</CodeBlock>
             </Section>
 
             {/* CABLE PLANS */}
             <Section id="cable-plans" title="Cable plans">
-              <Endpoint method="GET" path="/v1/cable/plans" />
+              <Endpoint method="POST" path="/v1/cable/plans" />
+              <p>Returns the live cable bouquet catalog with wallet markup applied.</p>
               <ParamTable
                 rows={[
-                  { name: "provider", type: "string", required: true, description: "dstv, gotv, startimes." },
+                  { name: "serviceID", type: "string", required: true, description: "dstv, gotv, startimes." },
                 ]}
               />
-              <CodeBlock lang="bash">{`curl "${API_BASE}/v1/cable/plans?provider=dstv" \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY"`}</CodeBlock>
+              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/cable/plans \\
+  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "serviceID": "dstv" }'`}</CodeBlock>
+              <CodeBlock lang="json">{`{
+  "success": true,
+  "plans": [
+    { "id": "dstv-padi", "displayName": "DStv Padi", "price": 2500 },
+    { "id": "dstv-yanga", "displayName": "DStv Yanga", "price": 3500 }
+  ]
+}`}</CodeBlock>
             </Section>
 
             {/* CABLE SUBSCRIBE */}
             <Section id="cable-subscribe" title="Subscribe cable">
               <Endpoint method="POST" path="/v1/cable/subscribe" />
+              <p>
+                Like data, the price is recomputed server‑side from{" "}
+                <a href="#cable-plans" className="text-blue-700 font-semibold hover:underline">
+                  /v1/cable/plans
+                </a>
+                . You do not send <code className="font-mono text-[13px]">amount</code>.
+              </p>
               <ParamTable
                 rows={[
                   { name: "serviceID", type: "string", required: true, description: "dstv, gotv, startimes." },
                   { name: "plan", type: "string", required: true, description: "Package id from /v1/cable/plans." },
                   { name: "customerID", type: "string", required: true, description: "Smartcard / IUC number." },
                   { name: "phone", type: "string", required: true, description: "Subscriber phone number." },
-                  { name: "amount", type: "number", required: true, description: "Package price in NGN — must match the catalog." },
                   { name: "requestID", type: "string", description: "Optional idempotency key." },
                 ]}
               />
@@ -519,8 +555,7 @@ export default function DocsPage() {
     "serviceID": "dstv",
     "plan": "dstv-padi",
     "customerID": "1234567890",
-    "phone": "08012345678",
-    "amount": 2500
+    "phone": "08012345678"
   }'`}</CodeBlock>
             </Section>
 
