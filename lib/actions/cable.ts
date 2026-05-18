@@ -6,11 +6,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount } from "@/lib/utils/input-validation"
-import {
-  deriveRequestID,
-  findExistingTransaction,
-  reconcileWithProvider,
-} from "@/lib/utils/idempotency"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -60,83 +55,16 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
     }
 
     const serviceID = serviceIdMap[provider.toLowerCase()] || "dstv"
+    const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
-    // Cable price comes back from gsubz, so we can't use amount in the
-    // bucket key — but (user + smartcard + package) within 30s is a
-    // strong-enough fingerprint of "the same purchase intent".
-    const requestID = await deriveRequestID({
-      userId,
-      category: "CABLE",
-      recipient: smartcard,
-      amount: 0,
-      plan: `${serviceID}:${package_name}`,
-      clientRequestID: (formData.get("requestID") as string) || undefined,
+    // Call GSUBZ API
+    const response = await buyCableSubscription({
+      serviceID,
+      plan: package_name,
+      phone,
+      customerID: smartcard,
+      requestID,
     })
-
-    const existingCable = await findExistingTransaction(userId, requestID)
-    if (existingCable) {
-      return {
-        success: existingCable.status === "SUCCESS",
-        message:
-          existingCable.status === "SUCCESS"
-            ? "Cable subscription successful"
-            : existingCable.status === "FAILED"
-              ? existingCable.description || "Transaction failed"
-              : "Transaction already in progress",
-        transaction: {
-          id: existingCable.transaction_id,
-          type: "cable",
-          provider,
-          package: package_name,
-          smartcard,
-          amount: Number(existingCable.amount),
-          status: existingCable.status.toLowerCase(),
-          balance: Number(existingCable.balance_after),
-        },
-      }
-    }
-
-    // Call GSUBZ API with reconcile-on-error.
-    let response: any
-    let cableNetworkError: unknown = null
-    try {
-      response = await buyCableSubscription({
-        serviceID,
-        plan: package_name,
-        phone,
-        customerID: smartcard,
-        requestID,
-      })
-    } catch (err) {
-      cableNetworkError = err
-      console.error("[v0] Cable gsubz call failed, will reconcile:", err)
-    }
-
-    if (cableNetworkError || !response) {
-      const reco = await reconcileWithProvider(requestID)
-      if (reco.status === "success") {
-        response = reco.raw || { code: 200, status: "TRANSACTION_SUCCESSFUL", transactionID: requestID, amount: 0 }
-      } else if (reco.status === "failed") {
-        response = reco.raw || { code: 0, status: "FAILED", description: "Transaction failed" }
-      } else {
-        return {
-          success: false,
-          pending: true,
-          message:
-            "We couldn't confirm your subscription yet. Please check your transaction history before retrying.",
-          transaction: {
-            id: requestID,
-            type: "cable",
-            provider,
-            package: package_name,
-            smartcard,
-            amount: 0,
-            status: "pending",
-            balance: Number(profile.wallet_balance),
-          },
-        }
-      }
-    }
 
     const purchaseAmount = Number(response.amount || 0)
     const balanceBefore = Number(profile.wallet_balance)
@@ -155,8 +83,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
         response.description === "TRANSACTION_SUCCESSFUL")
 
     if (isSuccess) {
-      const transactionId = requestID
-      const providerTxnId = String(response.transactionID || requestID)
+      const transactionId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
       const deductResult = await atomicDeductWallet(userId, purchaseAmount)
@@ -223,8 +150,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
     }
 
     // Transaction failed
-    const failedTransactionId = requestID
-    const providerFailedId = String(response.transactionID || requestID)
+    const failedTransactionId = String(response.transactionID || requestID)
 
     await saveTransaction({
       userId,

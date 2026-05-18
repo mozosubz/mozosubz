@@ -4,12 +4,6 @@ import Link from "next/link"
 import { useState } from "react"
 import { Footer } from "@/components/footer"
 
-// Public base URL exposed in every example. The Next.js config rewrites
-// `api.mozosubz.xyz/v1/*` to the internal `/api/mozosubz/v1/*` handler, so
-// both of the following are equivalent:
-//   https://api.mozosubz.xyz/v1/balance
-//   https://mozosubz.xyz/api/mozosubz/v1/balance
-// We advertise the short subdomain form because that is the contract.
 const API_BASE = "https://api.mozosubz.xyz"
 
 type Section = {

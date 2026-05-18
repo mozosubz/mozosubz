@@ -6,11 +6,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
-import {
-  deriveRequestID,
-  findExistingTransaction,
-  reconcileWithProvider,
-} from "@/lib/utils/idempotency"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -70,80 +65,15 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
       return { success: false, message: "Insufficient wallet balance" }
     }
 
-    const requestID = await deriveRequestID({
-      userId,
-      category: "DATA",
-      recipient: phone,
-      amount,
+    const requestID = "TXN" + Date.now()
+
+    // Call GSUBZ API
+    const response = await buyData({
+      serviceID,
       plan,
-      clientRequestID: (formData.get("requestID") as string) || undefined,
+      phone,
+      requestID,
     })
-
-    // Replay protection — return existing outcome if this intent already
-    // hit the database (double-click / retry).
-    const existingTx = await findExistingTransaction(userId, requestID)
-    if (existingTx) {
-      return {
-        success: existingTx.status === "SUCCESS",
-        message:
-          existingTx.status === "SUCCESS"
-            ? "Data purchase successful"
-            : existingTx.status === "FAILED"
-              ? existingTx.description || "Transaction failed"
-              : "Transaction already in progress",
-        transaction: {
-          id: existingTx.transaction_id,
-          type: "data",
-          serviceID,
-          plan,
-          phone,
-          amount: Number(existingTx.amount),
-          status: existingTx.status.toLowerCase(),
-          balance: Number(existingTx.balance_after),
-        },
-      }
-    }
-
-    // Call GSUBZ API. Tolerate network failures via reconcile.
-    let response: any
-    let networkError: unknown = null
-    try {
-      response = await buyData({
-        serviceID,
-        plan,
-        phone,
-        requestID,
-      })
-    } catch (err) {
-      networkError = err
-      console.error("[v0] Data gsubz call failed, will reconcile:", err)
-    }
-
-    if (networkError || !response) {
-      const reco = await reconcileWithProvider(requestID)
-      if (reco.status === "success") {
-        response = reco.raw || { code: 200, status: "TRANSACTION_SUCCESSFUL", transactionID: requestID, amount }
-      } else if (reco.status === "failed") {
-        response = reco.raw || { code: 0, status: "FAILED", description: "Transaction failed" }
-      } else {
-        return {
-          success: false,
-          pending: true,
-          message:
-            "We couldn't confirm your data purchase yet. Please check your transaction history before retrying.",
-          transaction: {
-            id: requestID,
-            type: "data",
-            serviceID,
-            plan,
-            phone,
-            amount,
-            status: "pending",
-            balance: balanceBefore,
-          },
-        }
-      }
-    }
 
     // Use the client-provided amount (which includes markup) instead of API response amount
     const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)
@@ -168,9 +98,7 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
         response.description === "TRANSACTION_SUCCESSFUL")
 
     if (isSuccess) {
-      // Key on our deterministic requestID for replay-safety.
-      const transactionId = requestID
-      const providerTxnId = String(response.transactionID || requestID)
+      const transactionId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
       // This prevents race conditions when multiple requests hit simultaneously
@@ -239,9 +167,8 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
       }
     }
 
-    // Transaction failed - still save it, keyed on requestID for replay safety.
-    const failedTransactionId = requestID
-    const providerFailedId = String(response.transactionID || requestID)
+    // Transaction failed - still save it
+    const failedTransactionId = String(response.transactionID || requestID)
 
     await saveTransaction({
       userId,

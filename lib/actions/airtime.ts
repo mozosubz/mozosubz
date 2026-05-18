@@ -6,11 +6,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
-import {
-  deriveRequestID,
-  findExistingTransaction,
-  reconcileWithProvider,
-} from "@/lib/utils/idempotency"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -80,94 +75,17 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
     }
 
     const serviceID = serviceIdMap[network.toLowerCase()] || "mtn"
+    const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
-    // Derive a stable requestID for this purchase intent. A double-click,
-    // network retry, or laggy server action will collapse to the same key
-    // for ~30s, so the lookup below catches duplicates BEFORE we hit gsubz.
-    const clientRequestID = (formData.get("requestID") as string) || undefined
-    const requestID = await deriveRequestID({
-      userId,
-      category: "AIRTIME",
-      recipient: phone,
-      amount: userAmount,
-      plan: network.toLowerCase(),
-      clientRequestID,
-    })
-
-    // Replay protection: if we already have a transaction with this id,
-    // return its existing outcome instead of running the purchase again.
-    const existing = await findExistingTransaction(userId, requestID)
-    if (existing) {
-      return {
-        success: existing.status === "SUCCESS",
-        message:
-          existing.status === "SUCCESS"
-            ? "Airtime purchase successful"
-            : existing.status === "FAILED"
-              ? existing.description || "Transaction failed"
-              : "Transaction already in progress",
-        transaction: {
-          id: existing.transaction_id,
-          type: "airtime",
-          network,
-          phone,
-          amount: Number(existing.amount),
-          status: existing.status.toLowerCase(),
-          balance: Number(existing.balance_after),
-        },
-      }
-    }
-
-    // Call GSUBZ API. If the call throws (timeout, DNS, 5xx) we DO NOT
-    // assume failure — gsubz may have processed it. We reconcile via
-    // verifyTransaction(requestID) below.
+    // Call GSUBZ API
     const gsubzStartTime = Date.now()
-    let response: any
-    let networkError: unknown = null
-    try {
-      response = await buyAirtime({
-        serviceID,
-        phone,
-        amount: String(userAmount),
-        requestID,
-      })
-    } catch (err) {
-      networkError = err
-      console.error("[v0] Airtime gsubz call failed, will reconcile:", err)
-    }
+    const response = await buyAirtime({
+      serviceID,
+      phone,
+      amount: String(userAmount),
+      requestID,
+    })
     const gsubzTime = Date.now() - gsubzStartTime
-
-    // If the buy call failed, ask gsubz what really happened with this
-    // requestID before we surface anything to the user.
-    if (networkError || !response) {
-      const reco = await reconcileWithProvider(requestID)
-      if (reco.status === "success") {
-        // Provider succeeded — proceed with the success branch using the
-        // reconciled response.
-        response = reco.raw || { code: 200, status: "TRANSACTION_SUCCESSFUL", transactionID: requestID }
-      } else if (reco.status === "failed") {
-        // Authoritative failure — fall through to the failed-save path.
-        response = reco.raw || { code: 0, status: "FAILED", description: "Transaction failed" }
-      } else {
-        // Unknown — DO NOT debit, DO NOT mark failed. Tell the client to
-        // poll. saveTransaction is intentionally NOT called here.
-        return {
-          success: false,
-          pending: true,
-          message:
-            "We couldn't confirm your transaction yet. Please check your transaction history in a moment before retrying.",
-          transaction: {
-            id: requestID,
-            type: "airtime",
-            network,
-            phone,
-            amount: userAmount,
-            status: "pending",
-            balance: balanceBefore,
-          },
-        }
-      }
-    }
 
     // Determine success
     const isSuccess =
@@ -178,12 +96,7 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
         response.description === "TRANSACTION_SUCCESSFUL")
 
     if (isSuccess) {
-      // IMPORTANT: store the transaction under our deterministic requestID
-      // (not gsubz's transactionID) so a duplicate intent within the bucket
-      // window finds this row in findExistingTransaction(). The provider
-      // transactionID is preserved inside api_response for support lookups.
-      const transactionId = requestID
-      const providerTxnId = String(response.transactionID || requestID)
+      const transactionId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
       const deductStartTime = Date.now()
@@ -248,10 +161,8 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
       }
     }
 
-    // Transaction failed - still save it as FAILED, also keyed on requestID
-    // for replay-safety.
-    const failedTransactionId = requestID
-    const providerFailedId = String(response.transactionID || requestID)
+    // Transaction failed - still save it as FAILED
+    const failedTransactionId = String(response.transactionID || requestID)
 
     await saveTransaction({
       userId,
