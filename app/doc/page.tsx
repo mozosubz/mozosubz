@@ -4,7 +4,15 @@ import Link from "next/link"
 import { useState } from "react"
 import { Footer } from "@/components/footer"
 
+// Public base URL exposed in every example. The Next.js config rewrites
+// `api.mozosubz.xyz/v1/*` to the internal `/api/mozosubz/v1/*` handler, so
+// the following two URLs are equivalent and both work in production:
+//   https://api.mozosubz.xyz/v1/balance
+//   https://mozosubz.xyz/api/mozosubz/v1/balance
+// We advertise the short subdomain form below — see the "Base URL" callout
+// in the Introduction section for the alternate form.
 const API_BASE = "https://api.mozosubz.xyz"
+const API_BASE_ALT = "https://mozosubz.xyz/api/mozosubz"
 
 type Section = {
   id: string
@@ -226,6 +234,9 @@ export default function DocsPage() {
                     Base URL
                   </p>
                   <code className="text-[13px] font-mono text-slate-900">{API_BASE}</code>
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    Or equivalently <code className="font-mono">{API_BASE_ALT}</code>
+                  </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
@@ -249,6 +260,16 @@ export default function DocsPage() {
                 <li>All timestamps are ISO‑8601 in UTC.</li>
                 <li>Wallet, key and webhook actions stay on Mozosubz — you never call providers directly.</li>
               </ul>
+              <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+                <p className="text-[13px] font-semibold text-blue-900 mb-1">Two equivalent base URLs</p>
+                <p className="text-[13px] text-blue-900/90 leading-relaxed">
+                  Every example below uses <code className="font-mono">{API_BASE}/v1/…</code>. If your
+                  network blocks the <code className="font-mono">api.</code> subdomain or you&apos;re hitting
+                  a preview deployment without it, the same endpoints are reachable at{" "}
+                  <code className="font-mono">{API_BASE_ALT}/v1/…</code>. Both are served by the same
+                  handler — pick whichever resolves for you.
+                </p>
+              </div>
             </Section>
 
             {/* AUTHENTICATION */}

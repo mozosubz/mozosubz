@@ -9,67 +9,94 @@ const API_KEY = process.env.MONNIFY_API_KEY || ''
 const SECRET_KEY = process.env.MONNIFY_SECRET_KEY || ''
 const CONTRACT_CODE = process.env.MONNIFY_CONTRACT_CODE || ''
 
-/**
- * Get Monnify access token using Basic Auth
- * Per Monnify docs: Use API_KEY as username and SECRET_KEY as password
- */
-export async function getMonnifyAccessToken(): Promise<string | null> {
-  try {
-    // Validate credentials exist (never log credential values or prefixes)
-    if (!API_KEY || !SECRET_KEY) {
-      console.error('[MONNIFY] Missing API credentials', {
-        hasApiKey: !!API_KEY,
-        hasSecretKey: !!SECRET_KEY,
-        hasContractCode: !!CONTRACT_CODE,
-      })
-      return null
-    }
+// ---------------------------------------------------------------------------
+// In-memory access-token cache (per warm serverless instance).
+//
+// Monnify access tokens are valid for ~3600s. Previously every deposit hit
+// the auth endpoint TWICE (once inside initTransaction, once inside
+// initializePayment), adding ~300-800ms per deposit and burning auth quota
+// for no reason. We cache the token with a 60s safety margin and dedupe
+// concurrent cold-start callers behind a single in-flight promise so we
+// don't fan out N parallel auth requests when a batch of users hits a
+// freshly-warm function.
+// ---------------------------------------------------------------------------
+let cachedToken: { value: string; expiresAt: number } | null = null
+let inFlightAuth: Promise<string | null> | null = null
 
-    // Encode credentials in base64 format: API_KEY:SECRET_KEY
-    const credentials = Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString('base64')
-
-    console.log('[MONNIFY] Authenticating')
-
-    const response = await fetch(MONNIFY_AUTH_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}), // Empty body required by Monnify
+async function fetchMonnifyAccessTokenUncached(): Promise<string | null> {
+  if (!API_KEY || !SECRET_KEY) {
+    console.error('[MONNIFY] Missing API credentials', {
+      hasApiKey: !!API_KEY,
+      hasSecretKey: !!SECRET_KEY,
+      hasContractCode: !!CONTRACT_CODE,
     })
-
-    const responseText = await response.text()
-    console.log('[MONNIFY] Auth response status:', response.status)
-    
-    if (!response.ok) {
-      console.error('[MONNIFY] ❌ Auth failed:', {
-        status: response.status,
-        responseLength: responseText?.length || 0,
-        firstChars: responseText?.substring(0, 200) || 'empty',
-      })
-      return null
-    }
-
-    try {
-      const data = JSON.parse(responseText) as any
-      const token = data.responseBody?.accessToken
-      
-      if (!token) {
-        console.error('[MONNIFY] ❌ No access token in response:', data)
-        return null
-      }
-      
-      console.log('[MONNIFY] Auth successful')
-      return token
-    } catch (parseError) {
-      console.error('[MONNIFY] Failed to parse auth response:', parseError)
-      return null
-    }
-  } catch (error) {
-    console.error('[MONNIFY] Auth error:', error instanceof Error ? error.message : error)
     return null
   }
+
+  const credentials = Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString('base64')
+  console.log('[MONNIFY] Authenticating')
+
+  const response = await fetch(MONNIFY_AUTH_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${credentials}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  })
+
+  const responseText = await response.text()
+  if (!response.ok) {
+    console.error('[MONNIFY] Auth failed:', response.status)
+    return null
+  }
+
+  try {
+    const data = JSON.parse(responseText) as any
+    const token = data.responseBody?.accessToken
+    // Monnify returns expiresIn in seconds; default to 50 minutes if absent.
+    const expiresInSec = Number(data.responseBody?.expiresIn) || 3000
+    if (!token) {
+      console.error('[MONNIFY] No access token in response')
+      return null
+    }
+    cachedToken = {
+      value: token,
+      // Refresh 60s before real expiry to avoid edge-case rejections.
+      expiresAt: Date.now() + (expiresInSec - 60) * 1000,
+    }
+    console.log('[MONNIFY] Auth successful, cached for', expiresInSec - 60, 's')
+    return token
+  } catch (parseError) {
+    console.error('[MONNIFY] Failed to parse auth response:', parseError)
+    return null
+  }
+}
+
+/**
+ * Get Monnify access token using Basic Auth.
+ * Per Monnify docs: API_KEY as username, SECRET_KEY as password.
+ *
+ * Hot path: returns the cached token instantly (no network).
+ * Cold path: makes one auth request, dedupes concurrent callers.
+ */
+export async function getMonnifyAccessToken(): Promise<string | null> {
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.value
+  }
+  if (inFlightAuth) return inFlightAuth
+  inFlightAuth = (async () => {
+    try {
+      return await fetchMonnifyAccessTokenUncached()
+    } catch (err) {
+      console.error('[MONNIFY] Auth error:', err instanceof Error ? err.message : err)
+      cachedToken = null
+      return null
+    } finally {
+      inFlightAuth = null
+    }
+  })()
+  return inFlightAuth
 }
 
 

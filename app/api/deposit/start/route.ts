@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { initTransaction, initializePayment } from '@/lib/actions/monnify'
+import {
+  initTransaction,
+  initializePayment,
+  getMonnifyAccessToken,
+} from '@/lib/actions/monnify'
 import { createTransaction, updateTransactionWithMonnifyData } from '@/lib/actions/transactions'
 import { generatePaymentReference } from '@/lib/utils/payment-reference'
 import { getDepositRules } from '@/lib/actions/deposit-rules'
@@ -11,44 +15,38 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { amount, description } = body
 
-    if (!amount || parseFloat(amount) <= 0) {
+    const numAmount = parseFloat(String(amount))
+    if (!Number.isFinite(numAmount) || numAmount <= 0) {
       return NextResponse.json(
         { success: false, error: 'Valid amount is required' },
         { status: 400 }
       )
     }
 
-    // Calculate deposit fee based on current rules
-    const depositRules = await getDepositRules()
-    let processingFee = 50 // Default fallback
-    let netAmount = parseFloat(amount) - processingFee
+    console.log('[DEPOSIT_API] Creating deposit transaction')
 
-    if (depositRules) {
-      const feeCalc = calculateDepositFee(parseFloat(amount), depositRules)
-      processingFee = feeCalc.processingFee
-      netAmount = feeCalc.netAmount
-      console.log('[DEPOSIT_API] Fee calculated:', {
-        depositAmount: parseFloat(amount),
-        processingFee,
-        netAmount,
-      })
-    }
+    // Pre-warm the Monnify token while we do auth + DB lookups. The auth
+    // round-trip happens in parallel with the rest of the route, so by
+    // the time initTransaction needs the token it's already cached.
+    void getMonnifyAccessToken()
 
-    console.log('[DEPOSIT_API] Creating deposit transaction:', { amount, description })
-
-    // Get authenticated user from session
     const supabase = await createServerClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    // Auth + deposit rules in parallel.
+    const [{ data: { user }, error: userError }, depositRules] = await Promise.all([
+      supabase.auth.getUser(),
+      getDepositRules(),
+    ])
 
     if (userError || !user?.id) {
-      console.error('[DEPOSIT_API] User not authenticated:', userError)
+      console.error('[DEPOSIT_API] User not authenticated')
       return NextResponse.json(
         { success: false, error: 'User not authenticated' },
         { status: 401 }
       )
     }
 
-    // Get user profile to get email and name
+    // Profile lookup uses the now-known user id.
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('email, full_name')
@@ -63,27 +61,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique payment reference
-    const paymentReference = generatePaymentReference(user.id)
-    console.log('[DEPOSIT_API] Generated payment reference:', paymentReference)
+    // Calculate deposit fee.
+    let processingFee = 50
+    let netAmount = numAmount - processingFee
+    if (depositRules) {
+      const feeCalc = calculateDepositFee(numAmount, depositRules)
+      processingFee = feeCalc.processingFee
+      netAmount = feeCalc.netAmount
+    }
 
-    // Calculate expiry: 20 minutes from now
+    const paymentReference = generatePaymentReference(user.id)
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString()
 
-    // Step 1: Create transaction in monnify_transactions table
-    const createTxResult = await createTransaction(
-      paymentReference,
-      parseFloat(amount),
-      expiresAt,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      processingFee,
-      netAmount
-    )
+    // Create the local transaction row AND start the Monnify transaction
+    // in parallel — they're independent. createTransaction returns
+    // { success, error }, so we still get a clean failure signal without
+    // the extra "verify row exists" round-trip the old code was doing.
+    const [createTxResult, initTxResult] = await Promise.all([
+      createTransaction(
+        paymentReference,
+        numAmount,
+        expiresAt,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        processingFee,
+        netAmount
+      ),
+      initTransaction(
+        numAmount,
+        description || 'Wallet deposit',
+        paymentReference,
+        user.id,
+        profile.email,
+        profile.full_name || 'User'
+      ),
+    ])
 
     if (!createTxResult.success) {
       console.error('[DEPOSIT_API] Failed to create transaction:', createTxResult.error)
@@ -93,44 +109,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[DEPOSIT_API] Transaction created:', createTxResult.transactionId)
-
-    // FIX 1: Immediately verify the row exists right after creation
-    const { data: createdRow, error: createdRowError } = await supabase
-      .from('monnify_transactions')
-      .select('id, payment_reference, user_id, transaction_reference')
-      .eq('payment_reference', paymentReference)
-      .maybeSingle()
-
-    if (createdRowError || !createdRow) {
-      console.error('[DEPOSIT_API] ❌ Row not found right after create:', {
-        paymentReference,
-        createdRowError,
-      })
-      return NextResponse.json(
-        { success: false, error: 'Transaction row not found after create - DB insert failed' },
-        { status: 500 }
-      )
-    }
-
-    console.log('[DEPOSIT_API] ✅ Created row verified:', {
-      id: createdRow.id,
-      payment_reference: createdRow.payment_reference,
-      user_id: createdRow.user_id,
-      transaction_reference: createdRow.transaction_reference,
-    })
-
-    // Step 2: Initialize transaction with Monnify to get transactionReference
-    const initTxResult = await initTransaction(
-      parseFloat(amount),
-      description || `Wallet deposit`,
-      paymentReference,
-      user.id,
-      profile.email,
-      profile.full_name || 'User'
-    )
-
-    if (!initTxResult.success) {
+    if (!initTxResult.success || !initTxResult.transactionReference) {
       console.error('[DEPOSIT_API] Monnify init-transaction failed:', initTxResult.error)
       return NextResponse.json(
         { success: false, error: initTxResult.error || 'Failed to initialize payment' },
@@ -139,11 +118,10 @@ export async function POST(request: NextRequest) {
     }
 
     const monnifyTransactionRef = initTxResult.transactionReference
-    console.log('[DEPOSIT_API] Monnify transaction reference:', monnifyTransactionRef)
 
-    // Step 3: Initialize payment to get temporary account details
+    // init-payment depends on init-transaction's reference. Token is
+    // already cached on the warm path, so no extra auth round-trip.
     const initPayResult = await initializePayment(monnifyTransactionRef)
-
     if (!initPayResult.success) {
       console.error('[DEPOSIT_API] Monnify init-payment failed:', initPayResult.error)
       return NextResponse.json(
@@ -152,9 +130,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[DEPOSIT_API] Payment initialized successfully')
-
-    // Step 4: Update transaction with Monnify data
+    // Persist the Monnify details — must complete before we respond, the
+    // webhook needs these fields to credit the wallet.
     const updateResult = await updateTransactionWithMonnifyData(paymentReference, {
       transactionReference: monnifyTransactionRef,
       accountNumber: initPayResult.accountNumber,
@@ -172,16 +149,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-
-    console.log('[DEPOSIT_API] ✅ DB Updated with Monnify data:', {
-      paymentReference,
-      transactionReference: monnifyTransactionRef,
-      accountNumber: initPayResult.accountNumber,
-      bankName: initPayResult.bankName,
-      accountName: initPayResult.accountName,
-    })
-
-    console.log('[DEPOSIT_API] Transaction complete. Payment reference:', paymentReference)
 
     return NextResponse.json({
       success: true,

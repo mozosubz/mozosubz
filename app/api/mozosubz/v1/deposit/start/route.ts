@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v1AuthOrRespond } from '@/lib/middleware/v1-auth-helper'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { initTransaction, initializePayment } from '@/lib/actions/monnify'
 import {
-  createTransaction,
-  updateTransactionWithMonnifyData,
-} from '@/lib/actions/transactions'
+  initTransaction,
+  initializePayment,
+  getMonnifyAccessToken,
+} from '@/lib/actions/monnify'
+import { updateTransactionWithMonnifyData } from '@/lib/actions/transactions'
 import { generatePaymentReference } from '@/lib/utils/payment-reference'
 import { getDepositRules } from '@/lib/actions/deposit-rules'
 import { calculateDepositFee } from '@/lib/utils/deposit-fee'
@@ -33,15 +34,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Look up user profile via admin client (no Supabase session in v1).
     const admin = createAdminClient()
-    const { data: profile, error: profileError } = await admin
-      .from('profiles')
-      .select('email, full_name')
-      .eq('id', auth.userId)
-      .maybeSingle()
 
-    if (profileError || !profile?.email) {
+    // Pre-warm the Monnify token in parallel with everything else. The
+    // first call inside initTransaction will pick up the cached value
+    // once this resolves, removing one round-trip from the critical path.
+    void getMonnifyAccessToken()
+
+    // Profile lookup and deposit-rules lookup are independent — fetch
+    // them concurrently instead of sequentially.
+    const [profileRes, depositRules] = await Promise.all([
+      admin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', auth.userId)
+        .maybeSingle(),
+      getDepositRules(),
+    ])
+
+    const profile = profileRes.data
+    if (profileRes.error || !profile?.email) {
       console.error('[V1-DEPOSIT] Profile lookup failed')
       return NextResponse.json(
         { success: false, error: 'Failed to load user profile' },
@@ -50,7 +62,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate deposit fee.
-    const depositRules = await getDepositRules()
     let processingFee = 50
     let netAmount = numAmount - processingFee
     if (depositRules) {
@@ -61,23 +72,36 @@ export async function POST(request: NextRequest) {
 
     const paymentReference = generatePaymentReference(auth.userId)
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString()
+    const nowIso = new Date().toISOString()
 
-    // 1. Create the local transaction row using admin (no session cookies in v1).
-    const insertResult = await admin
-      .from('monnify_transactions')
-      .insert({
-        user_id: auth.userId,
-        payment_reference: paymentReference,
-        amount: numAmount,
-        status: 'PENDING',
-        expires_at: expiresAt,
-        processing_fee: processingFee,
-        net_amount: netAmount,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select('id')
-      .maybeSingle()
+    // The local DB insert and the Monnify init-transaction call are
+    // independent — neither needs the other's result. Run them in
+    // parallel to halve their combined wall time.
+    const [insertResult, initTxResult] = await Promise.all([
+      admin
+        .from('monnify_transactions')
+        .insert({
+          user_id: auth.userId,
+          payment_reference: paymentReference,
+          amount: numAmount,
+          status: 'PENDING',
+          expires_at: expiresAt,
+          processing_fee: processingFee,
+          net_amount: netAmount,
+          created_at: nowIso,
+          updated_at: nowIso,
+        })
+        .select('id')
+        .maybeSingle(),
+      initTransaction(
+        numAmount,
+        String(description || 'Wallet deposit'),
+        paymentReference,
+        auth.userId,
+        profile.email,
+        profile.full_name || 'User',
+      ),
+    ])
 
     if (insertResult.error || !insertResult.data) {
       console.error('[V1-DEPOSIT] Failed to create transaction row')
@@ -87,15 +111,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. Initialize the Monnify transaction.
-    const initTxResult = await initTransaction(
-      numAmount,
-      String(description || 'Wallet deposit'),
-      paymentReference,
-      auth.userId,
-      profile.email,
-      profile.full_name || 'User',
-    )
     if (!initTxResult.success || !initTxResult.transactionReference) {
       return NextResponse.json(
         { success: false, error: initTxResult.error || 'Failed to initialize payment' },
@@ -103,7 +118,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. Initialize the bank transfer payment.
+    // init-payment depends on init-transaction's reference, so this stays
+    // sequential. The token is already cached, so no auth round-trip.
     const initPayResult = await initializePayment(initTxResult.transactionReference)
     if (!initPayResult.success) {
       return NextResponse.json(
@@ -112,7 +128,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 4. Persist the Monnify details against our row.
+    // The webhook needs these fields to credit the wallet, so we must
+    // await the update before responding.
     const updateResult = await updateTransactionWithMonnifyData(paymentReference, {
       transactionReference: initTxResult.transactionReference,
       accountNumber: initPayResult.accountNumber,
