@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
+import {
+  deriveRequestID,
+  findExistingTransaction,
+  reconcileWithProvider,
+} from "@/lib/utils/idempotency"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -63,7 +68,14 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     }
 
     const serviceID = serviceIdMap[disco] || "ikeja-electric"
-    const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
+    const requestID = await deriveRequestID({
+      userId,
+      category: "ELECTRICITY",
+      recipient: meterNumber,
+      amount: Number(amount),
+      plan: `${serviceID}:${meterType}`,
+      clientRequestID: (formData.get("requestID") as string) || undefined,
+    })
     const purchaseAmount = Number(amount)
     const balanceBefore = Number(profile.wallet_balance)
 
@@ -72,15 +84,72 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       return { success: false, message: "Insufficient wallet balance" }
     }
 
-    // Call GSUBZ API
-    const response = await buyElectricityToken({
-      serviceID,
-      phone,
-      customerID: meterNumber,
-      amount,
-      variation_code: meterType,
-      requestID,
-    })
+    // Replay protection.
+    const existingElec = await findExistingTransaction(userId, requestID)
+    if (existingElec) {
+      return {
+        success: existingElec.status === "SUCCESS",
+        message:
+          existingElec.status === "SUCCESS"
+            ? "Electricity payment successful"
+            : existingElec.status === "FAILED"
+              ? existingElec.description || "Transaction failed"
+              : "Transaction already in progress",
+        transaction: {
+          id: existingElec.transaction_id,
+          type: "electricity",
+          disco,
+          meterType,
+          meterNumber,
+          amount: Number(existingElec.amount),
+          status: existingElec.status.toLowerCase(),
+          balance: Number(existingElec.balance_after),
+        },
+      }
+    }
+
+    // Call GSUBZ API with reconcile-on-error.
+    let response: any
+    let elecNetworkError: unknown = null
+    try {
+      response = await buyElectricityToken({
+        serviceID,
+        phone,
+        customerID: meterNumber,
+        amount,
+        variation_code: meterType,
+        requestID,
+      })
+    } catch (err) {
+      elecNetworkError = err
+      console.error("[v0] Electricity gsubz call failed, will reconcile:", err)
+    }
+
+    if (elecNetworkError || !response) {
+      const reco = await reconcileWithProvider(requestID)
+      if (reco.status === "success") {
+        response = reco.raw || { code: 200, status: "TRANSACTION_SUCCESSFUL", transactionID: requestID }
+      } else if (reco.status === "failed") {
+        response = reco.raw || { code: 0, status: "FAILED", description: "Transaction failed" }
+      } else {
+        return {
+          success: false,
+          pending: true,
+          message:
+            "We couldn't confirm your electricity payment yet. Please check your transaction history before retrying.",
+          transaction: {
+            id: requestID,
+            type: "electricity",
+            disco,
+            meterType,
+            meterNumber,
+            amount: purchaseAmount,
+            status: "pending",
+            balance: balanceBefore,
+          },
+        }
+      }
+    }
 
     // Determine success
     const isSuccess =
@@ -91,7 +160,8 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
         response.description === "TRANSACTION_SUCCESSFUL")
 
     if (isSuccess) {
-      const transactionId = String(response.transactionID || requestID)
+      const transactionId = requestID
+      const providerTxnId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
       const deductResult = await atomicDeductWallet(userId, purchaseAmount)
@@ -158,7 +228,8 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     }
 
     // Transaction failed
-    const failedTransactionId = String(response.transactionID || requestID)
+    const failedTransactionId = requestID
+    const providerFailedId = String(response.transactionID || requestID)
 
     await saveTransaction({
       userId,
