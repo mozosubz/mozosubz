@@ -18,6 +18,7 @@ export interface TransactionEmailData {
   amount: number
   status: TxStatus
   transactionId: string
+  reference: string
   paymentMethod: string // e.g. "Wallet", "Bank Transfer"
   createdAt?: Date | string
   actionUrl: string
@@ -146,6 +147,7 @@ export function transactionEmail(data: TransactionEmailData): { subject: string;
           <tr>
             <td>
               <table width="100%" cellpadding="0" cellspacing="0">
+                ${row("Reference", data.reference, false, true)}
                 ${row("Transaction ID", data.transactionId, true, true)}
               </table>
             </td>

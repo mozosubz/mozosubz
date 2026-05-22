@@ -4,6 +4,8 @@ import { buyElectricityToken } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
+import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
+import { revalidatePath } from "next/cache"
 
 /**
  * Pay for electricity.
@@ -120,7 +122,20 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
         apiResponse: response,
       })
 
-      // Email is sent automatically by saveTransaction()
+      // Send transaction email (fire-and-forget - don't await)
+      sendTransactionEmail({
+        userId,
+        category: "ELECTRICITY",
+        serviceName: `${disco} Electricity`,
+        amount: purchaseAmount,
+        status: "SUCCESS",
+        transactionId,
+        paymentMethod: "Wallet",
+        extras: [
+          { label: "Meter Type", value: meterType },
+          { label: "Meter Number", value: meterNumber },
+        ],
+      }).catch((err) => console.error("[v0] Email send failed:", err))
 
       // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")
@@ -160,7 +175,22 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       apiResponse: response,
     })
 
-    // Email is sent automatically by saveTransaction()
+    // Send failure email
+    await sendTransactionEmail({
+      userId,
+      category: "ELECTRICITY",
+      serviceName: "Electricity",
+      amount: purchaseAmount,
+      status: "FAILED",
+      transactionId: failedTransactionId,
+      extras: [
+        { label: "Provider", value: disco },
+        { label: "Meter Type", value: meterType },
+        { label: "Meter Number", value: meterNumber },
+        { label: "Status", value: "Failed" },
+        { label: "Reason", value: response.description || "Transaction could not be processed" },
+      ],
+    })
 
     return {
       success: false,

@@ -93,6 +93,7 @@ export async function sendTransactionEmail(input: Input): Promise<void> {
     amount: input.amount,
     status: input.status,
     transactionId: input.transactionId,
+    reference: input.transactionId,
     paymentMethod: input.paymentMethod || (input.category === "WALLET_FUND" ? "Bank Transfer" : "Wallet"),
     createdAt: new Date(),
     actionUrl: buildActionUrl(base, input),
