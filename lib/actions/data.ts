@@ -4,7 +4,6 @@ import { buyData, getDataPlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
-import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { revalidatePath } from "next/cache"
 
@@ -133,20 +132,7 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
         planDetails: planDisplayName,
       })
 
-      // Send transaction email (fire-and-forget - don't await)
-      sendTransactionEmail({
-        userId,
-        category: "DATA",
-        serviceName: `${networkName} Data`,
-        amount: userAmount,
-        status: "SUCCESS",
-        transactionId,
-        paymentMethod: "Wallet",
-        extras: [
-          { label: "Phone", value: phone },
-          { label: "Plan", value: planDisplayName || plan },
-        ],
-      }).catch((err) => console.error("[v0] Email send failed:", err))
+      // Email is sent automatically by saveTransaction()
 
       // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")
@@ -188,21 +174,7 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
       planDetails: planDisplayName,
     })
 
-    // Send failure email
-    await sendTransactionEmail({
-      userId,
-      category: "DATA",
-      serviceName: `${networkName} Data`,
-      amount: userAmount,
-      status: "FAILED",
-      transactionId: failedTransactionId,
-      extras: [
-        { label: "Phone", value: phone },
-        { label: "Plan", value: plan },
-        { label: "Status", value: "Failed" },
-        { label: "Reason", value: response.description || "Transaction could not be processed" },
-      ],
-    })
+    // Email is sent automatically by saveTransaction()
 
     return {
       success: false,
