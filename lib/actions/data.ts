@@ -114,6 +114,7 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
       const balanceAfter = deductResult.newBalance!
 
       // Save transaction
+      const saveStartTime = Date.now()
       await saveTransaction({
         userId,
         transactionId,
@@ -131,6 +132,7 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
         apiResponse: response,
         planDetails: planDisplayName,
       })
+      const saveTime = Date.now() - saveStartTime
 
       // Email is sent automatically by saveTransaction()
 
