@@ -98,7 +98,14 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
         .eq('is_active', true)
 
       purchases.forEach((purchase) => {
-        const pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
+        // Try exact match first
+        let pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
+        
+        // If no exact match, try matching by service prefix (e.g., "mtn" from "mtn_sme")
+        if (!pricingRule && purchase.service_id) {
+          const servicePrefix = purchase.service_id.split('_')[0].toLowerCase()
+          pricingRule = pricingRules?.find(rule => rule.service_id.toLowerCase().includes(servicePrefix))
+        }
         
         if (pricingRule && pricingRule.markup_value > 0) {
           let markup = 0
@@ -167,6 +174,73 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
       if (deposit.amount >= thresholdAmount) {
         fee = baseFee + (deposit.amount * percentageFee) / 100
       }
+
+      activity.push({
+        id: `deposit-${deposit.id}`,
+        type: 'deposit_fee',
+        amount: fee,
+        user_id: deposit.user_id,
+        description: `Deposit fee on ₦${deposit.amount.toLocaleString()}`,
+        date: new Date(deposit.created_at).toISOString(),
+        transactionId: deposit.id,
+      })
+    })
+
+    // Get recent service purchases that may have markups
+    const { data: purchases } = await supabase
+      .from('transactions')
+      .select('id, user_id, amount, category, status, created_at, service_id')
+      .in('category', ['AIRTIME', 'DATA', 'CABLE', 'ELECTRICITY'])
+      .eq('status', 'SUCCESS')
+      .order('created_at', { ascending: false })
+      .limit(limit / 2)
+
+    if (purchases && purchases.length > 0) {
+      // Get ALL active pricing rules once
+      const { data: pricingRules } = await supabase
+        .from('pricing_rules')
+        .select('service_id, markup_type, markup_value')
+        .eq('is_active', true)
+
+      purchases.forEach((purchase) => {
+        // Try to find a matching pricing rule by service_id
+        let pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
+        
+        // If no exact match, try matching by category prefix (e.g., "mtn" from "mtn_sme")
+        if (!pricingRule && purchase.service_id) {
+          const servicePrefix = purchase.service_id.split('_')[0].toLowerCase()
+          pricingRule = pricingRules?.find(rule => rule.service_id.toLowerCase().includes(servicePrefix))
+        }
+
+        if (pricingRule && pricingRule.markup_value > 0) {
+          let markup = 0
+          if (pricingRule.markup_type === 'fixed') {
+            markup = pricingRule.markup_value
+          } else if (pricingRule.markup_type === 'percentage') {
+            markup = purchase.amount * (pricingRule.markup_value / 100)
+          }
+
+          if (markup > 0) {
+            activity.push({
+              id: `markup-${purchase.id}`,
+              type: 'markup',
+              amount: markup,
+              user_id: purchase.user_id,
+              description: `${purchase.category} markup on ₦${purchase.amount.toLocaleString()}`,
+              date: new Date(purchase.created_at).toISOString(),
+              transactionId: purchase.id,
+            })
+          }
+        }
+      })
+    }
+
+    return activity.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit)
+  } catch (error) {
+    console.error('[v0] Error fetching revenue activity:', error)
+    return null
+  }
+}
 
       activity.push({
         id: `deposit-${deposit.id}`,
