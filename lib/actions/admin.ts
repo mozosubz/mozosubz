@@ -16,13 +16,14 @@ export async function getUsers(page: number = 1, limit: number = 10, searchTerm?
       .from('profiles')
       .select('id, full_name, email, phone_number, username, wallet_balance, is_admin, created_at')
 
-    // Add search filters if searchTerm is provided
-    if (searchTerm) {
-      const lowerSearchTerm = searchTerm.toLowerCase()
+    // Add search filters only if searchTerm exists and is not empty after trimming
+    const trimmedSearch = searchTerm?.trim()
+    if (trimmedSearch && trimmedSearch.length > 0) {
+      const lowerSearchTerm = trimmedSearch.toLowerCase()
       // Search across text fields only (username, full_name, email, phone_number)
       // Note: id is UUID type and cannot use ilike operator
       query = query.or(
-        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
+        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${trimmedSearch}%`
       )
     }
 
@@ -35,10 +36,10 @@ export async function getUsers(page: number = 1, limit: number = 10, searchTerm?
       .from('profiles')
       .select('id', { count: 'exact', head: true })
 
-    if (searchTerm) {
-      const lowerSearchTerm = searchTerm.toLowerCase()
+    if (trimmedSearch && trimmedSearch.length > 0) {
+      const lowerSearchTerm = trimmedSearch.toLowerCase()
       countQuery = countQuery.or(
-        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
+        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${trimmedSearch}%`
       )
     }
 
@@ -51,7 +52,7 @@ export async function getUsers(page: number = 1, limit: number = 10, searchTerm?
 
     const totalPages = Math.ceil((count || 0) / limit)
 
-    console.log('[v0] getUsers - Real data:', { totalCount: count, usersReturned: users?.length, page, totalPages, searchTerm })
+    console.log('[v0] getUsers - Real data:', { totalCount: count, usersReturned: users?.length, page, totalPages, searchTerm: trimmedSearch })
 
     return { users: users || [], count: count || 0, error: null, totalPages }
   } catch (err) {
