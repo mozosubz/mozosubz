@@ -14,7 +14,7 @@ export async function getUsers(page: number = 1, limit: number = 10) {
 
     const { data: users, error: usersError } = await supabase
       .from('profiles')
-      .select('id, full_name, email, phone_number, wallet_balance, is_admin, created_at')
+      .select('id, full_name, email, phone_number, username, wallet_balance, is_admin, created_at')
       .range(offset, offset + limit - 1)
       .order('created_at', { ascending: false })
 

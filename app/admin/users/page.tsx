@@ -19,10 +19,13 @@ export default function UsersPage() {
       if (!result.error) {
         let filtered = result.users
         if (searchTerm) {
+          const lowerSearchTerm = searchTerm.toLowerCase()
           filtered = result.users.filter(
             (user) =>
-              user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              user.id?.toLowerCase().includes(lowerSearchTerm) ||
+              user.username?.toLowerCase().includes(lowerSearchTerm) ||
+              user.full_name?.toLowerCase().includes(lowerSearchTerm) ||
+              user.email?.toLowerCase().includes(lowerSearchTerm) ||
               user.phone_number?.includes(searchTerm)
           )
         }
@@ -50,7 +53,7 @@ export default function UsersPage() {
           <Search size={18} />
           <input
             type="text"
-            placeholder="Search by name, email, or phone..."
+            placeholder="Search by name, username, email, phone, or user ID..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
