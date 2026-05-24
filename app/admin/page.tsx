@@ -28,7 +28,7 @@ export default async function AdminDashboard() {
         .select('id, category, amount, status, created_at')
         .order('created_at', { ascending: false }),
       getRevenueData('all'),
-      getRevenueActivity(20),
+      getRevenueActivity(1000),
     ])
 
     const { data: allProfiles } = profilesRes
