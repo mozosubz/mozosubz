@@ -97,16 +97,15 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
         .select('service_id, markup_type, markup_value')
         .eq('is_active', true)
 
-      console.log('[v0] Debug - pricingRules:', pricingRules?.map(r => ({ service_id: r.service_id, markup_value: r.markup_value })))
-
       purchases.forEach((purchase) => {
-        console.log('[v0] Debug - checking purchase:', { category: purchase.category, service_id: purchase.service_id })
+        // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
+        const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
         
-        // Only process if there's a matching pricing rule with markup_value > 0
+        // Find pricing rule matching the network prefix
         const pricingRule = pricingRules?.find(rule => 
           rule.service_id && 
-          purchase.service_id &&
-          rule.service_id.toLowerCase() === purchase.service_id.toLowerCase() &&
+          networkPrefix &&
+          rule.service_id.toLowerCase() === networkPrefix &&
           rule.markup_value > 0
         )
         
@@ -117,7 +116,6 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
           } else if (pricingRule.markup_type === 'percentage') {
             markup = purchase.amount * (pricingRule.markup_value / 100)
           }
-          console.log('[v0] Debug - markup calculated:', { service_id: purchase.service_id, markup })
           markupRevenue += markup
         }
       })
@@ -206,16 +204,15 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
         .select('service_id, markup_type, markup_value')
         .eq('is_active', true)
 
-      console.log('[v0] Activity - pricingRules:', pricingRules?.map(r => ({ service_id: r.service_id, markup_value: r.markup_value })))
-
       purchases.forEach((purchase) => {
-        console.log('[v0] Activity - checking purchase:', { category: purchase.category, service_id: purchase.service_id })
+        // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
+        const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
         
-        // Only add markup if there's an EXACT matching pricing rule with markup_value > 0
+        // Only add markup if pricing rule matches the network prefix with markup_value > 0
         const pricingRule = pricingRules?.find(rule => 
           rule.service_id && 
-          purchase.service_id &&
-          rule.service_id.toLowerCase() === purchase.service_id.toLowerCase() &&
+          networkPrefix &&
+          rule.service_id.toLowerCase() === networkPrefix &&
           rule.markup_value > 0
         )
 
@@ -228,7 +225,6 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
           }
 
           if (markup > 0) {
-            console.log('[v0] Activity - adding markup:', { service_id: purchase.service_id, markup })
             activity.push({
               id: `markup-${purchase.id}`,
               type: 'markup',
