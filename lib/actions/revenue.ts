@@ -101,6 +101,15 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
         // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
         const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
         
+        console.log('[v0] Revenue - Checking purchase:', {
+          category: purchase.category,
+          amount: purchase.amount,
+          service_id: purchase.service_id,
+          networkPrefix,
+          plan_details: purchase.plan_details,
+          hasMatchingRules: pricingRules?.filter(r => r.service_id.toLowerCase() === networkPrefix).map(r => ({ plan_name: r.plan_name, markup_value: r.markup_value }))
+        })
+        
         // Find pricing rule matching network prefix AND plan name
         const pricingRule = pricingRules?.find(rule => 
           rule.service_id && 
@@ -113,6 +122,7 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
         )
         
         if (pricingRule) {
+          console.log('[v0] Revenue - MATCHED RULE:', { plan_name: pricingRule.plan_name, markup_value: pricingRule.markup_value })
           let markup = 0
           if (pricingRule.markup_type === 'fixed') {
             markup = pricingRule.markup_value
@@ -120,6 +130,8 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
             markup = purchase.amount * (pricingRule.markup_value / 100)
           }
           markupRevenue += markup
+        } else {
+          console.log('[v0] Revenue - NO MATCH for this purchase')
         }
       })
     }
@@ -211,6 +223,16 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
         // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
         const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
         
+        console.log('[v0] Activity - Checking purchase:', {
+          id: purchase.id,
+          category: purchase.category,
+          amount: purchase.amount,
+          service_id: purchase.service_id,
+          networkPrefix,
+          plan_details: purchase.plan_details,
+          hasMatchingRules: pricingRules?.filter(r => r.service_id.toLowerCase() === networkPrefix).map(r => ({ plan_name: r.plan_name, markup_value: r.markup_value }))
+        })
+        
         // Find pricing rule matching network prefix AND plan name
         const pricingRule = pricingRules?.find(rule => 
           rule.service_id && 
@@ -223,6 +245,7 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
         )
 
         if (pricingRule) {
+          console.log('[v0] Activity - MATCHED RULE:', { plan_name: pricingRule.plan_name, markup_value: pricingRule.markup_value })
           let markup = 0
           if (pricingRule.markup_type === 'fixed') {
             markup = pricingRule.markup_value
@@ -241,6 +264,8 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
               transactionId: purchase.id,
             })
           }
+        } else {
+          console.log('[v0] Activity - NO MATCH for this purchase')
         }
       })
     }
