@@ -60,12 +60,14 @@ export function ProviderBalance() {
         </div>
       </div>
       
-      {loading && !balance ? (
-        <div className="stat-value text-gray-400">Loading...</div>
-      ) : error ? (
+      {error ? (
         <div className="stat-value text-red-500 text-sm">{error}</div>
-      ) : (
+      ) : loading ? (
+        <div className="stat-value text-gray-400">Loading...</div>
+      ) : balance ? (
         <div className="stat-value">{balance}</div>
+      ) : (
+        <div className="stat-value text-gray-400">—</div>
       )}
       
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
