@@ -88,13 +88,28 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
       depositFeeRevenue += fee
     })
 
-    // For markup revenue, we'd need to fetch pricing rules and calculate the difference
-    // This is a simplified version - markup would be stored in transactions or calculated from pricing_rules
+    // For markup revenue, only count purchases with active pricing rules that have markup
     let markupRevenue = 0
     if (purchases && purchases.length > 0) {
-      // Simplified: assume 10% average markup for now
-      // In production, this should join with pricing_rules table
-      markupRevenue = purchases.reduce((sum, p) => sum + (p.amount * 0.1), 0)
+      // Get all active pricing rules
+      const { data: pricingRules } = await supabase
+        .from('pricing_rules')
+        .select('service_id, markup_type, markup_value')
+        .eq('is_active', true)
+
+      purchases.forEach((purchase) => {
+        const pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
+        
+        if (pricingRule && pricingRule.markup_value > 0) {
+          let markup = 0
+          if (pricingRule.markup_type === 'fixed') {
+            markup = pricingRule.markup_value
+          } else if (pricingRule.markup_type === 'percentage') {
+            markup = purchase.amount * (pricingRule.markup_value / 100)
+          }
+          markupRevenue += markup
+        }
+      })
     }
 
     const totalRevenue = depositFeeRevenue + markupRevenue
@@ -164,27 +179,45 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
       })
     })
 
-    // Get recent purchases (markup revenue)
+    // Get recent purchases with pricing rules (markup revenue)
     const { data: purchases } = await supabase
       .from('transactions')
-      .select('id, user_id, amount, category, status, created_at')
-      .in('category', ['AIRTIME', 'DATA', 'CABLE'])
+      .select('id, user_id, amount, category, status, created_at, service_id')
+      .in('category', ['AIRTIME', 'DATA', 'CABLE', 'ELECTRICITY'])
       .eq('status', 'SUCCESS')
       .order('created_at', { ascending: false })
       .limit(limit / 2)
 
+    // Get all active pricing rules to check for markups
+    const { data: pricingRules } = await supabase
+      .from('pricing_rules')
+      .select('service_id, markup_type, markup_value')
+      .eq('is_active', true)
+
     purchases?.forEach((purchase) => {
-      const markup = purchase.amount * 0.1 // Simplified 10% markup
+      // Only add markup if a pricing rule with markup exists for this service
+      const pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
       
-      activity.push({
-        id: `markup-${purchase.id}`,
-        type: 'markup',
-        amount: markup,
-        user_id: purchase.user_id,
-        description: `${purchase.category} markup on ₦${purchase.amount.toLocaleString()}`,
-        date: new Date(purchase.created_at).toISOString(),
-        transactionId: purchase.id,
-      })
+      if (pricingRule && pricingRule.markup_value > 0) {
+        let markup = 0
+        if (pricingRule.markup_type === 'fixed') {
+          markup = pricingRule.markup_value
+        } else if (pricingRule.markup_type === 'percentage') {
+          markup = purchase.amount * (pricingRule.markup_value / 100)
+        }
+
+        if (markup > 0) {
+          activity.push({
+            id: `markup-${purchase.id}`,
+            type: 'markup',
+            amount: markup,
+            user_id: purchase.user_id,
+            description: `${purchase.category} markup on ₦${purchase.amount.toLocaleString()}`,
+            date: new Date(purchase.created_at).toISOString(),
+            transactionId: purchase.id,
+          })
+        }
+      }
     })
 
     return activity.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit)

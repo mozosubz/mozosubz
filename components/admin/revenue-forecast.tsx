@@ -13,83 +13,92 @@ interface Transaction {
 
 export function RevenueForecast({ transactions = [] }: { transactions: Transaction[] }) {
   const forecastData = useMemo(() => {
-    // Get last 14 days
-    const last14Days = Array.from({ length: 14 }, (_, i) => {
-      const date = new Date()
-      date.setDate(date.getDate() - (13 - i))
-      return date.toISOString().split('T')[0]
-    })
+    try {
+      // Get last 14 days
+      const last14Days = Array.from({ length: 14 }, (_, i) => {
+        const date = new Date()
+        date.setDate(date.getDate() - (13 - i))
+        return date.toISOString().split('T')[0]
+      })
 
-    const dailyRevenue: Record<string, number> = {}
+      const dailyRevenue: Record<string, number> = {}
 
-    last14Days.forEach((date) => {
-      dailyRevenue[date] = 0
-    })
+      last14Days.forEach((date) => {
+        dailyRevenue[date] = 0
+      })
 
-    transactions.forEach((tx) => {
-      if (tx.status === 'SUCCESS') {
-        const txDate = tx.created_at?.split('T')[0]
-        if (dailyRevenue.hasOwnProperty(txDate)) {
-          if (tx.category === 'WALLET_FUND') {
-            dailyRevenue[txDate] += 50
-          } else {
-            dailyRevenue[txDate] += tx.amount * 0.1
+      transactions.forEach((tx) => {
+        if (tx.status === 'SUCCESS') {
+          const txDate = tx.created_at?.split('T')[0]
+          if (dailyRevenue.hasOwnProperty(txDate)) {
+            if (tx.category === 'WALLET_FUND') {
+              dailyRevenue[txDate] += 50
+            } else {
+              dailyRevenue[txDate] += tx.amount * 0.1
+            }
           }
         }
-      }
-    })
-
-    type ChartPoint = { date: string; actual: number | null; forecast?: number }
-    const chartData: ChartPoint[] = last14Days.map((date) => ({
-      date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      actual: dailyRevenue[date],
-    }))
-
-    // Calculate simple forecast (using average trend)
-    const avgRevenue = Object.values(dailyRevenue).reduce((a, b) => a + b, 0) / 14
-    const trend = (Object.values(dailyRevenue)[13] - Object.values(dailyRevenue)[0]) / 14
-
-    // Add forecast for next 7 days
-    for (let i = 1; i <= 7; i++) {
-      const futureDate = new Date()
-      futureDate.setDate(futureDate.getDate() + i)
-      const forecastValue = Math.max(0, avgRevenue + trend * i)
-
-      chartData.push({
-        date: futureDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        forecast: Math.round(forecastValue),
-        actual: null,
       })
-    }
 
-    return { chartData, avgRevenue, trend }
+      type ChartPoint = { date: string; actual: number | null; forecast?: number }
+      const chartData: ChartPoint[] = last14Days.map((date) => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        actual: dailyRevenue[date],
+      }))
+
+      // Calculate simple forecast (using average trend)
+      const avgRevenue = Object.values(dailyRevenue).reduce((a, b) => a + b, 0) / 14
+      const trend = (Object.values(dailyRevenue)[13] - Object.values(dailyRevenue)[0]) / 14
+
+      // Add forecast for next 7 days
+      for (let i = 1; i <= 7; i++) {
+        const futureDate = new Date()
+        futureDate.setDate(futureDate.getDate() + i)
+        const forecastValue = Math.max(0, avgRevenue + trend * i)
+
+        chartData.push({
+          date: futureDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          forecast: Math.round(forecastValue),
+          actual: null,
+        })
+      }
+
+      return { chartData, avgRevenue, trend }
+    } catch (error) {
+      console.error('[v0] Error calculating forecast:', error)
+      return { chartData: [], avgRevenue: 0, trend: 0 }
+    }
   }, [transactions])
 
   const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload
-      return (
-        <div style={{
-          background: 'var(--admin-bg-secondary)',
-          border: '1px solid var(--admin-border)',
-          borderRadius: '8px',
-          padding: '12px',
-          color: 'var(--admin-text)',
-          fontSize: '12px',
-        }}>
-          <p style={{ margin: 0, fontWeight: '600' }}>{data.date}</p>
-          {data.actual !== null && (
-            <p style={{ margin: '4px 0 0 0', color: 'var(--admin-secondary)' }}>
-              Actual: ₦{Math.round(data.actual).toLocaleString()}
-            </p>
-          )}
-          {data.forecast !== null && (
-            <p style={{ margin: '4px 0 0 0', color: 'var(--admin-success)', opacity: 0.7 }}>
-              Forecast: ₦{data.forecast.toLocaleString()}
-            </p>
-          )}
-        </div>
-      )
+    try {
+      if (active && payload && payload.length) {
+        const data = payload[0].payload
+        return (
+          <div style={{
+            background: 'var(--admin-bg-secondary)',
+            border: '1px solid var(--admin-border)',
+            borderRadius: '8px',
+            padding: '12px',
+            color: 'var(--admin-text)',
+            fontSize: '12px',
+          }}>
+            <p style={{ margin: 0, fontWeight: '600' }}>{data.date}</p>
+            {data.actual !== null && (
+              <p style={{ margin: '4px 0 0 0', color: 'var(--admin-secondary)' }}>
+                Actual: ₦{Math.round(data.actual).toLocaleString()}
+              </p>
+            )}
+            {data.forecast !== null && (
+              <p style={{ margin: '4px 0 0 0', color: 'var(--admin-success)', opacity: 0.7 }}>
+                Forecast: ₦{data.forecast.toLocaleString()}
+              </p>
+            )}
+          </div>
+        )
+      }
+    } catch (error) {
+      console.error('[v0] Tooltip error:', error)
     }
     return null
   }
