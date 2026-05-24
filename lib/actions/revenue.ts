@@ -62,8 +62,8 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
     // Fetch all data/airtime/cable purchases (these generate markups)
     const { data: purchases } = await supabase
       .from('transactions')
-      .select('id, amount, status, created_at')
-      .in('category', ['AIRTIME', 'DATA', 'CABLE'])
+      .select('id, amount, status, created_at, category, service_id')
+      .in('category', ['DATA', 'CABLE'])
       .eq('status', 'SUCCESS')
       .gte('created_at', startDate.toISOString())
 
@@ -97,23 +97,27 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
         .select('service_id, markup_type, markup_value')
         .eq('is_active', true)
 
+      console.log('[v0] Debug - pricingRules:', pricingRules?.map(r => ({ service_id: r.service_id, markup_value: r.markup_value })))
+
       purchases.forEach((purchase) => {
-        // Try exact match first
-        let pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
+        console.log('[v0] Debug - checking purchase:', { category: purchase.category, service_id: purchase.service_id })
         
-        // If no exact match, try matching by service prefix (e.g., "mtn" from "mtn_sme")
-        if (!pricingRule && purchase.service_id) {
-          const servicePrefix = purchase.service_id.split('_')[0].toLowerCase()
-          pricingRule = pricingRules?.find(rule => rule.service_id.toLowerCase().includes(servicePrefix))
-        }
+        // Only process if there's a matching pricing rule with markup_value > 0
+        const pricingRule = pricingRules?.find(rule => 
+          rule.service_id && 
+          purchase.service_id &&
+          rule.service_id.toLowerCase() === purchase.service_id.toLowerCase() &&
+          rule.markup_value > 0
+        )
         
-        if (pricingRule && pricingRule.markup_value > 0) {
+        if (pricingRule) {
           let markup = 0
           if (pricingRule.markup_type === 'fixed') {
             markup = pricingRule.markup_value
           } else if (pricingRule.markup_type === 'percentage') {
             markup = purchase.amount * (pricingRule.markup_value / 100)
           }
+          console.log('[v0] Debug - markup calculated:', { service_id: purchase.service_id, markup })
           markupRevenue += markup
         }
       })
@@ -186,11 +190,11 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
       })
     })
 
-    // Get recent service purchases that may have markups
+    // Get recent service purchases that may have markups (DATA and CABLE only - no AIRTIME)
     const { data: purchases } = await supabase
       .from('transactions')
       .select('id, user_id, amount, category, status, created_at, service_id')
-      .in('category', ['AIRTIME', 'DATA', 'CABLE', 'ELECTRICITY'])
+      .in('category', ['DATA', 'CABLE'])
       .eq('status', 'SUCCESS')
       .order('created_at', { ascending: false })
       .limit(limit / 2)
@@ -202,17 +206,20 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
         .select('service_id, markup_type, markup_value')
         .eq('is_active', true)
 
-      purchases.forEach((purchase) => {
-        // Try to find a matching pricing rule by service_id
-        let pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
-        
-        // If no exact match, try matching by category prefix (e.g., "mtn" from "mtn_sme")
-        if (!pricingRule && purchase.service_id) {
-          const servicePrefix = purchase.service_id.split('_')[0].toLowerCase()
-          pricingRule = pricingRules?.find(rule => rule.service_id.toLowerCase().includes(servicePrefix))
-        }
+      console.log('[v0] Activity - pricingRules:', pricingRules?.map(r => ({ service_id: r.service_id, markup_value: r.markup_value })))
 
-        if (pricingRule && pricingRule.markup_value > 0) {
+      purchases.forEach((purchase) => {
+        console.log('[v0] Activity - checking purchase:', { category: purchase.category, service_id: purchase.service_id })
+        
+        // Only add markup if there's an EXACT matching pricing rule with markup_value > 0
+        const pricingRule = pricingRules?.find(rule => 
+          rule.service_id && 
+          purchase.service_id &&
+          rule.service_id.toLowerCase() === purchase.service_id.toLowerCase() &&
+          rule.markup_value > 0
+        )
+
+        if (pricingRule) {
           let markup = 0
           if (pricingRule.markup_type === 'fixed') {
             markup = pricingRule.markup_value
@@ -221,6 +228,7 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
           }
 
           if (markup > 0) {
+            console.log('[v0] Activity - adding markup:', { service_id: purchase.service_id, markup })
             activity.push({
               id: `markup-${purchase.id}`,
               type: 'markup',
