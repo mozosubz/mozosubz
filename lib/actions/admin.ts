@@ -19,9 +19,10 @@ export async function getUsers(page: number = 1, limit: number = 10, searchTerm?
     // Add search filters if searchTerm is provided
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase()
-      // Use OR filters to search across multiple fields
+      // Search across text fields only (username, full_name, email, phone_number)
+      // Note: id is UUID type and cannot use ilike operator
       query = query.or(
-        `id.ilike.%${searchTerm}%,username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
+        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
       )
     }
 
@@ -37,7 +38,7 @@ export async function getUsers(page: number = 1, limit: number = 10, searchTerm?
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase()
       countQuery = countQuery.or(
-        `id.ilike.%${searchTerm}%,username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
+        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
       )
     }
 
