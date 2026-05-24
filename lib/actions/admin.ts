@@ -5,22 +5,43 @@ import { createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { isValidUUID, isValidAmount, validateBalanceCalculation } from '@/lib/utils/input-validation'
 
-// Get all users with pagination - uses admin client to bypass RLS
-export async function getUsers(page: number = 1, limit: number = 10) {
+// Get all users with pagination and search - uses admin client to bypass RLS
+export async function getUsers(page: number = 1, limit: number = 10, searchTerm?: string) {
   try {
     const supabase = createAdminClient()
 
     const offset = (page - 1) * limit
 
-    const { data: users, error: usersError } = await supabase
+    let query = supabase
       .from('profiles')
       .select('id, full_name, email, phone_number, username, wallet_balance, is_admin, created_at')
+
+    // Add search filters if searchTerm is provided
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase()
+      // Use OR filters to search across multiple fields
+      query = query.or(
+        `id.ilike.%${searchTerm}%,username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
+      )
+    }
+
+    const { data: users, error: usersError } = await query
       .range(offset, offset + limit - 1)
       .order('created_at', { ascending: false })
 
-    const { count, error: countError } = await supabase
+    // Get total count for pagination
+    let countQuery = supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true })
+
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase()
+      countQuery = countQuery.or(
+        `id.ilike.%${searchTerm}%,username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${searchTerm}%`
+      )
+    }
+
+    const { count, error: countError } = await countQuery
 
     if (usersError) {
       console.error('[v0] Error fetching users:', usersError)
@@ -29,7 +50,7 @@ export async function getUsers(page: number = 1, limit: number = 10) {
 
     const totalPages = Math.ceil((count || 0) / limit)
 
-    console.log('[v0] getUsers - Real data:', { totalCount: count, usersReturned: users?.length, page, totalPages })
+    console.log('[v0] getUsers - Real data:', { totalCount: count, usersReturned: users?.length, page, totalPages, searchTerm })
 
     return { users: users || [], count: count || 0, error: null, totalPages }
   } catch (err) {

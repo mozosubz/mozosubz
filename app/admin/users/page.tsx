@@ -15,21 +15,9 @@ export default function UsersPage() {
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true)
-      const result = await getUsers(page, 10)
+      const result = await getUsers(page, 10, searchTerm)
       if (!result.error) {
-        let filtered = result.users
-        if (searchTerm) {
-          const lowerSearchTerm = searchTerm.toLowerCase()
-          filtered = result.users.filter(
-            (user) =>
-              user.id?.toLowerCase().includes(lowerSearchTerm) ||
-              user.username?.toLowerCase().includes(lowerSearchTerm) ||
-              user.full_name?.toLowerCase().includes(lowerSearchTerm) ||
-              user.email?.toLowerCase().includes(lowerSearchTerm) ||
-              user.phone_number?.includes(searchTerm)
-          )
-        }
-        setUsers(filtered)
+        setUsers(result.users)
         setTotalPages(result.totalPages)
       }
       setLoading(false)
