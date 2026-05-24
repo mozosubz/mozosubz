@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Wallet, RefreshCw } from 'lucide-react'
 
 export function ProviderBalance() {
@@ -8,14 +8,18 @@ export function ProviderBalance() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/admin/provider-balance', {
+      const response = await fetch(`/api/admin/provider-balance?t=${Date.now()}`, {
         method: 'GET',
-        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
       })
       
       const data = await response.json()
@@ -31,21 +35,21 @@ export function ProviderBalance() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // Fetch on mount
   useEffect(() => {
     fetchBalance()
-  }, [])
+  }, [fetchBalance])
 
-  // Poll every 30 seconds for real-time updates
+  // Poll every 5 seconds for real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
       fetchBalance()
-    }, 30000)
+    }, 5000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [fetchBalance])
 
   return (
     <div className="stat-card">
@@ -65,12 +69,13 @@ export function ProviderBalance() {
       )}
       
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-        <p className="stat-trend">Live balance • Updated every 30s</p>
+        <p className="stat-trend">Live balance • Updated every 5s</p>
         <button
-          onClick={fetchBalance}
+          onClick={() => fetchBalance()}
           disabled={loading}
-          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
           title="Refresh balance"
+          type="button"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
