@@ -242,65 +242,6 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
   }
 }
 
-      activity.push({
-        id: `deposit-${deposit.id}`,
-        type: 'deposit_fee',
-        amount: fee,
-        user_id: deposit.user_id,
-        description: `Deposit fee on ₦${deposit.amount.toLocaleString()}`,
-        date: new Date(deposit.created_at).toISOString(),
-        transactionId: deposit.id,
-      })
-    })
-
-    // Get recent purchases with pricing rules (markup revenue)
-    const { data: purchases } = await supabase
-      .from('transactions')
-      .select('id, user_id, amount, category, status, created_at, service_id')
-      .in('category', ['AIRTIME', 'DATA', 'CABLE', 'ELECTRICITY'])
-      .eq('status', 'SUCCESS')
-      .order('created_at', { ascending: false })
-      .limit(limit / 2)
-
-    // Get all active pricing rules to check for markups
-    const { data: pricingRules } = await supabase
-      .from('pricing_rules')
-      .select('service_id, markup_type, markup_value')
-      .eq('is_active', true)
-
-    purchases?.forEach((purchase) => {
-      // Only add markup if a pricing rule with markup exists for this service
-      const pricingRule = pricingRules?.find(rule => rule.service_id === purchase.service_id)
-      
-      if (pricingRule && pricingRule.markup_value > 0) {
-        let markup = 0
-        if (pricingRule.markup_type === 'fixed') {
-          markup = pricingRule.markup_value
-        } else if (pricingRule.markup_type === 'percentage') {
-          markup = purchase.amount * (pricingRule.markup_value / 100)
-        }
-
-        if (markup > 0) {
-          activity.push({
-            id: `markup-${purchase.id}`,
-            type: 'markup',
-            amount: markup,
-            user_id: purchase.user_id,
-            description: `${purchase.category} markup on ₦${purchase.amount.toLocaleString()}`,
-            date: new Date(purchase.created_at).toISOString(),
-            transactionId: purchase.id,
-          })
-        }
-      }
-    })
-
-    return activity.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit)
-  } catch (error) {
-    console.error('[v0] Error fetching revenue activity:', error)
-    return null
-  }
-}
-
 /**
  * Helper: Get previous period revenue for growth calculation
  */
