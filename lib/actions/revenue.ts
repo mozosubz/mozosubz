@@ -62,7 +62,7 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
     // Fetch all data/airtime/cable purchases (these generate markups)
     const { data: purchases } = await supabase
       .from('transactions')
-      .select('id, amount, status, created_at, category, service_id')
+      .select('id, amount, status, created_at, category, service_id, plan_details')
       .in('category', ['DATA', 'CABLE'])
       .eq('status', 'SUCCESS')
       .gte('created_at', startDate.toISOString())
@@ -91,21 +91,24 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
     // For markup revenue, only count purchases with active pricing rules that have markup
     let markupRevenue = 0
     if (purchases && purchases.length > 0) {
-      // Get all active pricing rules
+      // Get all active pricing rules with plan names
       const { data: pricingRules } = await supabase
         .from('pricing_rules')
-        .select('service_id, markup_type, markup_value')
+        .select('service_id, plan_name, markup_type, markup_value')
         .eq('is_active', true)
 
       purchases.forEach((purchase) => {
         // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
         const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
         
-        // Find pricing rule matching the network prefix
+        // Find pricing rule matching network prefix AND plan name
         const pricingRule = pricingRules?.find(rule => 
           rule.service_id && 
           networkPrefix &&
           rule.service_id.toLowerCase() === networkPrefix &&
+          rule.plan_name &&
+          purchase.plan_details &&
+          rule.plan_name.toLowerCase() === purchase.plan_details.toLowerCase() &&
           rule.markup_value > 0
         )
         
@@ -191,28 +194,31 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
     // Get recent service purchases that may have markups (DATA and CABLE only - no AIRTIME)
     const { data: purchases } = await supabase
       .from('transactions')
-      .select('id, user_id, amount, category, status, created_at, service_id')
+      .select('id, user_id, amount, category, status, created_at, service_id, plan_details')
       .in('category', ['DATA', 'CABLE'])
       .eq('status', 'SUCCESS')
       .order('created_at', { ascending: false })
       .limit(limit / 2)
 
     if (purchases && purchases.length > 0) {
-      // Get ALL active pricing rules once
+      // Get ALL active pricing rules with plan names
       const { data: pricingRules } = await supabase
         .from('pricing_rules')
-        .select('service_id, markup_type, markup_value')
+        .select('service_id, plan_name, markup_type, markup_value')
         .eq('is_active', true)
 
       purchases.forEach((purchase) => {
         // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
         const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
         
-        // Only add markup if pricing rule matches the network prefix with markup_value > 0
+        // Find pricing rule matching network prefix AND plan name
         const pricingRule = pricingRules?.find(rule => 
           rule.service_id && 
           networkPrefix &&
           rule.service_id.toLowerCase() === networkPrefix &&
+          rule.plan_name &&
+          purchase.plan_details &&
+          rule.plan_name.toLowerCase() === purchase.plan_details.toLowerCase() &&
           rule.markup_value > 0
         )
 
