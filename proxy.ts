@@ -2,7 +2,47 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 
+// Paths that are commonly scanned by bots looking for exposed credentials.
+// Block these silently to keep logs clean and prevent info leakage.
+const BLOCKED_PATHS = [
+  "/.env",
+  "/.env.local",
+  "/.env.production",
+  "/.aws/credentials",
+  "/backend/.env",
+  "/api/.env",
+  "/app/.env",
+  "/config/credentials.json",
+  "/config/service-account.json",
+  "/credentials.json",
+  "/client_secret.json",
+  "/client_secrets.json",
+  "/secrets.json",
+  "/key.json",
+  "/keyfile.json",
+  "/firebase.json",
+  "/firebase-credentials.json",
+  "/firebase-adminsdk.json",
+  "/firebase-service-account.json",
+  "/serviceAccountKey.json",
+  "/gcp-credentials.json",
+  "/gcp-service-account.json",
+  "/google-credentials.json",
+  "/google-service-account.json",
+  "/sa-key.json",
+  "/app/credentials.json",
+  "/service-account.json",
+  "/application_default_credentials.json",
+]
+
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname.toLowerCase()
+
+  // Block known credential-scanning probes before any other processing
+  if (BLOCKED_PATHS.some((path) => pathname === path || pathname.endsWith(path))) {
+    return new NextResponse(null, { status: 404 })
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
