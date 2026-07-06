@@ -99,6 +99,7 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
       redirect: "follow",
       cache: "no-store",
       headers: {
+        Authorization: `Bearer ${API_KEY}`,
         "Connection": "keep-alive",
         "Accept-Encoding": "gzip",
       },
@@ -136,6 +137,9 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
     const response = await fetch(`${API_PLANS_URL}/api/plans?service=${service}`, {
       redirect: "follow",
       cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+      },
       agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
 
