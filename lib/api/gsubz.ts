@@ -47,9 +47,14 @@ interface PlanResponse {
   }>
 }
 
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
 async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST", body?: FormData) {
   const headers: HeadersInit = {
     Authorization: `Bearer ${API_KEY}`,
+    "User-Agent": BROWSER_USER_AGENT,
+    Accept: "application/json, text/plain, */*",
     "Connection": "keep-alive",
   }
 
@@ -100,6 +105,8 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
       cache: "no-store",
       headers: {
         Authorization: `Bearer ${API_KEY}`,
+        "User-Agent": BROWSER_USER_AGENT,
+        Accept: "application/json, text/plain, */*",
         "Connection": "keep-alive",
         "Accept-Encoding": "gzip",
       },
@@ -139,6 +146,8 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
       cache: "no-store",
       headers: {
         Authorization: `Bearer ${API_KEY}`,
+        "User-Agent": BROWSER_USER_AGENT,
+        Accept: "application/json, text/plain, */*",
       },
       agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
