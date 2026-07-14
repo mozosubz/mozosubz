@@ -19,6 +19,28 @@ const SECTIONS: Section[] = [
   { id: "airtime", label: "Buy airtime", group: "VTU" },
   { id: "data-plans", label: "Data plans", group: "VTU" },
   { id: "data-purchase", label: "Buy data", group: "VTU" },
+  { id: "services", label: "Service IDs", group: "Reference" },
+]
+
+// All supported data service IDs — mirrors NETWORKS in the admin pricing page
+const DATA_SERVICES = [
+  { id: "mtn_sme",       network: "MTN",     type: "SME",        note: "Corporate/reseller MTN data" },
+  { id: "mtn_datashare", network: "MTN",     type: "Share",      note: "MTN data share plans" },
+  { id: "mtn_gifting",   network: "MTN",     type: "Gifting",    note: "MTN gifting plans" },
+  { id: "mtn_awoof",     network: "MTN",     type: "AWOOF",      note: "MTN special/AWOOF bundles" },
+  { id: "glo_data",      network: "Glo",     type: "Data",       note: "Standard Glo data plans" },
+  { id: "glo_sme",       network: "Glo",     type: "SME",        note: "Glo SME / reseller plans" },
+  { id: "airtel_sme",    network: "Airtel",  type: "SME",        note: "Airtel SME plans" },
+  { id: "airtel_gifting",network: "Airtel",  type: "Gifting",    note: "Airtel gifting plans" },
+  { id: "etisalat_data", network: "9mobile", type: "9mobile",    note: "9mobile (Etisalat) data plans" },
+]
+
+// Supported airtime networks
+const AIRTIME_NETWORKS = [
+  { id: "mtn",      label: "MTN" },
+  { id: "glo",      label: "Glo" },
+  { id: "airtel",   label: "Airtel" },
+  { id: "etisalat", label: "9mobile (Etisalat)" },
 ]
 
 function CodeBlock({ children, lang = "bash" }: { children: string; lang?: string }) {
@@ -235,8 +257,8 @@ export default function DocPage() {
               </Link>
               .
             </p>
-            <CodeBlock lang="bash">{`curl ${API_BASE}/data/plans?service=mtn_sme \\
-  -H "X-Connect-Key: mzk_your_key_here"`}</CodeBlock>
+            <CodeBlock lang="bash">{`curl "${API_BASE}/data/plans?service=mtn_sme" \\
+  -H "X-Connect-Key: connect_your_key_here"`}</CodeBlock>
             <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[13px]">
               <strong>Keep your key secret.</strong> Never expose it in client-side code or
               public repositories. Revoke and regenerate immediately if compromised.
@@ -303,7 +325,7 @@ export default function DocPage() {
               <ParamRow name="phone" type="string" required desc="Nigerian phone number (e.g. 08012345678)" />
             </ParamTable>
             <CodeBlock lang="bash">{`curl -X POST ${API_BASE}/airtime/purchase \\
-  -H "X-Connect-Key: mzk_your_key_here" \\
+  -H "X-Connect-Key: connect_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "network": "mtn",
@@ -317,8 +339,6 @@ export default function DocPage() {
   "network": "MTN",
   "phone": "08012345678",
   "amount": 200,
-  "reference": "GSUBZ-REF-XXXXX",
-  "balance_before": 5000,
   "balance_after": 4800
 }`}</CodeBlock>
           </Section>
@@ -340,32 +360,31 @@ export default function DocPage() {
               />
             </ParamTable>
             <CodeBlock lang="bash">{`curl "${API_BASE}/data/plans?service=mtn_sme" \\
-  -H "X-Connect-Key: mzk_your_key_here"`}</CodeBlock>
+  -H "X-Connect-Key: connect_your_key_here"`}</CodeBlock>
             <h3 className="font-semibold text-slate-800 mt-4 mb-2">Response</h3>
             <CodeBlock lang="json">{`{
   "success": true,
   "service": "mtn_sme",
   "plans": [
     {
-      "id": "mtn_sme_1gb",
-      "name": "1GB - 7 Days",
-      "provider_price": 300,
-      "api_price": 315,
-      "available": true
+      "id": "SME100",
+      "name": "100MB - 1 Day",
+      "price": 120
     },
     {
-      "id": "mtn_sme_2gb",
-      "name": "2GB - 30 Days",
-      "provider_price": 600,
-      "api_price": 620,
-      "available": true
+      "id": "SME1GB",
+      "name": "1GB - 30 Days",
+      "price": 315
     }
   ]
 }`}</CodeBlock>
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-[13px]">
-              Use the <code className="bg-blue-100 px-1 rounded text-[12px]">name</code> value as
+              Use the <code className="bg-blue-100 px-1 rounded text-[12px]">id</code> value as
               the <code className="bg-blue-100 px-1 rounded text-[12px]">plan_id</code> when
-              calling <code className="bg-blue-100 px-1 rounded text-[12px]">/data/purchase</code>.
+              calling <code className="bg-blue-100 px-1 rounded text-[12px]">/data/purchase</code>.{" "}
+              Only plans configured by the admin with an API price are returned — the{" "}
+              <code className="bg-blue-100 px-1 rounded text-[12px]">price</code> is what will
+              be deducted from your wallet, no hidden breakdown.
             </div>
           </Section>
 
@@ -373,35 +392,83 @@ export default function DocPage() {
           <Section id="data-purchase" title="Buy data">
             <Endpoint method="POST" path={`${API_BASE}/data/purchase`} />
             <p>
-              Purchase a data plan. The <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">api_price</code>{" "}
-              shown in <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">/data/plans</code> is
-              the exact amount deducted from your wallet.
+              Purchase a data plan. Use the <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">id</code>{" "}
+              from <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">/data/plans</code> as the{" "}
+              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">plan_id</code>. The{" "}
+              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">price</code> shown
+              in the plans response is the exact amount deducted from your wallet.
             </p>
             <h3 className="font-semibold text-slate-800 mt-4 mb-2">Request body</h3>
             <ParamTable>
               <ParamRow name="service" type="string" required desc='Same service identifier used in /data/plans (e.g. "mtn_sme")' />
-              <ParamRow name="plan_id" type="string" required desc='The plan name from /data/plans (e.g. "1GB - 7 Days")' />
+              <ParamRow name="plan_id" type="string" required desc='The plan id from /data/plans response (e.g. "SME1GB")' />
               <ParamRow name="phone" type="string" required desc="Nigerian phone number to receive the data (e.g. 08012345678)" />
             </ParamTable>
             <CodeBlock lang="bash">{`curl -X POST ${API_BASE}/data/purchase \\
-  -H "X-Connect-Key: mzk_your_key_here" \\
+  -H "X-Connect-Key: connect_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "service": "mtn_sme",
-    "plan_id": "1GB - 7 Days",
+    "plan_id": "SME1GB",
     "phone": "08012345678"
   }'`}</CodeBlock>
             <h3 className="font-semibold text-slate-800 mt-4 mb-2">Response</h3>
             <CodeBlock lang="json">{`{
   "success": true,
   "transaction_id": "V1-DATA-A1B2C3D4E5F6",
-  "plan": "1GB - 7 Days",
+  "plan": "SME1GB",
   "phone": "08012345678",
   "amount": 315,
-  "reference": "GSUBZ-REF-XXXXX",
-  "balance_before": 5000,
   "balance_after": 4685
 }`}</CodeBlock>
+          </Section>
+
+          {/* ── Service IDs reference ── */}
+          <Section id="services" title="Service IDs">
+            <p>
+              Use these identifiers in the <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">service</code>{" "}
+              parameter when calling <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">/data/plans</code>{" "}
+              and <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">/data/purchase</code>.
+              Only plans that have been configured with an API price by the admin will appear
+              when you call <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">/data/plans</code>.
+            </p>
+
+            <h3 className="font-semibold text-slate-800 mt-4 mb-2">Data service IDs</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px] border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Service ID</th>
+                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Network</th>
+                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Type</th>
+                    <th className="text-left py-2 font-semibold text-slate-700">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-600">
+                  {DATA_SERVICES.map((s) => (
+                    <tr key={s.id} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-6">
+                        <code className="font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded text-[12px]">{s.id}</code>
+                      </td>
+                      <td className="py-2.5 pr-6 font-medium">{s.network}</td>
+                      <td className="py-2.5 pr-6">{s.type}</td>
+                      <td className="py-2.5 text-slate-500">{s.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h3 className="font-semibold text-slate-800 mt-6 mb-2">Airtime network IDs</h3>
+            <p>Pass one of these as <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">network</code> in the airtime purchase request.</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {AIRTIME_NETWORKS.map((n) => (
+                <span key={n.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[13px]">
+                  <code className="font-mono text-indigo-700 text-[12px]">{n.id}</code>
+                  <span className="text-slate-500">{n.label}</span>
+                </span>
+              ))}
+            </div>
           </Section>
 
         </main>
