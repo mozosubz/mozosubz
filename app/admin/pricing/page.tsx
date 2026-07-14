@@ -478,16 +478,153 @@ export default function PricingPage() {
                 </div>
                 <div className="form-group">
                   <label>Markup Value</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    step="0.01"
-                    value={formData.markupValue}
-                    onChange={(e) => setFormData({ ...formData, markupValue: e.target.value })}
-                    disabled={submitting}
-                  />
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      step="0.01"
+                      value={formData.markupValue}
+                      onChange={(e) => setFormData({ ...formData, markupValue: e.target.value })}
+                      disabled={submitting}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(formData.markupValue) || 0
+                        const step = formData.markupType === 'percentage' ? 1 : 50
+                        setFormData({ ...formData, markupValue: String(current - step) })
+                      }}
+                      disabled={submitting}
+                      style={{
+                        padding: '8px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--admin-bg)',
+                        color: 'var(--admin-danger)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      −
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(formData.markupValue) || 0
+                        const step = formData.markupType === 'percentage' ? 1 : 50
+                        setFormData({ ...formData, markupValue: String(current + step) })
+                      }}
+                      disabled={submitting}
+                      style={{
+                        padding: '8px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--admin-success)',
+                        color: 'white',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {/* Quick presets for individual create */}
+              <div style={{ marginTop: 14, marginBottom: 14 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+                  Quick presets
+                </p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {formData.markupType === 'percentage' ? (
+                    <>
+                      {[5, 10, 15, 20, 25, 30].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, markupValue: String(val) })}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            border: '1px solid var(--admin-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            background: formData.markupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                            color: formData.markupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          +{val}%
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      {[50, 100, 200, 500, 1000].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, markupValue: String(val) })}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            border: '1px solid var(--admin-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            background: formData.markupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                            color: formData.markupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          +₦{val}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Live preview for individual */}
+              {formData.markupValue && (
+                <div
+                  style={{
+                    padding: 12,
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                    borderRadius: 'var(--radius-sm)',
+                    marginBottom: 14,
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                    Live Preview
+                  </p>
+                  {formData.planName && formData.basePrice && (
+                    <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 11, color: 'var(--admin-text-tertiary)' }}>Plan</p>
+                        <p style={{ margin: '2px 0 0 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-text)' }}>
+                          {formData.planName}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 11, color: 'var(--admin-text-tertiary)' }}>Final Price</p>
+                        <p style={{ margin: '2px 0 0 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                          ₦{Math.round(
+                            parseFloat(formData.basePrice) +
+                              (formData.markupType === 'fixed'
+                                ? parseFloat(formData.markupValue) || 0
+                                : parseFloat(formData.basePrice) * ((parseFloat(formData.markupValue) || 0) / 100))
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <button type="submit" disabled={submitting} className="btn btn-block">
                 {submitting ? (

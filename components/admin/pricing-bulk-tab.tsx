@@ -556,11 +556,10 @@ export function PricingBulkTab({
                 <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
                   Preview of changes
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 400, overflowY: 'auto', paddingRight: 8 }}>
                   {Array.from(selectedRules)
                     .map((ruleId) => rules.find((r) => r.id === ruleId))
                     .filter(Boolean)
-                    .slice(0, 5)
                     .map((rule) => {
                       if (!rule) return null
                       const markupVal = parseFloat(bulkEditMarkupValue)
@@ -568,11 +567,12 @@ export function PricingBulkTab({
                         bulkEditMarkupType === 'fixed'
                           ? rule.base_price + markupVal
                           : rule.base_price * (1 + markupVal / 100)
+                      const oldPrice = rule.base_price + (rule.markup_type === 'fixed' ? rule.markup_value : rule.base_price * (rule.markup_value / 100))
                       return (
                         <div
                           key={rule.id}
                           style={{
-                            padding: 8,
+                            padding: 10,
                             background: 'var(--admin-bg)',
                             border: '1px solid var(--admin-border)',
                             borderRadius: 'var(--radius-sm)',
@@ -582,18 +582,16 @@ export function PricingBulkTab({
                           <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {rule.plan_name}
                           </p>
-                          <p style={{ margin: '4px 0 0 0', color: 'var(--admin-text-tertiary)', fontSize: 10 }}>
-                            ₦{rule.base_price.toLocaleString()} → ₦{Math.round(newFinalPrice * 100) / 100 !== rule.base_price ? Math.round(newFinalPrice).toLocaleString() : rule.base_price.toLocaleString()}
+                          <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
+                            Old: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
+                          </p>
+                          <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
+                            New: <span style={{ fontWeight: 600 }}>₦{Math.round(newFinalPrice).toLocaleString()}</span>
                           </p>
                         </div>
                       )
                     })}
                 </div>
-                {selectedRules.size > 5 && (
-                  <p style={{ margin: '8px 0 0 0', fontSize: 10, color: 'var(--admin-text-tertiary)' }}>
-                    + {selectedRules.size - 5} more rule(s)
-                  </p>
-                )}
               </div>
             )}
           </div>
