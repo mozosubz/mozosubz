@@ -162,18 +162,22 @@ export function PricingBulkTab({
         <div className="admin-card-header">
           <div>
             <h3>Bulk Create Markup Rules</h3>
-            <p className="admin-card-subtitle">{selectedPlans.size} plan(s) selected</p>
+            <p className="admin-card-subtitle">{selectedPlans.size} plan(s) selected out of {gsubzPlans.length}</p>
           </div>
-          <button
-            type="button"
-            onClick={toggleSelectAllPlans}
-            className="btn btn-secondary btn-sm"
-            disabled={gsubzPlans.length === 0}
-          >
-            {selectedPlans.size === gsubzPlans.length && gsubzPlans.length > 0
-              ? 'Deselect All'
-              : 'Select All'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={toggleSelectAllPlans}
+              className="btn btn-secondary btn-sm"
+              disabled={gsubzPlans.length === 0}
+            >
+              {selectedPlans.size === gsubzPlans.length && gsubzPlans.length > 0
+                ? 'Deselect All'
+                : selectedPlans.size > 0
+                  ? 'Select Remaining'
+                  : 'Select All'}
+            </button>
+          </div>
         </div>
 
         {/* Plans list */}
@@ -241,7 +245,7 @@ export function PricingBulkTab({
             </div>
 
             <div className="form-group">
-              <label>Markup Value</label>
+              <label>Markup Value (use - for discount)</label>
               <input
                 type="number"
                 placeholder="0.00"
@@ -250,6 +254,63 @@ export function PricingBulkTab({
                 onChange={(e) => setBulkFormData({ ...bulkFormData, markupValue: e.target.value })}
                 disabled={submitting}
               />
+              <p style={{ margin: '4px 0 0 0', fontSize: 11, color: 'var(--admin-text-tertiary)' }}>
+                Negative value = discount (e.g. -50 or -10%)
+              </p>
+            </div>
+          </div>
+
+          {/* Quick preset buttons */}
+          <div style={{ marginTop: 12, marginBottom: 14 }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+              Quick presets
+            </p>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {bulkFormData.markupType === 'percentage' ? (
+                <>
+                  {[5, 10, 15, 20, 25, 30].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setBulkFormData({ ...bulkFormData, markupValue: String(val) })}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        fontWeight: 500,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: bulkFormData.markupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                        color: bulkFormData.markupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +{val}%
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {[50, 100, 200, 500, 1000].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setBulkFormData({ ...bulkFormData, markupValue: String(val) })}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        fontWeight: 500,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: bulkFormData.markupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                        color: bulkFormData.markupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +₦{val}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           </div>
 
@@ -325,7 +386,7 @@ export function PricingBulkTab({
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>New Markup Value</label>
+                <label>New Markup Value (- for discount)</label>
                 <input
                   type="number"
                   placeholder="0.00"
@@ -334,6 +395,60 @@ export function PricingBulkTab({
                   onChange={(e) => setBulkEditMarkupValue(e.target.value)}
                   disabled={submitting}
                 />
+              </div>
+            </div>
+
+            {/* Quick presets for bulk edit */}
+            <div style={{ marginTop: 12 }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+                Quick presets
+              </p>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {bulkEditMarkupType === 'percentage' ? (
+                  <>
+                    {[5, 10, 15, 20, 25, 30].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setBulkEditMarkupValue(String(val))}
+                        style={{
+                          padding: '6px 10px',
+                          fontSize: 12,
+                          fontWeight: 500,
+                          border: '1px solid var(--admin-border)',
+                          borderRadius: 'var(--radius-sm)',
+                          background: bulkEditMarkupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                          color: bulkEditMarkupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        +{val}%
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {[50, 100, 200, 500, 1000].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setBulkEditMarkupValue(String(val))}
+                        style={{
+                          padding: '6px 10px',
+                          fontSize: 12,
+                          fontWeight: 500,
+                          border: '1px solid var(--admin-border)',
+                          borderRadius: 'var(--radius-sm)',
+                          background: bulkEditMarkupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                          color: bulkEditMarkupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        +₦{val}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </div>
