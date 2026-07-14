@@ -58,18 +58,6 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
 
   try {
-    // Map service to network prefix for pricing lookup
-    const networkMap: Record<string, string> = {
-      mtn_sme: 'mtn', mtn_gifting: 'mtn', mtn_datashare: 'mtn', mtn_awoof: 'mtn',
-      glo_sme: 'glo', glo_data: 'glo',
-      airtel_sme: 'airtel', airtel_gifting: 'airtel',
-      etisalat_data: 'etisalat',
-    }
-    const networkPrefix = networkMap[service]
-    if (!networkPrefix) {
-      return NextResponse.json({ success: false, error: 'Invalid service identifier' }, { status: 400 })
-    }
-
     // Resolve plan.value → plan.displayName by fetching live plans from Gsubz.
     // The admin stores displayName as plan_name in api_pricing_rules, so we must
     // translate the caller-supplied plan_id (which is plan.value) to displayName first.
@@ -86,11 +74,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Look up the API pricing rule by displayName (how the admin saved it)
+    // Look up API pricing rule by full service ID (e.g. mtn_sme, not just mtn)
+    // and displayName — this is how the admin API pricing page saves rules.
     const { data: rule } = await admin
       .from('api_pricing_rules')
       .select('plan_name, base_price, markup_type, markup_value')
-      .eq('service_id', networkPrefix)
+      .eq('service_id', service)            // full service ID e.g. mtn_sme
       .eq('plan_name', matchedPlan.displayName)
       .eq('is_active', true)
       .maybeSingle()
@@ -170,7 +159,7 @@ export async function POST(request: NextRequest) {
       transactionId,
       category: 'DATA',
       serviceId: service,
-      serviceName: `${networkPrefix.toUpperCase()} Data`,
+      serviceName: `${service.split('_')[0].toUpperCase()} Data`,
       amount: apiPrice,
       phone: phoneClean,
       status: txStatus,

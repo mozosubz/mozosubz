@@ -64,16 +64,18 @@ const NETWORKS = [
   },
 ]
 
+// Store the full plan type as service_id so MTN SME, MTN Gifting etc.
+// are kept separate in the DB and matched correctly in the v1 API route.
 const SERVICE_MAP: Record<string, string> = {
-  mtn_sme: 'mtn',
-  mtn_datashare: 'mtn',
-  mtn_gifting: 'mtn',
-  mtn_awoof: 'mtn',
-  glo_data: 'glo',
-  glo_sme: 'glo',
-  airtel_sme: 'airtel',
-  airtel_gifting: 'airtel',
-  etisalat_data: 'etisalat',
+  mtn_sme: 'mtn_sme',
+  mtn_datashare: 'mtn_datashare',
+  mtn_gifting: 'mtn_gifting',
+  mtn_awoof: 'mtn_awoof',
+  glo_data: 'glo_data',
+  glo_sme: 'glo_sme',
+  airtel_sme: 'airtel_sme',
+  airtel_gifting: 'airtel_gifting',
+  etisalat_data: 'etisalat_data',
 }
 
 export default function ApiPricingPage() {

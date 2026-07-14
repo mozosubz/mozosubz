@@ -41,22 +41,16 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const networkMap: Record<string, string> = {
-    mtn_sme: 'mtn', mtn_gifting: 'mtn', mtn_datashare: 'mtn', mtn_awoof: 'mtn',
-    glo_sme: 'glo', glo_data: 'glo',
-    airtel_sme: 'airtel', airtel_gifting: 'airtel',
-    etisalat_data: 'etisalat',
-  }
-  const networkPrefix = networkMap[service]
-
   try {
-    // Fetch live plans from provider + API pricing rules in parallel
+    // Fetch live plans from provider + API pricing rules in parallel.
+    // Query by the full service ID (e.g. 'mtn_sme') so MTN SME, Gifting,
+    // AWOOF etc. each have their own separate pricing rules.
     const [planResponse, pricingResult] = await Promise.all([
       getDataPlansRealtime(service),   // always real-time, no cache
       createAdminClient()
         .from('api_pricing_rules')
         .select('plan_name, base_price, markup_type, markup_value')
-        .eq('service_id', networkPrefix)
+        .eq('service_id', service)     // full service ID, not just network prefix
         .eq('is_active', true),
     ])
 
