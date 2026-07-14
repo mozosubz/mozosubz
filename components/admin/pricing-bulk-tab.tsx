@@ -246,16 +246,61 @@ export function PricingBulkTab({
 
             <div className="form-group">
               <label>Markup Value (use - for discount)</label>
-              <input
-                type="number"
-                placeholder="0.00"
-                step="0.01"
-                value={bulkFormData.markupValue}
-                onChange={(e) => setBulkFormData({ ...bulkFormData, markupValue: e.target.value })}
-                disabled={submitting}
-              />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
+                  value={bulkFormData.markupValue}
+                  onChange={(e) => setBulkFormData({ ...bulkFormData, markupValue: e.target.value })}
+                  disabled={submitting}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseFloat(bulkFormData.markupValue) || 0
+                    const step = bulkFormData.markupType === 'percentage' ? 1 : 50
+                    setBulkFormData({ ...bulkFormData, markupValue: String(current - step) })
+                  }}
+                  disabled={submitting}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: '1px solid var(--admin-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--admin-bg)',
+                    color: 'var(--admin-danger)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseFloat(bulkFormData.markupValue) || 0
+                    const step = bulkFormData.markupType === 'percentage' ? 1 : 50
+                    setBulkFormData({ ...bulkFormData, markupValue: String(current + step) })
+                  }}
+                  disabled={submitting}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: '1px solid var(--admin-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--admin-success)',
+                    color: 'white',
+                    cursor: 'pointer',
+                  }}
+                >
+                  +
+                </button>
+              </div>
               <p style={{ margin: '4px 0 0 0', fontSize: 11, color: 'var(--admin-text-tertiary)' }}>
-                Negative value = discount (e.g. -50 or -10%)
+                Negative value = discount (e.g. -50 or -10%). Use − / + buttons to adjust quickly.
               </p>
             </div>
           </div>
@@ -387,19 +432,64 @@ export function PricingBulkTab({
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>New Markup Value (- for discount)</label>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  step="0.01"
-                  value={bulkEditMarkupValue}
-                  onChange={(e) => setBulkEditMarkupValue(e.target.value)}
-                  disabled={submitting}
-                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    step="0.01"
+                    value={bulkEditMarkupValue}
+                    onChange={(e) => setBulkEditMarkupValue(e.target.value)}
+                    disabled={submitting}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(bulkEditMarkupValue) || 0
+                      const step = bulkEditMarkupType === 'percentage' ? 1 : 50
+                      setBulkEditMarkupValue(String(current - step))
+                    }}
+                    disabled={submitting}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: '1px solid var(--admin-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--admin-bg)',
+                      color: 'var(--admin-danger)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(bulkEditMarkupValue) || 0
+                      const step = bulkEditMarkupType === 'percentage' ? 1 : 50
+                      setBulkEditMarkupValue(String(current + step))
+                    }}
+                    disabled={submitting}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: '1px solid var(--admin-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--admin-success)',
+                      color: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Quick presets for bulk edit */}
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 12, marginBottom: 16 }}>
               <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
                 Quick presets
               </p>
@@ -451,6 +541,61 @@ export function PricingBulkTab({
                 )}
               </div>
             </div>
+
+            {/* Preview of changes */}
+            {bulkEditMarkupValue && selectedRules.size > 0 && (
+              <div
+                style={{
+                  padding: 12,
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: 12,
+                }}
+              >
+                <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                  Preview of changes
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+                  {Array.from(selectedRules)
+                    .map((ruleId) => rules.find((r) => r.id === ruleId))
+                    .filter(Boolean)
+                    .slice(0, 5)
+                    .map((rule) => {
+                      if (!rule) return null
+                      const markupVal = parseFloat(bulkEditMarkupValue)
+                      const newFinalPrice =
+                        bulkEditMarkupType === 'fixed'
+                          ? rule.base_price + markupVal
+                          : rule.base_price * (1 + markupVal / 100)
+                      return (
+                        <div
+                          key={rule.id}
+                          style={{
+                            padding: 8,
+                            background: 'var(--admin-bg)',
+                            border: '1px solid var(--admin-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: 11,
+                          }}
+                        >
+                          <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {rule.plan_name}
+                          </p>
+                          <p style={{ margin: '4px 0 0 0', color: 'var(--admin-text-tertiary)', fontSize: 10 }}>
+                            ₦{rule.base_price.toLocaleString()} → ₦{Math.round(newFinalPrice * 100) / 100 !== rule.base_price ? Math.round(newFinalPrice).toLocaleString() : rule.base_price.toLocaleString()}
+                          </p>
+                        </div>
+                      )
+                    })}
+                </div>
+                {selectedRules.size > 5 && (
+                  <p style={{ margin: '8px 0 0 0', fontSize: 10, color: 'var(--admin-text-tertiary)' }}>
+                    + {selectedRules.size - 5} more rule(s)
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
