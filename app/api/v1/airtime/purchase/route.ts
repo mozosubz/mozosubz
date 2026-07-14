@@ -28,6 +28,14 @@ export async function POST(request: NextRequest) {
   }
 
   const userId = auth.context!.userId
+  const permissions = auth.context!.permissions ?? []
+
+  if (!permissions.includes('airtime') && !permissions.includes('all')) {
+    return NextResponse.json(
+      { success: false, error: 'This key does not have airtime purchase permission' },
+      { status: 403 }
+    )
+  }
 
   let body: { network?: string; amount?: number; phone?: string }
   try {

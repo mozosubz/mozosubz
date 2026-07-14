@@ -32,7 +32,7 @@ export function ConnectKeysManager() {
   async function fetchActiveKey() {
     setLoadingList(true)
     try {
-      const res = await fetch('/api/mozosubz/v1/keys/list')
+      const res = await fetch('/api/connect-keys/list')
       const data = await res.json()
       if (data.success && Array.isArray(data.keys) && data.keys.length > 0) {
         const k = data.keys[0]
@@ -65,7 +65,7 @@ export function ConnectKeysManager() {
     setError('')
 
     try {
-      const res = await fetch('/api/mozosubz/v1/keys/create', {
+      const res = await fetch('/api/connect-keys/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'default' }),

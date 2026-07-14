@@ -24,6 +24,14 @@ export async function POST(request: NextRequest) {
   }
 
   const userId = auth.context!.userId
+  const permissions = auth.context!.permissions ?? []
+
+  if (!permissions.includes('data') && !permissions.includes('all')) {
+    return NextResponse.json(
+      { success: false, error: 'This key does not have data purchase permission' },
+      { status: 403 }
+    )
+  }
 
   let body: { service?: string; plan_id?: string; phone?: string }
   try {
@@ -67,8 +75,8 @@ export async function POST(request: NextRequest) {
       .from('api_pricing_rules')
       .select('plan_name, base_price, markup_type, markup_value')
       .eq('service_id', networkPrefix)
+      .eq('plan_name', plan_id)
       .eq('is_active', true)
-      .ilike('plan_name', plan_id)
       .maybeSingle()
 
     if (!rule) {
