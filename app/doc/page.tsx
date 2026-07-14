@@ -22,17 +22,18 @@ const SECTIONS: Section[] = [
   { id: "services", label: "Service IDs", group: "Reference" },
 ]
 
-// All supported data service IDs — mirrors NETWORKS in the admin pricing page
+// All supported data service IDs — mirrors NETWORKS in the admin pricing page exactly.
+// Plan counts are live from the provider; only admin-priced plans are returned by the API.
 const DATA_SERVICES = [
-  { id: "mtn_sme",       network: "MTN",     type: "SME",        note: "Corporate/reseller MTN data" },
-  { id: "mtn_datashare", network: "MTN",     type: "Share",      note: "MTN data share plans" },
-  { id: "mtn_gifting",   network: "MTN",     type: "Gifting",    note: "MTN gifting plans" },
-  { id: "mtn_awoof",     network: "MTN",     type: "AWOOF",      note: "MTN special/AWOOF bundles" },
-  { id: "glo_data",      network: "Glo",     type: "Data",       note: "Standard Glo data plans" },
-  { id: "glo_sme",       network: "Glo",     type: "SME",        note: "Glo SME / reseller plans" },
-  { id: "airtel_sme",    network: "Airtel",  type: "SME",        note: "Airtel SME plans" },
-  { id: "airtel_gifting",network: "Airtel",  type: "Gifting",    note: "Airtel gifting plans" },
-  { id: "etisalat_data", network: "9mobile", type: "9mobile",    note: "9mobile (Etisalat) data plans" },
+  { id: "mtn_sme",        network: "MTN",     type: "SME",        plans: 5,  note: "MTN SME reseller data" },
+  { id: "mtn_datashare",  network: "MTN",     type: "Data Share", plans: 5,  note: "MTN data share plans" },
+  { id: "mtn_gifting",    network: "MTN",     type: "Gifting",    plans: 30, note: "MTN gifting bundles" },
+  { id: "mtn_awoof",      network: "MTN",     type: "AWOOF",      plans: 3,  note: "MTN AWOOF special offers" },
+  { id: "glo_data",       network: "Glo",     type: "Data",       plans: 13, note: "Standard Glo data plans" },
+  { id: "glo_sme",        network: "Glo",     type: "SME",        plans: 4,  note: "Glo SME reseller plans" },
+  { id: "airtel_sme",     network: "Airtel",  type: "SME",        plans: 5,  note: "Airtel SME plans" },
+  { id: "airtel_gifting", network: "Airtel",  type: "Gifting",    plans: 28, note: "Airtel gifting bundles" },
+  { id: "etisalat_data",  network: "9mobile", type: "9mobile",    plans: null, note: "9mobile (Etisalat) data plans" },
 ]
 
 // Supported airtime networks
@@ -367,24 +368,26 @@ export default function DocPage() {
   "service": "mtn_sme",
   "plans": [
     {
-      "id": "SME100",
-      "name": "100MB - 1 Day",
-      "price": 120
+      "id": "mtn-sme-500mb",
+      "name": "500MB SME - 30 Days",
+      "price": 150
     },
     {
-      "id": "SME1GB",
-      "name": "1GB - 30 Days",
-      "price": 315
+      "id": "mtn-sme-1gb",
+      "name": "1GB SME - 30 Days",
+      "price": 300
     }
   ]
 }`}</CodeBlock>
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-[13px]">
-              Use the <code className="bg-blue-100 px-1 rounded text-[12px]">id</code> value as
-              the <code className="bg-blue-100 px-1 rounded text-[12px]">plan_id</code> when
-              calling <code className="bg-blue-100 px-1 rounded text-[12px]">/data/purchase</code>.{" "}
-              Only plans configured by the admin with an API price are returned — the{" "}
-              <code className="bg-blue-100 px-1 rounded text-[12px]">price</code> is what will
-              be deducted from your wallet, no hidden breakdown.
+              <strong>How to use:</strong> Call <code className="bg-blue-100 px-1 rounded text-[12px]">/data/plans</code> first
+              to get the live plan list for a service, then pass the plan&apos;s{" "}
+              <code className="bg-blue-100 px-1 rounded text-[12px]">id</code> as{" "}
+              <code className="bg-blue-100 px-1 rounded text-[12px]">plan_id</code> in{" "}
+              <code className="bg-blue-100 px-1 rounded text-[12px]">/data/purchase</code>.
+              The <code className="bg-blue-100 px-1 rounded text-[12px]">price</code> is always
+              real-time and is the exact amount deducted from your wallet — no hidden markup shown.
+              IDs vary per service; always use the live response, never hardcode them.
             </div>
           </Section>
 
@@ -409,17 +412,17 @@ export default function DocPage() {
   -H "Content-Type: application/json" \\
   -d '{
     "service": "mtn_sme",
-    "plan_id": "SME1GB",
+    "plan_id": "mtn-sme-1gb",
     "phone": "08012345678"
   }'`}</CodeBlock>
             <h3 className="font-semibold text-slate-800 mt-4 mb-2">Response</h3>
             <CodeBlock lang="json">{`{
   "success": true,
   "transaction_id": "V1-DATA-A1B2C3D4E5F6",
-  "plan": "SME1GB",
+  "plan": "1GB SME - 30 Days",
   "phone": "08012345678",
-  "amount": 315,
-  "balance_after": 4685
+  "amount": 300,
+  "balance_after": 4700
 }`}</CodeBlock>
           </Section>
 
@@ -434,6 +437,9 @@ export default function DocPage() {
             </p>
 
             <h3 className="font-semibold text-slate-800 mt-4 mb-2">Data service IDs</h3>
+            <p className="text-[13px] text-slate-500 mb-3">
+              Plan counts below reflect the total available from the provider. Only plans the admin has configured with an API price will be returned by <code className="bg-slate-100 px-1 rounded text-[12px]">/data/plans</code>.
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse">
                 <thead>
@@ -441,6 +447,7 @@ export default function DocPage() {
                     <th className="text-left py-2 pr-6 font-semibold text-slate-700">Service ID</th>
                     <th className="text-left py-2 pr-6 font-semibold text-slate-700">Network</th>
                     <th className="text-left py-2 pr-6 font-semibold text-slate-700">Type</th>
+                    <th className="text-left py-2 pr-4 font-semibold text-slate-700">Plans</th>
                     <th className="text-left py-2 font-semibold text-slate-700">Notes</th>
                   </tr>
                 </thead>
@@ -452,6 +459,7 @@ export default function DocPage() {
                       </td>
                       <td className="py-2.5 pr-6 font-medium">{s.network}</td>
                       <td className="py-2.5 pr-6">{s.type}</td>
+                      <td className="py-2.5 pr-4 text-slate-500">{s.plans ?? "—"}</td>
                       <td className="py-2.5 text-slate-500">{s.note}</td>
                     </tr>
                   ))}

@@ -70,18 +70,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid service identifier' }, { status: 400 })
     }
 
-    // Look up the API pricing rule for this plan
+    // Resolve plan.value → plan.displayName by fetching live plans from Gsubz.
+    // The admin stores displayName as plan_name in api_pricing_rules, so we must
+    // translate the caller-supplied plan_id (which is plan.value) to displayName first.
+    const { getDataPlansRealtime } = await import('@/lib/api/gsubz')
+    const planResponse = await getDataPlansRealtime(service)
+    const matchedPlan = (planResponse.plans ?? []).find(
+      (p) => p.value === plan_id
+    )
+
+    if (!matchedPlan) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid plan_id. Use the id from GET /api/v1/data/plans.' },
+        { status: 404 }
+      )
+    }
+
+    // Look up the API pricing rule by displayName (how the admin saved it)
     const { data: rule } = await admin
       .from('api_pricing_rules')
       .select('plan_name, base_price, markup_type, markup_value')
       .eq('service_id', networkPrefix)
-      .eq('plan_name', plan_id)
+      .eq('plan_name', matchedPlan.displayName)
       .eq('is_active', true)
       .maybeSingle()
 
     if (!rule) {
       return NextResponse.json(
-        { success: false, error: 'Plan not found or not available for API users' },
+        { success: false, error: 'Plan not available for API users. Contact support.' },
         { status: 404 }
       )
     }
@@ -127,7 +143,7 @@ export async function POST(request: NextRequest) {
     try {
       gsubzResult = await buyData({
         serviceID: service,
-        plan: plan_id,
+        plan: plan_id,           // plan.value — what Gsubz expects
         phone: phoneClean,
         requestID: transactionId,
       })

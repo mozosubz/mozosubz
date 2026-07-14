@@ -63,12 +63,14 @@ export async function GET(request: NextRequest) {
     const gsubzPlans = planResponse.plans ?? []
     const pricingRules = pricingResult.data ?? []
 
-    // Build clean plan list — match by plan.value (ID), expose only price
+    // Build clean plan list:
+    // - match pricing rule by plan.displayName (that's what the admin saves as plan_name)
+    // - expose plan.value as `id` so callers pass it as plan_id in /data/purchase
     const plans = gsubzPlans
       .map((plan) => {
-        // Match pricing rule by plan value/ID (exact match)
+        // The admin pricing page stores plan.displayName as plan_name — match exactly
         const rule = pricingRules.find(
-          (r) => r.plan_name.toLowerCase() === plan.value.toLowerCase()
+          (r) => r.plan_name.toLowerCase() === plan.displayName.toLowerCase()
         )
 
         if (!rule) return null // plan has no API price configured — hide it
@@ -80,9 +82,9 @@ export async function GET(request: NextRequest) {
             : rule.base_price * (1 + rule.markup_value / 100)
 
         return {
-          id: plan.value,           // use this as plan_id in the purchase request
-          name: plan.displayName,
-          price: Math.round(price * 100) / 100, // 2 d.p., no markup details
+          id: plan.value,           // Gsubz plan ID — pass as plan_id in /data/purchase
+          name: plan.displayName,   // human-readable name
+          price: Math.round(price * 100) / 100,
         }
       })
       .filter(Boolean)
