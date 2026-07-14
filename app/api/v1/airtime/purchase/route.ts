@@ -3,7 +3,6 @@ import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buyAirtime } from '@/lib/api/gsubz'
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/utils/save-transaction'
-import { v4 as uuidv4 } from 'uuid'
 
 /**
  * POST /api/v1/airtime/purchase
@@ -107,7 +106,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: deduction.error || 'Failed to deduct wallet' }, { status: 402 })
     }
 
-    const transactionId = `V1-AIR-${uuidv4().toUpperCase().substring(0, 12)}`
+    const transactionId = `V1-AIR-${crypto.randomUUID().replace(/-/g, '').toUpperCase().substring(0, 12)}`
     const balanceAfter = deduction.newBalance ?? walletBalance - parsedAmount
 
     // Map network to Gsubz service ID
