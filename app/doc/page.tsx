@@ -4,15 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { Footer } from "@/components/footer"
 
-// Public base URL exposed in every example. The Next.js config rewrites
-// `api.mozosubz.xyz/v1/*` to the internal `/api/mozosubz/v1/*` handler, so
-// the following two URLs are equivalent and both work in production:
-//   https://api.mozosubz.xyz/v1/balance
-//   https://mozosubz.xyz/api/mozosubz/v1/balance
-// We advertise the short subdomain form below — see the "Base URL" callout
-// in the Introduction section for the alternate form.
-const API_BASE = "https://api.mozosubz.xyz"
-const API_BASE_ALT = "https://mozosubz.xyz/api/mozosubz"
+const API_BASE = "https://mozosubz.xyz/api/v1"
 
 type Section = {
   id: string
@@ -24,17 +16,9 @@ const SECTIONS: Section[] = [
   { id: "introduction", label: "Introduction", group: "Getting started" },
   { id: "authentication", label: "Authentication", group: "Getting started" },
   { id: "errors", label: "Errors & rate limits", group: "Getting started" },
-  { id: "balance", label: "Get balance", group: "Wallet" },
-  { id: "deposit-start", label: "Start deposit", group: "Wallet" },
-  { id: "transactions", label: "List transactions", group: "Wallet" },
-  { id: "verify", label: "Verify a transaction", group: "Wallet" },
   { id: "airtime", label: "Buy airtime", group: "VTU" },
   { id: "data-plans", label: "Data plans", group: "VTU" },
   { id: "data-purchase", label: "Buy data", group: "VTU" },
-  { id: "cable-plans", label: "Cable plans", group: "VTU" },
-  { id: "cable-subscribe", label: "Subscribe cable", group: "VTU" },
-  { id: "electricity", label: "Pay electricity", group: "VTU" },
-  { id: "pins", label: "Generate recharge pins", group: "VTU" },
 ]
 
 function CodeBlock({ children, lang = "bash" }: { children: string; lang?: string }) {
@@ -98,548 +82,329 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-24 mb-16">
-      <h2 className="text-2xl font-bold text-slate-900 mb-4 tracking-tight">{title}</h2>
-      <div className="space-y-4 text-[14.5px] leading-relaxed text-slate-700">{children}</div>
+      <h2 className="text-xl font-bold text-slate-900 mb-5 pb-2 border-b border-slate-100">{title}</h2>
+      <div className="space-y-5 text-slate-700 text-[14px] leading-relaxed">{children}</div>
     </section>
   )
 }
 
-function ParamTable({
-  rows,
+function ParamRow({
+  name,
+  type,
+  required,
+  desc,
 }: {
-  rows: { name: string; type: string; required?: boolean; description: string }[]
+  name: string
+  type: string
+  required?: boolean
+  desc: string
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <table className="w-full text-[13px]">
-        <thead className="bg-slate-50">
-          <tr className="text-left">
-            <th className="px-3 py-2 font-semibold text-slate-700">Field</th>
-            <th className="px-3 py-2 font-semibold text-slate-700">Type</th>
-            <th className="px-3 py-2 font-semibold text-slate-700">Description</th>
+    <tr className="border-b border-slate-100 last:border-0">
+      <td className="py-2.5 pr-4 align-top">
+        <code className="text-[12px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+          {name}
+        </code>
+      </td>
+      <td className="py-2.5 pr-4 align-top text-[12px] text-slate-500">{type}</td>
+      <td className="py-2.5 pr-4 align-top">
+        {required ? (
+          <span className="text-[10px] font-bold bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded">
+            required
+          </span>
+        ) : (
+          <span className="text-[10px] text-slate-400">optional</span>
+        )}
+      </td>
+      <td className="py-2.5 align-top text-slate-600">{desc}</td>
+    </tr>
+  )
+}
+
+function ParamTable({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-[13px] border-collapse">
+        <thead>
+          <tr className="border-b border-slate-200">
+            <th className="text-left py-2 pr-4 font-semibold text-slate-700">Field</th>
+            <th className="text-left py-2 pr-4 font-semibold text-slate-700">Type</th>
+            <th className="text-left py-2 pr-4 font-semibold text-slate-700">Required</th>
+            <th className="text-left py-2 font-semibold text-slate-700">Description</th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.name} className="border-t border-slate-100 align-top">
-              <td className="px-3 py-2.5 font-mono text-slate-900">
-                {r.name}
-                {r.required && <span className="ml-1 text-[10px] text-orange-600 font-semibold">required</span>}
-              </td>
-              <td className="px-3 py-2.5 text-slate-600 font-mono">{r.type}</td>
-              <td className="px-3 py-2.5 text-slate-700">{r.description}</td>
-            </tr>
-          ))}
-        </tbody>
+        <tbody>{children}</tbody>
       </table>
     </div>
   )
 }
 
-export default function DocsPage() {
-  const grouped = SECTIONS.reduce<Record<string, Section[]>>((acc, s) => {
-    const g = s.group || "Other"
-    acc[g] = acc[g] || []
-    acc[g].push(s)
-    return acc
-  }, {})
+export default function DocPage() {
+  const [activeSection, setActiveSection] = useState("introduction")
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
-      {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <img src="/icon.svg" alt="Mozosubz" className="w-8 h-8 rounded-lg" />
-            <span className="font-bold text-slate-900">
-              Mozosubz <span className="text-slate-400 font-medium">/ Docs</span>
-            </span>
-          </Link>
+    <div className="min-h-screen bg-white font-sans">
+      {/* Top nav */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link
-              href="/integrations/keys"
-              className="text-sm font-semibold text-slate-700 hover:text-blue-700 transition hidden sm:inline"
-            >
-              Connect Keys
+            <Link href="/" className="text-sm font-bold text-slate-900 hover:text-slate-700">
+              Mozosubz
             </Link>
-            <Link
-              href="/dashboard"
-              className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg transition"
-            >
-              Dashboard
-            </Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-sm text-slate-500">API Reference</span>
           </div>
+          <Link
+            href="/integrations/keys"
+            className="text-[13px] font-semibold px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
+          >
+            Get API Key
+          </Link>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
-        <div className="grid lg:grid-cols-[240px_1fr] gap-10">
-          {/* Sidebar */}
-          <aside className="hidden lg:block">
-            <nav className="sticky top-20">
-              {Object.entries(grouped).map(([group, items]) => (
-                <div key={group} className="mb-6">
-                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">
-                    {group}
-                  </h4>
-                  <ul className="space-y-1">
-                    {items.map((s) => (
-                      <li key={s.id}>
-                        <a
-                          href={`#${s.id}`}
-                          className="block text-sm text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-md px-2.5 py-1.5 transition"
-                        >
-                          {s.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </nav>
-          </aside>
+      <div className="max-w-7xl mx-auto px-4 flex gap-8 py-10">
+        {/* Sidebar nav */}
+        <aside className="hidden lg:block w-52 shrink-0 sticky top-24 self-start">
+          <nav className="space-y-1">
+            {(() => {
+              let lastGroup = ""
+              return SECTIONS.map((s) => {
+                const groupHeader =
+                  s.group && s.group !== lastGroup ? (
+                    <p
+                      key={`g-${s.group}`}
+                      className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-5 mb-1 px-2"
+                    >
+                      {(lastGroup = s.group) && s.group}
+                    </p>
+                  ) : null
+                return (
+                  <div key={s.id}>
+                    {groupHeader}
+                    <a
+                      href={`#${s.id}`}
+                      onClick={() => setActiveSection(s.id)}
+                      className={`block text-[13px] px-2 py-1.5 rounded-md transition ${
+                        activeSection === s.id
+                          ? "bg-slate-100 text-slate-900 font-semibold"
+                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      {s.label}
+                    </a>
+                  </div>
+                )
+              })
+            })()}
+          </nav>
+        </aside>
 
-          {/* Main content */}
-          <main className="min-w-0">
-            {/* Hero */}
-            <div className="mb-12 pb-10 border-b border-slate-200">
-              <p className="text-xs font-bold uppercase tracking-widest text-orange-600 mb-2">
-                Mozosubz API · v1
-              </p>
-              <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight mb-4 text-balance">
-                Build VTU into anything.
-              </h1>
-              <p className="text-lg text-slate-600 leading-relaxed max-w-2xl text-pretty">
-                Sell airtime, data, cable, electricity and recharge pins programmatically using a single
-                Connect Key tied to your Mozosubz wallet. Stable JSON, predictable errors, no surprises.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/integrations/keys"
-                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition"
-                >
-                  Get a Connect Key
-                </Link>
-                <a
-                  href="#authentication"
-                  className="inline-flex items-center gap-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-lg transition"
-                >
-                  Read auth guide
-                </a>
-              </div>
+        {/* Main content */}
+        <main className="flex-1 max-w-3xl">
 
-              <div className="mt-8 grid sm:grid-cols-2 gap-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                    Base URL
-                  </p>
-                  <code className="text-[13px] font-mono text-slate-900">{API_BASE}</code>
-                  <p className="text-[11px] text-slate-500 mt-2">
-                    Or equivalently <code className="font-mono">{API_BASE_ALT}</code>
-                  </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                    Auth header
-                  </p>
-                  <code className="text-[13px] font-mono text-slate-900">X-Connect-Key: connect_…</code>
-                </div>
-              </div>
+          {/* ── Introduction ── */}
+          <Section id="introduction" title="Introduction">
+            <p>
+              The <strong>Mozosubz v1 API</strong> lets you purchase <strong>data</strong> and{" "}
+              <strong>airtime</strong> programmatically using your wallet balance. It is designed
+              for developers who want to integrate VTU services directly into their own apps.
+            </p>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Base URL
+              </p>
+              <code className="text-[13px] font-mono text-slate-800">{API_BASE}</code>
             </div>
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[13px]">
+              <strong>Note:</strong> Your wallet must be funded before making purchases. All
+              amounts are in Nigerian Naira (₦). Prices shown by{" "}
+              <code className="text-[12px] bg-amber-100 px-1 rounded">/data/plans</code> are the
+              exact amounts that will be deducted from your wallet.
+            </div>
+          </Section>
 
-            {/* INTRODUCTION */}
-            <Section id="introduction" title="Introduction">
-              <p>
-                The Mozosubz v1 API lets you charge your Mozosubz wallet for VTU services from any backend.
-                Every endpoint is JSON in / JSON out, every successful purchase is debited atomically from
-                your wallet, and every transaction is recorded against your account just like a UI purchase.
-              </p>
-              <ul className="list-disc pl-6 space-y-1.5">
-                <li>One credential — a Connect Key — replaces signing, signing keys and OAuth.</li>
-                <li>All amounts are in Naira (<code className="font-mono text-[13px]">NGN</code>).</li>
-                <li>All timestamps are ISO‑8601 in UTC.</li>
-                <li>Wallet, key and webhook actions stay on Mozosubz — you never call providers directly.</li>
-              </ul>
-              <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
-                <p className="text-[13px] font-semibold text-blue-900 mb-1">Two equivalent base URLs</p>
-                <p className="text-[13px] text-blue-900/90 leading-relaxed">
-                  Every example below uses <code className="font-mono">{API_BASE}/v1/…</code>. If your
-                  network blocks the <code className="font-mono">api.</code> subdomain or you&apos;re hitting
-                  a preview deployment without it, the same endpoints are reachable at{" "}
-                  <code className="font-mono">{API_BASE_ALT}/v1/…</code>. Both are served by the same
-                  handler — pick whichever resolves for you.
-                </p>
-              </div>
-            </Section>
+          {/* ── Authentication ── */}
+          <Section id="authentication" title="Authentication">
+            <p>
+              Every request must include your Connect Key in the{" "}
+              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">X-Connect-Key</code>{" "}
+              header. You can generate and manage keys from the{" "}
+              <Link href="/integrations/keys" className="text-indigo-600 hover:underline font-medium">
+                API Keys page
+              </Link>
+              .
+            </p>
+            <CodeBlock lang="bash">{`curl ${API_BASE}/data/plans?service=mtn_sme \\
+  -H "X-Connect-Key: mzk_your_key_here"`}</CodeBlock>
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[13px]">
+              <strong>Keep your key secret.</strong> Never expose it in client-side code or
+              public repositories. Revoke and regenerate immediately if compromised.
+            </div>
+          </Section>
 
-            {/* AUTHENTICATION */}
-            <Section id="authentication" title="Authentication">
-              <p>
-                Authenticate every request with a Connect Key in the{" "}
-                <code className="font-mono text-[13px]">X-Connect-Key</code> header. Generate one from{" "}
-                <Link href="/integrations/keys" className="text-blue-700 font-semibold hover:underline">
-                  Settings → Connect Keys
-                </Link>
-                . Each user can have one active key at a time; creating a new one revokes the previous.
-              </p>
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/balance \\
-  -H "X-Connect-Key: connect_live_xxxxxxxxxxxxxxxxxxxxxxxx"`}</CodeBlock>
-              <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-[13.5px] text-orange-900">
-                <strong className="font-bold">Treat your key like a password.</strong> Store it in your
-                server&apos;s environment variables. Never expose it in client code, mobile apps, or
-                browser-visible bundles. If a key is exposed, revoke it from your dashboard immediately.
-              </div>
-            </Section>
-
-            {/* ERRORS */}
-            <Section id="errors" title="Errors & rate limits">
-              <p>
-                The API uses standard HTTP status codes. Error responses always include a{" "}
-                <code className="font-mono text-[13px]">success: false</code> field and a human‑readable{" "}
-                <code className="font-mono text-[13px]">error</code> message.
-              </p>
-              <ParamTable
-                rows={[
-                  { name: "200", type: "OK", description: "Request succeeded." },
-                  { name: "400", type: "Bad request", description: "Missing or invalid parameters." },
-                  { name: "401", type: "Unauthorized", description: "Missing, invalid or revoked key." },
-                  { name: "402", type: "Payment required", description: "Insufficient wallet balance." },
-                  { name: "404", type: "Not found", description: "Resource (e.g. transaction) not found." },
-                  { name: "429", type: "Too many requests", description: "Rate limit exceeded." },
-                  { name: "500", type: "Server error", description: "Unexpected server error. Safe to retry idempotent calls." },
-                ]}
-              />
-              <p>
-                Rate limit: <strong>10,000 requests per key per 24h</strong>. Contact support if you need a
-                higher limit for production traffic.
-              </p>
-              <CodeBlock lang="json">{`{
+          {/* ── Errors ── */}
+          <Section id="errors" title="Errors & rate limits">
+            <p>
+              All responses use standard HTTP status codes and return a JSON body with a{" "}
+              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">success</code> boolean and an{" "}
+              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">error</code> message on failure.
+            </p>
+            <CodeBlock lang="json">{`{
   "success": false,
-  "error": "Insufficient wallet balance"
+  "error": "Insufficient wallet balance. Required: ₦300, Available: ₦50"
 }`}</CodeBlock>
-            </Section>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px] border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Code</th>
+                    <th className="text-left py-2 font-semibold text-slate-700">Meaning</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-600">
+                  {[
+                    ["200", "Success"],
+                    ["400", "Bad request — missing or invalid fields"],
+                    ["401", "Unauthorized — invalid or missing API key"],
+                    ["402", "Payment required — insufficient wallet balance"],
+                    ["404", "Plan not found or not available for API users"],
+                    ["429", "Rate limit exceeded (10,000 requests / day)"],
+                    ["500 / 502", "Server or upstream provider error"],
+                  ].map(([code, meaning]) => (
+                    <tr key={code} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-6">
+                        <code className="font-mono text-slate-800">{code}</code>
+                      </td>
+                      <td className="py-2.5 text-slate-600">{meaning}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[13px] text-slate-600">
+              Rate limit: <strong>10,000 requests per day</strong> per API key. The counter resets
+              every 24 hours.
+            </p>
+          </Section>
 
-            {/* BALANCE */}
-            <Section id="balance" title="Get balance">
-              <Endpoint method="GET" path="/v1/balance" />
-              <p>Returns the current available balance on the key holder&apos;s wallet, in Naira.</p>
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/balance \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY"`}</CodeBlock>
-              <CodeBlock lang="json">{`{
-  "success": true,
-  "balance": 12540.75
-}`}</CodeBlock>
-            </Section>
-
-            {/* DEPOSIT START */}
-            <Section id="deposit-start" title="Start a deposit">
-              <Endpoint method="POST" path="/v1/deposit/start" />
-              <p>
-                Create a one‑time virtual account for funding the wallet. The user pays into the returned
-                account number; once Mozosubz receives Monnify&apos;s webhook, the wallet is credited (net
-                of processing fee) automatically. Poll{" "}
-                <a href="#verify" className="text-blue-700 font-semibold hover:underline">
-                  /v1/verify
-                </a>{" "}
-                with the returned <code className="font-mono text-[13px]">paymentReference</code> to detect
-                when the deposit lands.
-              </p>
-              <ParamTable
-                rows={[
-                  { name: "amount", type: "number", required: true, description: "Amount to deposit, NGN. Min ₦100, max ₦1,000,000." },
-                  { name: "description", type: "string", description: "Optional description for the payment, shown on the customer's statement." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/deposit/start \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{ "amount": 5000 }'`}</CodeBlock>
-              <CodeBlock lang="json">{`{
-  "success": true,
-  "paymentReference": "MOZO_a1b2c3d4_1731000000000_xyz",
-  "amount": 5000,
-  "processingFee": 50,
-  "netAmount": 4950,
-  "expiresAt": "2026-05-17T09:20:00.000Z",
-  "account": {
-    "accountNumber": "1234567890",
-    "accountName": "MOZOSUBZ-USER",
-    "bankName": "Wema Bank",
-    "bankCode": "035"
-  },
-  "checkoutUrl": "https://mozosubz.xyz/checkout/MOZO_a1b2c3d4_1731000000000_xyz"
-}`}</CodeBlock>
-            </Section>
-
-            {/* TRANSACTIONS */}
-            <Section id="transactions" title="List transactions">
-              <Endpoint method="GET" path="/v1/transactions" />
-              <p>Returns the key holder&apos;s service transactions, newest first.</p>
-              <ParamTable
-                rows={[
-                  { name: "limit", type: "number", description: "1–100, default 20." },
-                  { name: "offset", type: "number", description: "Pagination offset, default 0." },
-                  { name: "category", type: "string", description: "AIRTIME, DATA, CABLE, ELECTRICITY, RECHARGE_PIN." },
-                  { name: "status", type: "string", description: "SUCCESS, FAILED, PENDING." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl "${API_BASE}/v1/transactions?limit=10&category=DATA" \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY"`}</CodeBlock>
-              <CodeBlock lang="json">{`{
-  "success": true,
-  "transactions": [
-    {
-      "transaction_id": "TX-1731000000000-abcd",
-      "category": "DATA",
-      "service_id": "mtn-data",
-      "service_name": "MTN Data",
-      "amount": 1200,
-      "phone": "08012345678",
-      "status": "SUCCESS",
-      "description": "MTN 2GB · 30 days",
-      "balance_before": 5000,
-      "balance_after": 3800,
-      "created_at": "2026-05-17T08:55:12.000Z"
-    }
-  ],
-  "pagination": { "limit": 10, "offset": 0, "total": 42, "hasMore": true }
-}`}</CodeBlock>
-            </Section>
-
-            {/* VERIFY */}
-            <Section id="verify" title="Verify a transaction">
-              <Endpoint method="POST" path="/v1/verify" />
-              <p>
-                Look up either a service <code className="font-mono text-[13px]">transaction_id</code> or a
-                deposit <code className="font-mono text-[13px]">paymentReference</code>. Only transactions
-                belonging to the key holder are returned. The endpoint also accepts{" "}
-                <code className="font-mono text-[13px]">requestID</code> or{" "}
-                <code className="font-mono text-[13px]">transactionId</code> as aliases for{" "}
-                <code className="font-mono text-[13px]">reference</code>.
-              </p>
-              <ParamTable
-                rows={[
-                  { name: "reference", type: "string", required: true, description: "transaction_id or paymentReference. Aliases: requestID, transactionId." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/verify \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{ "reference": "MOZO_a1b2c3d4_1731000000000_xyz" }'`}</CodeBlock>
-              <CodeBlock lang="json">{`{
-  "success": true,
-  "type": "deposit",
-  "transaction": {
-    "payment_reference": "MOZO_a1b2c3d4_1731000000000_xyz",
-    "amount": 5000,
-    "net_amount": 4950,
-    "status": "SUCCESS",
-    "paid_at": "2026-05-17T09:01:33.000Z"
-  }
-}`}</CodeBlock>
-            </Section>
-
-            {/* AIRTIME */}
-            <Section id="airtime" title="Buy airtime">
-              <Endpoint method="POST" path="/v1/airtime/purchase" />
-              <p>Charges the wallet and tops up the recipient line.</p>
-              <ParamTable
-                rows={[
-                  { name: "serviceID", type: "string", required: true, description: "mtn, airtel, glo, 9mobile (or etisalat)." },
-                  { name: "amount", type: "number", required: true, description: "Naira amount. Min ₦50." },
-                  { name: "phone", type: "string", required: true, description: "Recipient phone number, 11 digits." },
-                  { name: "requestID", type: "string", description: "Optional client‑side idempotency key (echoed back)." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/airtime/purchase \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "serviceID": "mtn",
-    "amount": 200,
-    "phone": "08012345678"
-  }'`}</CodeBlock>
-              <CodeBlock lang="json">{`{
-  "success": true,
-  "message": "Airtime purchase successful",
-  "transactionId": "TX-1731000000000-abcd",
-  "balanceBefore": 5000,
-  "balanceAfter": 4800
-}`}</CodeBlock>
-            </Section>
-
-            {/* DATA PLANS */}
-            <Section id="data-plans" title="Data plans">
-              <Endpoint method="POST" path="/v1/data/plans" />
-              <p>
-                Returns the live data plan catalog for the requested network with your wallet markup
-                already applied. The plan <code className="font-mono text-[13px]">id</code> returned here
-                is what you pass as <code className="font-mono text-[13px]">plan</code> to{" "}
-                <a href="#data-purchase" className="text-blue-700 font-semibold hover:underline">
-                  /v1/data/purchase
-                </a>
-                .
-              </p>
-              <ParamTable
-                rows={[
-                  { name: "serviceID", type: "string", required: true, description: "mtn_sme, mtn_gifting, mtn_datashare, mtn_awoof, glo_data, glo_sme, airtel_sme, airtel_gifting, etisalat_data." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/data/plans \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{ "serviceID": "mtn_sme" }'`}</CodeBlock>
-              <CodeBlock lang="json">{`{
-  "success": true,
-  "plans": [
-    { "id": "mtn-1gb-30", "displayName": "MTN 1GB · 30 days", "price": 750 },
-    { "id": "mtn-2gb-30", "displayName": "MTN 2GB · 30 days", "price": 1200 }
-  ]
-}`}</CodeBlock>
-            </Section>
-
-            {/* DATA PURCHASE */}
-            <Section id="data-purchase" title="Buy data">
-              <Endpoint method="POST" path="/v1/data/purchase" />
-              <p>
-                The price is recomputed server‑side from the live catalog returned by{" "}
-                <a href="#data-plans" className="text-blue-700 font-semibold hover:underline">
-                  /v1/data/plans
-                </a>
-                . You do not send <code className="font-mono text-[13px]">amount</code> — any value
-                supplied is ignored. This prevents tampering and guarantees the wallet is debited at the
-                correct, marked‑up price.
-              </p>
-              <ParamTable
-                rows={[
-                  { name: "serviceID", type: "string", required: true, description: "Same identifier you passed to /v1/data/plans (e.g. mtn_sme)." },
-                  { name: "plan", type: "string", required: true, description: "Plan id returned by /v1/data/plans." },
-                  { name: "phone", type: "string", required: true, description: "Recipient phone number, 11 digits." },
-                  { name: "requestID", type: "string", description: "Optional client‑side idempotency key (echoed back)." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/data/purchase \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "serviceID": "mtn_sme",
-    "plan": "mtn-2gb-30",
-    "phone": "08012345678"
-  }'`}</CodeBlock>
-            </Section>
-
-            {/* CABLE PLANS */}
-            <Section id="cable-plans" title="Cable plans">
-              <Endpoint method="POST" path="/v1/cable/plans" />
-              <p>Returns the live cable bouquet catalog with wallet markup applied.</p>
-              <ParamTable
-                rows={[
-                  { name: "serviceID", type: "string", required: true, description: "dstv, gotv, startimes." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/cable/plans \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{ "serviceID": "dstv" }'`}</CodeBlock>
-              <CodeBlock lang="json">{`{
-  "success": true,
-  "plans": [
-    { "id": "dstv-padi", "displayName": "DStv Padi", "price": 2500 },
-    { "id": "dstv-yanga", "displayName": "DStv Yanga", "price": 3500 }
-  ]
-}`}</CodeBlock>
-            </Section>
-
-            {/* CABLE SUBSCRIBE */}
-            <Section id="cable-subscribe" title="Subscribe cable">
-              <Endpoint method="POST" path="/v1/cable/subscribe" />
-              <p>
-                Like data, the price is recomputed server‑side from{" "}
-                <a href="#cable-plans" className="text-blue-700 font-semibold hover:underline">
-                  /v1/cable/plans
-                </a>
-                . You do not send <code className="font-mono text-[13px]">amount</code>.
-              </p>
-              <ParamTable
-                rows={[
-                  { name: "serviceID", type: "string", required: true, description: "dstv, gotv, startimes." },
-                  { name: "plan", type: "string", required: true, description: "Package id from /v1/cable/plans." },
-                  { name: "customerID", type: "string", required: true, description: "Smartcard / IUC number." },
-                  { name: "phone", type: "string", required: true, description: "Subscriber phone number." },
-                  { name: "requestID", type: "string", description: "Optional idempotency key." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/cable/subscribe \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "serviceID": "dstv",
-    "plan": "dstv-padi",
-    "customerID": "1234567890",
-    "phone": "08012345678"
-  }'`}</CodeBlock>
-            </Section>
-
-            {/* ELECTRICITY */}
-            <Section id="electricity" title="Pay electricity">
-              <Endpoint method="POST" path="/v1/electricity/purchase" />
-              <ParamTable
-                rows={[
-                  { name: "serviceID", type: "string", required: true, description: "Disco code (e.g. ikeja-electric, eko-electric, ibadan-electric)." },
-                  { name: "variation_code", type: "string", required: true, description: "prepaid or postpaid." },
-                  { name: "customerID", type: "string", required: true, description: "Meter number." },
-                  { name: "amount", type: "number", required: true, description: "Amount in NGN. Min ₦500." },
-                  { name: "phone", type: "string", required: true, description: "Customer phone number." },
-                  { name: "requestID", type: "string", description: "Optional idempotency key." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/electricity/purchase \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "serviceID": "ikeja-electric",
-    "variation_code": "prepaid",
-    "customerID": "1234567890",
-    "amount": 2000,
-    "phone": "08012345678"
-  }'`}</CodeBlock>
-              <p>
-                Successful prepaid responses include a <code className="font-mono text-[13px]">token</code>{" "}
-                you can show to the customer.
-              </p>
-            </Section>
-
-            {/* PINS */}
-            <Section id="pins" title="Generate recharge pins" >
-              <Endpoint method="POST" path="/v1/pins/generate" />
-              <ParamTable
-                rows={[
-                  { name: "network", type: "string", required: true, description: "mtn, airtel, glo, 9mobile." },
-                  { name: "value", type: "string", required: true, description: "Denomination per pin in NGN, e.g. \"100\", \"200\"." },
-                  { name: "number", type: "string", required: true, description: "Number of pins to generate, 1–50." },
-                ]}
-              />
-              <CodeBlock lang="bash">{`curl ${API_BASE}/v1/pins/generate \\
-  -H "X-Connect-Key: $MOZOSUBZ_KEY" \\
+          {/* ── Buy airtime ── */}
+          <Section id="airtime" title="Buy airtime">
+            <Endpoint method="POST" path={`${API_BASE}/airtime/purchase`} />
+            <p>
+              Purchase airtime for any Nigerian network. The exact{" "}
+              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">amount</code> is
+              deducted from your wallet — there is no markup on airtime.
+            </p>
+            <h3 className="font-semibold text-slate-800 mt-4 mb-2">Request body</h3>
+            <ParamTable>
+              <ParamRow name="network" type="string" required desc='Network operator: "mtn", "glo", "airtel", or "etisalat"' />
+              <ParamRow name="amount" type="number" required desc="Amount in Naira (minimum ₦50)" />
+              <ParamRow name="phone" type="string" required desc="Nigerian phone number (e.g. 08012345678)" />
+            </ParamTable>
+            <CodeBlock lang="bash">{`curl -X POST ${API_BASE}/airtime/purchase \\
+  -H "X-Connect-Key: mzk_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "network": "mtn",
-    "value": "200",
-    "number": "5"
+    "amount": 200,
+    "phone": "08012345678"
   }'`}</CodeBlock>
-              <CodeBlock lang="json">{`{
+            <h3 className="font-semibold text-slate-800 mt-4 mb-2">Response</h3>
+            <CodeBlock lang="json">{`{
   "success": true,
-  "transactionId": "TX-1731000000000-abcd",
-  "pins": [
-    { "pin": "1234567890123456", "serial": "SR-0001" }
-  ],
-  "totalCost": 1000,
-  "balanceAfter": 4000
+  "transaction_id": "V1-AIR-A1B2C3D4E5F6",
+  "network": "MTN",
+  "phone": "08012345678",
+  "amount": 200,
+  "reference": "GSUBZ-REF-XXXXX",
+  "balance_before": 5000,
+  "balance_after": 4800
 }`}</CodeBlock>
-            </Section>
+          </Section>
 
-          </main>
-        </div>
+          {/* ── Data plans ── */}
+          <Section id="data-plans" title="Data plans">
+            <Endpoint method="GET" path={`${API_BASE}/data/plans?service={service}`} />
+            <p>
+              Returns available data plans for a given service along with the API price you will be
+              charged. Only plans that have been configured with a price by the admin are returned.
+            </p>
+            <h3 className="font-semibold text-slate-800 mt-4 mb-2">Query parameters</h3>
+            <ParamTable>
+              <ParamRow
+                name="service"
+                type="string"
+                required
+                desc="One of: mtn_sme, mtn_gifting, mtn_datashare, mtn_awoof, glo_sme, glo_data, airtel_sme, airtel_gifting, etisalat_data"
+              />
+            </ParamTable>
+            <CodeBlock lang="bash">{`curl "${API_BASE}/data/plans?service=mtn_sme" \\
+  -H "X-Connect-Key: mzk_your_key_here"`}</CodeBlock>
+            <h3 className="font-semibold text-slate-800 mt-4 mb-2">Response</h3>
+            <CodeBlock lang="json">{`{
+  "success": true,
+  "service": "mtn_sme",
+  "plans": [
+    {
+      "id": "mtn_sme_1gb",
+      "name": "1GB - 7 Days",
+      "provider_price": 300,
+      "api_price": 315,
+      "available": true
+    },
+    {
+      "id": "mtn_sme_2gb",
+      "name": "2GB - 30 Days",
+      "provider_price": 600,
+      "api_price": 620,
+      "available": true
+    }
+  ]
+}`}</CodeBlock>
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-[13px]">
+              Use the <code className="bg-blue-100 px-1 rounded text-[12px]">name</code> value as
+              the <code className="bg-blue-100 px-1 rounded text-[12px]">plan_id</code> when
+              calling <code className="bg-blue-100 px-1 rounded text-[12px]">/data/purchase</code>.
+            </div>
+          </Section>
+
+          {/* ── Buy data ── */}
+          <Section id="data-purchase" title="Buy data">
+            <Endpoint method="POST" path={`${API_BASE}/data/purchase`} />
+            <p>
+              Purchase a data plan. The <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">api_price</code>{" "}
+              shown in <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">/data/plans</code> is
+              the exact amount deducted from your wallet.
+            </p>
+            <h3 className="font-semibold text-slate-800 mt-4 mb-2">Request body</h3>
+            <ParamTable>
+              <ParamRow name="service" type="string" required desc='Same service identifier used in /data/plans (e.g. "mtn_sme")' />
+              <ParamRow name="plan_id" type="string" required desc='The plan name from /data/plans (e.g. "1GB - 7 Days")' />
+              <ParamRow name="phone" type="string" required desc="Nigerian phone number to receive the data (e.g. 08012345678)" />
+            </ParamTable>
+            <CodeBlock lang="bash">{`curl -X POST ${API_BASE}/data/purchase \\
+  -H "X-Connect-Key: mzk_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "service": "mtn_sme",
+    "plan_id": "1GB - 7 Days",
+    "phone": "08012345678"
+  }'`}</CodeBlock>
+            <h3 className="font-semibold text-slate-800 mt-4 mb-2">Response</h3>
+            <CodeBlock lang="json">{`{
+  "success": true,
+  "transaction_id": "V1-DATA-A1B2C3D4E5F6",
+  "plan": "1GB - 7 Days",
+  "phone": "08012345678",
+  "amount": 315,
+  "reference": "GSUBZ-REF-XXXXX",
+  "balance_before": 5000,
+  "balance_after": 4685
+}`}</CodeBlock>
+          </Section>
+
+        </main>
       </div>
 
       <Footer />

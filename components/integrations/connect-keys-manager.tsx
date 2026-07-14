@@ -265,13 +265,50 @@ export function ConnectKeysManager() {
           )}
         </div>
 
+        {/* Quick-start endpoints */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">v1 API — quick reference</h2>
+          <p className="text-xs text-gray-500">
+            Pass your Connect Key in every request as{' '}
+            <code className="font-mono bg-gray-100 px-1 rounded">X-Connect-Key</code>.
+          </p>
+          <div className="space-y-2">
+            {[
+              { method: 'GET', path: '/api/v1/data/plans?service=mtn_sme', label: 'List data plans' },
+              { method: 'POST', path: '/api/v1/data/purchase', label: 'Buy data' },
+              { method: 'POST', path: '/api/v1/airtime/purchase', label: 'Buy airtime' },
+            ].map((e) => (
+              <div
+                key={e.path}
+                className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100"
+              >
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                    e.method === 'GET'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  {e.method}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] text-gray-500">{e.label}</p>
+                  <p className="font-mono text-[11px] text-gray-800 truncate">{e.path}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Docs link */}
         <Link
           href="/doc"
           className="block bg-white rounded-xl border border-gray-100 p-4 hover:bg-gray-50 transition"
         >
-          <p className="text-sm font-semibold text-gray-900">API documentation</p>
-          <p className="text-xs text-gray-500">See how to use your Connect Key with Mozosubz APIs.</p>
+          <p className="text-sm font-semibold text-gray-900">Full API documentation</p>
+          <p className="text-xs text-gray-500">
+            Request/response examples, error codes, and rate limits.
+          </p>
         </Link>
       </div>
     </div>

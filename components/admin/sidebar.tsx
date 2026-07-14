@@ -14,6 +14,7 @@ import {
   Banknote,
   Menu,
   X,
+  Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,7 @@ const adminLinks = [
   { name: 'Transactions', href: '/admin/transactions', icon: CreditCard },
   { name: 'Wallet Funding', href: '/admin/wallet', icon: DollarSign },
   { name: 'Pricing Rules', href: '/admin/pricing', icon: Settings },
+  { name: 'API Pricing', href: '/admin/api-pricing', icon: Zap },
   { name: 'Deposit Rules', href: '/admin/deposit-rules', icon: Banknote },
   { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
   { name: 'User Dashboard', href: '/', icon: BarChart3 },
