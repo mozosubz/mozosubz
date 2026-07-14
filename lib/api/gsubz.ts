@@ -128,6 +128,11 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
   }
 }
 
+// Uncached real-time fetch — use this for the v1 API so prices are always live
+export async function getDataPlansRealtime(serviceId: string): Promise<PlanResponse> {
+  return _fetchDataPlansFromAPI(serviceId)
+}
+
 // Cached wrapper for data plans - creates separate cache per serviceId
 export async function getDataPlans(serviceId: string): Promise<PlanResponse> {
   const getCached = unstable_cache(

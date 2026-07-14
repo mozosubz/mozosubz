@@ -108,7 +108,6 @@ export async function POST(request: NextRequest) {
     }
 
     const transactionId = `V1-AIR-${uuidv4().toUpperCase().substring(0, 12)}`
-    const balanceBefore = walletBalance
     const balanceAfter = deduction.newBalance ?? walletBalance - parsedAmount
 
     // Map network to Gsubz service ID
@@ -157,8 +156,8 @@ export async function POST(request: NextRequest) {
       phone: phoneClean,
       status: txStatus,
       description: `₦${parsedAmount.toLocaleString()} ${networkLower.toUpperCase()} airtime via API`,
-      balanceBefore,
-      balanceAfter: purchased ? balanceAfter : balanceBefore,
+      balanceBefore: walletBalance,
+      balanceAfter: purchased ? balanceAfter : walletBalance,
       apiResponse: gsubzResult as Record<string, unknown>,
     })
 
@@ -175,8 +174,6 @@ export async function POST(request: NextRequest) {
       network: networkLower.toUpperCase(),
       phone: phoneClean,
       amount: parsedAmount,
-      reference: transactionId,
-      balance_before: balanceBefore,
       balance_after: balanceAfter,
     })
   } catch (err) {

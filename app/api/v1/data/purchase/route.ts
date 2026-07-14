@@ -120,7 +120,6 @@ export async function POST(request: NextRequest) {
     }
 
     const transactionId = `V1-DATA-${uuidv4().toUpperCase().substring(0, 12)}`
-    const balanceBefore = walletBalance
     const balanceAfter = deduction.newBalance ?? walletBalance - apiPrice
 
     // Purchase data via Gsubz
@@ -160,8 +159,8 @@ export async function POST(request: NextRequest) {
       phone: phoneClean,
       status: txStatus,
       description: `${rule.plan_name} data purchase via API`,
-      balanceBefore,
-      balanceAfter: purchased ? balanceAfter : balanceBefore,
+      balanceBefore: walletBalance,
+      balanceAfter: purchased ? balanceAfter : walletBalance,
       planDetails: rule.plan_name,
       apiResponse: gsubzResult as Record<string, unknown>,
     })
@@ -178,9 +177,7 @@ export async function POST(request: NextRequest) {
       transaction_id: transactionId,
       plan: rule.plan_name,
       phone: phoneClean,
-      amount: apiPrice,
-      reference: transactionId,
-      balance_before: balanceBefore,
+      amount: apiPrice,           // this is the final price the user paid — no breakdown
       balance_after: balanceAfter,
     })
   } catch (err) {
