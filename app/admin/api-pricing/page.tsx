@@ -404,15 +404,58 @@ export default function ApiPricingPage() {
                   <label className="form-label">
                     Markup {formData.markupType === 'fixed' ? '(₦)' : '(%)'}
                   </label>
-                  <input
-                    className="form-input"
-                    type="number"
-                    step="0.01"
-                    placeholder="0"
-                    value={formData.markupValue}
-                    onChange={(e) => setFormData({ ...formData, markupValue: e.target.value })}
-                    required
-                  />
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input
+                      className="form-input"
+                      type="number"
+                      step="0.01"
+                      placeholder="0"
+                      value={formData.markupValue}
+                      onChange={(e) => setFormData({ ...formData, markupValue: e.target.value })}
+                      style={{ flex: 1 }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(formData.markupValue) || 0
+                        const step = formData.markupType === 'percentage' ? 1 : 50
+                        setFormData({ ...formData, markupValue: String(current - step) })
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--admin-bg)',
+                        color: 'var(--admin-danger)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      −
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(formData.markupValue) || 0
+                        const step = formData.markupType === 'percentage' ? 1 : 50
+                        setFormData({ ...formData, markupValue: String(current + step) })
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--admin-success)',
+                        color: 'white',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
@@ -421,6 +464,96 @@ export default function ApiPricingPage() {
                   </button>
                 </div>
               </form>
+
+              {/* Quick presets */}
+              {formData.markupValue !== '' && (
+                <div style={{ marginTop: 14 }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+                    Quick presets
+                  </p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {formData.markupType === 'percentage' ? (
+                      <>
+                        {[5, 10, 15, 20, 25, 30].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, markupValue: String(val) })}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: 12,
+                              fontWeight: 500,
+                              border: '1px solid var(--admin-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              background: formData.markupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                              color: formData.markupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            +{val}%
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {[50, 100, 200, 500, 1000].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, markupValue: String(val) })}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: 12,
+                              fontWeight: 500,
+                              border: '1px solid var(--admin-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              background: formData.markupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                              color: formData.markupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            +₦{val}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Live preview */}
+              {formData.markupValue && formData.planName && formData.basePrice && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: 12,
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                    API Price Preview
+                  </p>
+                  <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 11, color: 'var(--admin-text-tertiary)' }}>Plan</p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: 12, fontWeight: 600 }}>{formData.planName}</p>
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 11, color: 'var(--admin-text-tertiary)' }}>Final Price</p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                        ₦{Math.round(
+                          parseFloat(formData.basePrice) +
+                            (formData.markupType === 'fixed'
+                              ? parseFloat(formData.markupValue) || 0
+                              : parseFloat(formData.basePrice) * ((parseFloat(formData.markupValue) || 0) / 100))
+                        ).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -697,15 +830,58 @@ export default function ApiPricingPage() {
               </div>
               <div style={{ flex: '1 1 120px' }}>
                 <label className="form-label">Markup Value</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  step="0.01"
-                  placeholder="0"
-                  value={bulkMarkupValue}
-                  onChange={(e) => setBulkMarkupValue(e.target.value)}
-                  required
-                />
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    className="form-input"
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    value={bulkMarkupValue}
+                    onChange={(e) => setBulkMarkupValue(e.target.value)}
+                    style={{ flex: 1 }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(bulkMarkupValue) || 0
+                      const step = bulkMarkupType === 'percentage' ? 1 : 50
+                      setBulkMarkupValue(String(current - step))
+                    }}
+                    style={{
+                      padding: '6px 8px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: '1px solid var(--admin-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--admin-bg)',
+                      color: 'var(--admin-danger)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(bulkMarkupValue) || 0
+                      const step = bulkMarkupType === 'percentage' ? 1 : 50
+                      setBulkMarkupValue(String(current + step))
+                    }}
+                    style={{
+                      padding: '6px 8px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: '1px solid var(--admin-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--admin-success)',
+                      color: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <div>
                 <button
@@ -717,6 +893,113 @@ export default function ApiPricingPage() {
                 </button>
               </div>
             </form>
+
+            {/* Quick presets for bulk */}
+            {bulkMarkupValue !== '' && (
+              <div style={{ marginTop: 14, marginBottom: 14 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+                  Quick presets
+                </p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {bulkMarkupType === 'percentage' ? (
+                    <>
+                      {[5, 10, 15, 20, 25, 30].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setBulkMarkupValue(String(val))}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            border: '1px solid var(--admin-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            background: bulkMarkupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                            color: bulkMarkupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          +{val}%
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      {[50, 100, 200, 500, 1000].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setBulkMarkupValue(String(val))}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            border: '1px solid var(--admin-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            background: bulkMarkupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                            color: bulkMarkupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          +₦{val}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Preview of bulk changes */}
+            {bulkMarkupValue && selectedRuleIds.length > 0 && (
+              <div
+                style={{
+                  padding: 12,
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: 14,
+                }}
+              >
+                <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                  Preview of changes to {selectedRuleIds.length} selected rule(s)
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                  {rules
+                    .filter((r) => selectedRuleIds.includes(r.id))
+                    .map((rule) => {
+                      const markupVal = parseFloat(bulkMarkupValue)
+                      const newFinalPrice =
+                        bulkMarkupType === 'fixed'
+                          ? rule.base_price + markupVal
+                          : rule.base_price * (1 + markupVal / 100)
+                      const oldPrice = calculateFinalPrice(rule)
+                      return (
+                        <div
+                          key={rule.id}
+                          style={{
+                            padding: 10,
+                            background: 'var(--admin-bg)',
+                            border: '1px solid var(--admin-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: 11,
+                          }}
+                        >
+                          <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {rule.plan_name}
+                          </p>
+                          <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
+                            Old: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
+                          </p>
+                          <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
+                            New: <span style={{ fontWeight: 600 }}>₦{Math.round(newFinalPrice).toLocaleString()}</span>
+                          </p>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
 
             {loading ? (
               <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>Loading...</p>
