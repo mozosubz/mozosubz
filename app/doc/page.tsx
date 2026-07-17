@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { Footer } from "@/components/footer"
+import { ChevronRight, Copy, Check } from "lucide-react"
 
 const API_BASE = "https://mozosubz.xyz/api/v1"
 
@@ -55,18 +56,28 @@ function CodeBlock({ children, lang = "bash" }: { children: string; lang?: strin
   }
   return (
     <div className="relative group">
-      <div className="absolute top-3 right-3 flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">{lang}</span>
+      <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">{lang}</span>
         <button
           type="button"
           onClick={onCopy}
-          className="text-[11px] font-semibold px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white transition flex items-center gap-1.5 shadow-lg hover:shadow-xl"
           aria-label="Copy code"
         >
-          {copied ? "Copied" : "Copy"}
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              Copy
+            </>
+          )}
         </button>
       </div>
-      <pre className="overflow-x-auto rounded-xl bg-slate-950 text-slate-100 text-[12.5px] leading-relaxed p-4 pr-24 font-mono border border-slate-900">
+      <pre className="overflow-x-auto rounded-lg bg-gradient-to-br from-slate-900 to-slate-950 text-slate-100 text-[12.5px] leading-relaxed p-5 pr-32 font-mono border border-slate-800 shadow-xl">
         <code>{children}</code>
       </pre>
     </div>
@@ -87,9 +98,9 @@ function MethodPill({ method }: { method: "GET" | "POST" }) {
 
 function Endpoint({ method, path }: { method: "GET" | "POST"; path: string }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap mb-3">
+    <div className="flex items-center gap-3 flex-wrap mb-5 p-4 bg-gradient-to-r from-slate-800/50 to-slate-900/50 rounded-lg border border-slate-700">
       <MethodPill method={method} />
-      <code className="text-[13px] font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded-md">{path}</code>
+      <code className="text-[13px] font-mono text-indigo-300 bg-slate-900/50 px-3 py-1.5 rounded-md border border-slate-700 flex-1 overflow-x-auto">{path}</code>
     </div>
   )
 }
@@ -104,9 +115,12 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="scroll-mt-24 mb-16">
-      <h2 className="text-xl font-bold text-slate-900 mb-5 pb-2 border-b border-slate-100">{title}</h2>
-      <div className="space-y-5 text-slate-700 text-[14px] leading-relaxed">{children}</div>
+    <section id={id} className="scroll-mt-24 mb-20">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full"></div>
+        <h2 className="text-2xl font-bold text-white">{title}</h2>
+      </div>
+      <div className="space-y-5 text-slate-300 text-[14px] leading-relaxed">{children}</div>
     </section>
   )
 }
@@ -123,37 +137,37 @@ function ParamRow({
   desc: string
 }) {
   return (
-    <tr className="border-b border-slate-100 last:border-0">
-      <td className="py-2.5 pr-4 align-top">
-        <code className="text-[12px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+    <tr className="border-b border-slate-800 last:border-0 hover:bg-slate-800/30 transition">
+      <td className="py-3 pr-4 align-top">
+        <code className="text-[12px] font-mono text-indigo-300 bg-indigo-950/40 px-2 py-1 rounded border border-indigo-700/30">
           {name}
         </code>
       </td>
-      <td className="py-2.5 pr-4 align-top text-[12px] text-slate-500">{type}</td>
-      <td className="py-2.5 pr-4 align-top">
+      <td className="py-3 pr-4 align-top text-[12px] text-slate-400">{type}</td>
+      <td className="py-3 pr-4 align-top">
         {required ? (
-          <span className="text-[10px] font-bold bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-bold bg-red-950/40 text-red-300 border border-red-700/30 px-2 py-1 rounded">
             required
           </span>
         ) : (
-          <span className="text-[10px] text-slate-400">optional</span>
+          <span className="text-[10px] text-slate-500">optional</span>
         )}
       </td>
-      <td className="py-2.5 align-top text-slate-600">{desc}</td>
+      <td className="py-3 align-top text-slate-300">{desc}</td>
     </tr>
   )
 }
 
 function ParamTable({ children }: { children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/30">
       <table className="w-full text-[13px] border-collapse">
         <thead>
-          <tr className="border-b border-slate-200">
-            <th className="text-left py-2 pr-4 font-semibold text-slate-700">Field</th>
-            <th className="text-left py-2 pr-4 font-semibold text-slate-700">Type</th>
-            <th className="text-left py-2 pr-4 font-semibold text-slate-700">Required</th>
-            <th className="text-left py-2 font-semibold text-slate-700">Description</th>
+          <tr className="border-b border-slate-800 bg-slate-900/50">
+            <th className="text-left py-3 px-4 font-semibold text-indigo-300">Field</th>
+            <th className="text-left py-3 px-4 font-semibold text-indigo-300">Type</th>
+            <th className="text-left py-3 px-4 font-semibold text-indigo-300">Required</th>
+            <th className="text-left py-3 px-4 font-semibold text-indigo-300">Description</th>
           </tr>
         </thead>
         <tbody>{children}</tbody>
@@ -166,30 +180,31 @@ export default function DocPage() {
   const [activeSection, setActiveSection] = useState("introduction")
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 font-sans">
       {/* Top nav */}
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
+      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-sm font-bold text-slate-900 hover:text-slate-700">
+            <Link href="/" className="text-sm font-bold bg-gradient-to-r from-indigo-400 to-indigo-600 bg-clip-text text-transparent hover:from-indigo-300 hover:to-indigo-500 transition">
               Mozosubz
             </Link>
-            <span className="text-slate-300">/</span>
-            <span className="text-sm text-slate-500">API Reference</span>
+            <span className="text-slate-700">/</span>
+            <span className="text-sm text-slate-400">API Reference</span>
           </div>
           <Link
             href="/integrations/keys"
-            className="text-[13px] font-semibold px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
+            className="text-[13px] font-semibold px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-500 hover:to-indigo-600 transition shadow-lg hover:shadow-xl flex items-center gap-2"
           >
             Get API Key
+            <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 flex gap-8 py-10">
+      <div className="max-w-7xl mx-auto px-4 flex gap-8 py-12">
         {/* Sidebar nav */}
-        <aside className="hidden lg:block w-52 shrink-0 sticky top-24 self-start">
-          <nav className="space-y-1">
+        <aside className="hidden lg:block w-56 shrink-0 sticky top-24 self-start">
+          <nav className="space-y-1 bg-slate-900/50 rounded-lg border border-slate-800 p-4">
             {(() => {
               let lastGroup = ""
               return SECTIONS.map((s) => {
@@ -197,7 +212,7 @@ export default function DocPage() {
                   s.group && s.group !== lastGroup ? (
                     <p
                       key={`g-${s.group}`}
-                      className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-5 mb-1 px-2"
+                      className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mt-4 mb-2 px-2 first:mt-0"
                     >
                       {(lastGroup = s.group) && s.group}
                     </p>
@@ -208,12 +223,13 @@ export default function DocPage() {
                     <a
                       href={`#${s.id}`}
                       onClick={() => setActiveSection(s.id)}
-                      className={`block text-[13px] px-2 py-1.5 rounded-md transition ${
+                      className={`block text-[13px] px-3 py-2 rounded-md transition flex items-center gap-2 ${
                         activeSection === s.id
-                          ? "bg-slate-100 text-slate-900 font-semibold"
-                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                          ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold shadow-lg"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                       }`}
                     >
+                      {activeSection === s.id && <ChevronRight className="w-3.5 h-3.5" />}
                       {s.label}
                     </a>
                   </div>
@@ -229,20 +245,20 @@ export default function DocPage() {
           {/* ── Introduction ── */}
           <Section id="introduction" title="Introduction">
             <p>
-              The <strong>Mozosubz v1 API</strong> lets you purchase <strong>data</strong> and{" "}
-              <strong>airtime</strong> programmatically using your wallet balance. It is designed
+              The <strong className="text-white">Mozosubz v1 API</strong> lets you purchase <strong className="text-indigo-400">data</strong> and{" "}
+              <strong className="text-indigo-400">airtime</strong> programmatically using your wallet balance. It is designed
               for developers who want to integrate VTU services directly into their own apps.
             </p>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <div className="p-4 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 shadow-lg">
+              <p className="text-[12px] font-semibold text-indigo-400 uppercase tracking-wider mb-2">
                 Base URL
               </p>
-              <code className="text-[13px] font-mono text-slate-800">{API_BASE}</code>
+              <code className="text-[13px] font-mono text-slate-100 bg-slate-950 px-3 py-2 rounded-md block overflow-x-auto">{API_BASE}</code>
             </div>
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[13px]">
-              <strong>Note:</strong> Your wallet must be funded before making purchases. All
+            <div className="p-4 rounded-lg bg-gradient-to-br from-amber-900/30 to-amber-950/30 border border-amber-700/50 text-amber-200 text-[13px]">
+              <strong>✓ Note:</strong> Your wallet must be funded before making purchases. All
               amounts are in Nigerian Naira (₦). Prices shown by{" "}
-              <code className="text-[12px] bg-amber-100 px-1 rounded">/data/plans</code> are the
+              <code className="text-[12px] bg-amber-900/50 px-2 py-1 rounded border border-amber-700/50">/data/plans</code> are the
               exact amounts that will be deducted from your wallet.
             </div>
           </Section>
@@ -251,17 +267,17 @@ export default function DocPage() {
           <Section id="authentication" title="Authentication">
             <p>
               Every request must include your Connect Key in the{" "}
-              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">X-Connect-Key</code>{" "}
+              <code className="bg-slate-800 px-2 py-1 rounded text-[12px] text-indigo-300 border border-slate-700">{`X-Connect-Key`}</code>{" "}
               header. You can generate and manage keys from the{" "}
-              <Link href="/integrations/keys" className="text-indigo-600 hover:underline font-medium">
+              <Link href="/integrations/keys" className="text-indigo-400 hover:text-indigo-300 underline font-medium transition">
                 API Keys page
               </Link>
               .
             </p>
             <CodeBlock lang="bash">{`curl "${API_BASE}/data/plans?service=mtn_sme" \\
   -H "X-Connect-Key: connect_your_key_here"`}</CodeBlock>
-            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[13px]">
-              <strong>Keep your key secret.</strong> Never expose it in client-side code or
+            <div className="p-4 rounded-lg bg-gradient-to-br from-red-900/30 to-red-950/30 border border-red-700/50 text-red-200 text-[13px]">
+              <strong>⚠ Keep your key secret.</strong> Never expose it in client-side code or
               public repositories. Revoke and regenerate immediately if compromised.
             </div>
           </Section>
@@ -277,15 +293,15 @@ export default function DocPage() {
   "success": false,
   "error": "Insufficient wallet balance. Required: ₦300, Available: ₦50"
 }`}</CodeBlock>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/30">
               <table className="w-full text-[13px] border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Code</th>
-                    <th className="text-left py-2 font-semibold text-slate-700">Meaning</th>
+                  <tr className="border-b border-slate-800 bg-slate-900/50">
+                    <th className="text-left py-3 px-4 font-semibold text-indigo-300">Code</th>
+                    <th className="text-left py-3 px-4 font-semibold text-indigo-300">Meaning</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-600">
+                <tbody className="text-slate-300">
                   {[
                     ["200", "Success"],
                     ["400", "Bad request — missing or invalid fields"],
@@ -295,18 +311,18 @@ export default function DocPage() {
                     ["429", "Rate limit exceeded (10,000 requests / day)"],
                     ["500 / 502", "Server or upstream provider error"],
                   ].map(([code, meaning]) => (
-                    <tr key={code} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 pr-6">
-                        <code className="font-mono text-slate-800">{code}</code>
+                    <tr key={code} className="border-b border-slate-800 last:border-0 hover:bg-slate-800/30 transition">
+                      <td className="py-3 px-4">
+                        <code className="font-mono text-amber-400">{code}</code>
                       </td>
-                      <td className="py-2.5 text-slate-600">{meaning}</td>
+                      <td className="py-3 px-4 text-slate-300">{meaning}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="text-[13px] text-slate-600">
-              Rate limit: <strong>10,000 requests per day</strong> per API key. The counter resets
+            <p className="text-[13px] text-slate-400">
+              Rate limit: <strong className="text-slate-300">10,000 requests per day</strong> per API key. The counter resets
               every 24 hours.
             </p>
           </Section>
@@ -379,13 +395,13 @@ export default function DocPage() {
     }
   ]
 }`}</CodeBlock>
-            <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-[13px]">
-              <strong>How to use:</strong> Call <code className="bg-blue-100 px-1 rounded text-[12px]">/data/plans</code> first
+            <div className="p-4 rounded-lg bg-gradient-to-br from-blue-900/30 to-blue-950/30 border border-blue-700/50 text-blue-200 text-[13px]">
+              <strong>ℹ How to use:</strong> Call <code className="bg-blue-900/50 px-2 py-1 rounded text-[12px] border border-blue-700/50">/data/plans</code> first
               to get the live plan list for a service, then pass the plan&apos;s{" "}
-              <code className="bg-blue-100 px-1 rounded text-[12px]">id</code> as{" "}
-              <code className="bg-blue-100 px-1 rounded text-[12px]">plan_id</code> in{" "}
-              <code className="bg-blue-100 px-1 rounded text-[12px]">/data/purchase</code>.
-              The <code className="bg-blue-100 px-1 rounded text-[12px]">price</code> is always
+              <code className="bg-blue-900/50 px-2 py-1 rounded text-[12px] border border-blue-700/50">id</code> as{" "}
+              <code className="bg-blue-900/50 px-2 py-1 rounded text-[12px] border border-blue-700/50">plan_id</code> in{" "}
+              <code className="bg-blue-900/50 px-2 py-1 rounded text-[12px] border border-blue-700/50">/data/purchase</code>.
+              The <code className="bg-blue-900/50 px-2 py-1 rounded text-[12px] border border-blue-700/50">price</code> is always
               real-time and is the exact amount deducted from your wallet — no hidden markup shown.
               IDs vary per service; always use the live response, never hardcode them.
             </div>
@@ -440,40 +456,40 @@ export default function DocPage() {
             <p className="text-[13px] text-slate-500 mb-3">
               Plan counts below reflect the total available from the provider. Only plans the admin has configured with an API price will be returned by <code className="bg-slate-100 px-1 rounded text-[12px]">/data/plans</code>.
             </p>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/30">
               <table className="w-full text-[13px] border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Service ID</th>
-                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Network</th>
-                    <th className="text-left py-2 pr-6 font-semibold text-slate-700">Type</th>
-                    <th className="text-left py-2 pr-4 font-semibold text-slate-700">Plans</th>
-                    <th className="text-left py-2 font-semibold text-slate-700">Notes</th>
+                  <tr className="border-b border-slate-800 bg-slate-900/50">
+                    <th className="text-left py-3 px-4 font-semibold text-indigo-300">Service ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-indigo-300">Network</th>
+                    <th className="text-left py-3 px-4 font-semibold text-indigo-300">Type</th>
+                    <th className="text-left py-3 px-4 font-semibold text-indigo-300">Plans</th>
+                    <th className="text-left py-3 px-4 font-semibold text-indigo-300">Notes</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-600">
+                <tbody className="text-slate-300">
                   {DATA_SERVICES.map((s) => (
-                    <tr key={s.id} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 pr-6">
-                        <code className="font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded text-[12px]">{s.id}</code>
+                    <tr key={s.id} className="border-b border-slate-800 last:border-0 hover:bg-slate-800/30 transition">
+                      <td className="py-3 px-4">
+                        <code className="font-mono text-indigo-300 bg-indigo-950/40 px-2 py-1 rounded text-[12px] border border-indigo-700/30">{s.id}</code>
                       </td>
-                      <td className="py-2.5 pr-6 font-medium">{s.network}</td>
-                      <td className="py-2.5 pr-6">{s.type}</td>
-                      <td className="py-2.5 pr-4 text-slate-500">{s.plans ?? "—"}</td>
-                      <td className="py-2.5 text-slate-500">{s.note}</td>
+                      <td className="py-3 px-4 font-medium text-slate-200">{s.network}</td>
+                      <td className="py-3 px-4 text-slate-400">{s.type}</td>
+                      <td className="py-3 px-4 text-slate-400">{s.plans ?? "—"}</td>
+                      <td className="py-3 px-4 text-slate-400">{s.note}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <h3 className="font-semibold text-slate-800 mt-6 mb-2">Airtime network IDs</h3>
-            <p>Pass one of these as <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[12px]">network</code> in the airtime purchase request.</p>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <h3 className="font-semibold text-white mt-6 mb-3">Airtime network IDs</h3>
+            <p className="text-slate-300">Pass one of these as <code className="bg-slate-800 px-2 py-1 rounded text-[12px] text-indigo-300 border border-slate-700">network</code> in the airtime purchase request.</p>
+            <div className="flex flex-wrap gap-3 mt-4">
               {AIRTIME_NETWORKS.map((n) => (
-                <span key={n.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[13px]">
-                  <code className="font-mono text-indigo-700 text-[12px]">{n.id}</code>
-                  <span className="text-slate-500">{n.label}</span>
+                <span key={n.id} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 bg-gradient-to-r from-slate-800 to-slate-900 text-[13px] hover:border-indigo-600 transition shadow-lg">
+                  <code className="font-mono text-indigo-400 text-[12px]">{n.id}</code>
+                  <span className="text-slate-300">{n.label}</span>
                 </span>
               ))}
             </div>
