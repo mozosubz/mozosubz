@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
+import { logRequest, logResponse, formatLog } from "@/lib/api-logger"
 
 // Paths that are commonly scanned by bots looking for exposed credentials.
 // Block these silently to keep logs clean and prevent info leakage.
@@ -36,7 +37,14 @@ const BLOCKED_PATHS = [
 ]
 
 export async function proxy(request: NextRequest) {
+  const startTime = Date.now()
   const pathname = request.nextUrl.pathname.toLowerCase()
+
+  // Log API requests
+  if (pathname.startsWith('/api/')) {
+    const requestLog = logRequest(request)
+    console.log(`[API] → ${request.method} ${pathname}`)
+  }
 
   // Block known credential-scanning probes before any other processing
   if (BLOCKED_PATHS.some((path) => pathname === path || pathname.endsWith(path))) {
