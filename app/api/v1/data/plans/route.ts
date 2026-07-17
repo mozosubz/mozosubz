@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDataPlansRealtime } from '@/lib/api/gsubz'
+import { logRequest } from '@/lib/api-logger'
 
 /**
  * GET /api/v1/data/plans?service={service_id}
@@ -11,8 +12,14 @@ import { getDataPlansRealtime } from '@/lib/api/gsubz'
  * Requires X-Connect-Key header.
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
+  const requestLog = logRequest(request)
+  console.log(`[Data Plans API] → GET | From: ${requestLog.ip}`)
+
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
+    const duration = Date.now() - startTime
+    console.log(`[Data Plans API] ✗ Auth failed: ${auth.error} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: auth.error },
       { status: auth.status ?? 401 }
@@ -30,6 +37,8 @@ export async function GET(request: NextRequest) {
   ]
 
   if (!service || !VALID_SERVICES.includes(service)) {
+    const duration = Date.now() - startTime
+    console.log(`[Data Plans API] ✗ Invalid service: ${service} | ${duration}ms`)
     return NextResponse.json(
       {
         success: false,
@@ -40,6 +49,8 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     )
   }
+
+  console.log(`[Data Plans API] → Fetching plans for service: ${service}`)
 
   try {
     // Fetch live plans from provider + API pricing rules in parallel.
@@ -83,6 +94,9 @@ export async function GET(request: NextRequest) {
       })
       .filter(Boolean)
 
+    const duration = Date.now() - startTime
+    console.log(`[Data Plans API] ✓ SUCCESS | Service: ${service} | Plans: ${plans.length} | ${duration}ms`)
+
     return NextResponse.json(
       {
         success: true,
@@ -96,9 +110,11 @@ export async function GET(request: NextRequest) {
         },
       }
     )
-  } catch {
+  } catch (err) {
+    const duration = Date.now() - startTime
+    console.error(`[Data Plans API] ✗ ERROR: ${err} | ${duration}ms`)
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch plans. Please try again.' },
+      { success: false, error: 'Failed to fetch plans. Please try again later.' },
       { status: 500 }
     )
   }
