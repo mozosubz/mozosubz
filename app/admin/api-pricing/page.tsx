@@ -847,13 +847,15 @@ export default function ApiPricingPage() {
       )}
 
       {activeTab === 'bulk' && (
-        <div className="admin-card">
-          <div className="admin-card-header">
-            <h2 className="admin-card-title">Bulk Create API Pricing Rules</h2>
-            <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
-              Select multiple plans and set a markup to create rules for all at once
-            </span>
-          </div>
+        <div>
+          {/* BULK CREATE SECTION */}
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <h2 className="admin-card-title">Bulk Create API Pricing Rules</h2>
+              <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
+                Select multiple plans and set a markup to create rules for all at once
+              </span>
+            </div>
           <div className="admin-card-body">
             {/* Plan selector */}
             <div style={{ marginBottom: 16 }}>
@@ -1080,10 +1082,255 @@ export default function ApiPricingPage() {
               </div>
             )}
 
+            </div>
+          </div>
+
+          {/* BULK EDIT SECTION */}
+          <div className="admin-card" style={{ marginTop: 16 }}>
+            <div className="admin-card-header">
+              <h2 className="admin-card-title">Bulk Edit API Pricing Rules</h2>
+              <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
+                Select existing rules and update their markup
+              </span>
+            </div>
+            <div className="admin-card-body">
+              {/* Rules selector for bulk edit */}
+              <div style={{ marginBottom: 16 }}>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600 }}>Select Rules to Update</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 200, overflowY: 'auto', paddingRight: 8 }}>
+                  {rules.length === 0 ? (
+                    <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>No existing rules. Create some first.</p>
+                  ) : (
+                    rules.map((rule) => (
+                      <label
+                        key={rule.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 10px',
+                          border: `1px solid ${selectedRuleIds.includes(rule.id) ? 'var(--admin-secondary)' : 'var(--admin-border)'}`,
+                          borderRadius: 'var(--radius-sm)',
+                          background: selectedRuleIds.includes(rule.id) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedRuleIds.includes(rule.id)}
+                          onChange={() => toggleSelectRule(rule.id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        {rule.plan_name}
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p style={{ margin: '6px 0 0 0', fontSize: 11, color: 'var(--admin-text-tertiary)' }}>
+                  Selected: {selectedRuleIds.length} rule(s)
+                </p>
+              </div>
+
+              <form onSubmit={handleBulkUpdate} style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
+                <div style={{ flex: '1 1 120px' }}>
+                  <label className="form-label">Markup Type</label>
+                  <select
+                    className="form-input"
+                    value={bulkMarkupType}
+                    onChange={(e) => setBulkMarkupType(e.target.value as 'fixed' | 'percentage')}
+                  >
+                    <option value="fixed">Fixed (₦)</option>
+                    <option value="percentage">Percentage (%)</option>
+                  </select>
+                </div>
+                <div style={{ flex: '1 1 120px' }}>
+                  <label className="form-label">Markup Value</label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input
+                      className="form-input"
+                      type="number"
+                      step="0.01"
+                      placeholder="0"
+                      value={bulkMarkupValue}
+                      onChange={(e) => setBulkMarkupValue(e.target.value)}
+                      style={{ flex: 1 }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(bulkMarkupValue) || 0
+                        const step = bulkMarkupType === 'percentage' ? 1 : 50
+                        setBulkMarkupValue(String(current - step))
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--admin-bg)',
+                        color: 'var(--admin-danger)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      −
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(bulkMarkupValue) || 0
+                        const step = bulkMarkupType === 'percentage' ? 1 : 50
+                        setBulkMarkupValue(String(current + step))
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: '1px solid var(--admin-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--admin-success)',
+                        color: 'white',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={submitting || selectedRuleIds.length === 0}
+                  >
+                    {submitting ? 'Updating...' : `Update ${selectedRuleIds.length} selected`}
+                  </button>
+                </div>
+              </form>
+
+              {/* Quick presets for bulk edit */}
+              {bulkMarkupValue !== '' && (
+                <div style={{ marginTop: 14, marginBottom: 14 }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+                    Quick presets
+                  </p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {bulkMarkupType === 'percentage' ? (
+                      <>
+                        {[5, 10, 15, 20, 25, 30].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setBulkMarkupValue(String(val))}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: 12,
+                              fontWeight: 500,
+                              border: '1px solid var(--admin-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              background: bulkMarkupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                              color: bulkMarkupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            +{val}%
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {[50, 100, 200, 500, 1000].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setBulkMarkupValue(String(val))}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: 12,
+                              fontWeight: 500,
+                              border: '1px solid var(--admin-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              background: bulkMarkupValue === String(val) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                              color: bulkMarkupValue === String(val) ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            +₦{val}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Preview for bulk edit with ALL rules shown */}
+              {bulkMarkupValue && selectedRuleIds.length > 0 && (
+                <div
+                  style={{
+                    padding: 12,
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}
+                >
+                  <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                    Preview - All {selectedRuleIds.length} selected rule(s)
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 400, overflowY: 'auto' }}>
+                    {rules
+                      .filter((r) => selectedRuleIds.includes(r.id))
+                      .map((rule) => {
+                        const markupVal = parseFloat(bulkMarkupValue)
+                        const newFinalPrice =
+                          bulkMarkupType === 'fixed'
+                            ? rule.base_price + markupVal
+                            : rule.base_price * (1 + markupVal / 100)
+                        const oldPrice = calculateFinalPrice(rule)
+                        return (
+                          <div
+                            key={rule.id}
+                            style={{
+                              padding: 10,
+                              background: 'var(--admin-bg)',
+                              border: '1px solid var(--admin-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: 11,
+                            }}
+                          >
+                            <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {rule.plan_name}
+                            </p>
+                            <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
+                              Old: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
+                            </p>
+                            <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
+                              New: <span style={{ fontWeight: 600 }}>₦{Math.round(newFinalPrice).toLocaleString()}</span>
+                            </p>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rules List Tab */}
+      {activeTab === 'list' && (
+        <div className="admin-card">
+          <div className="admin-card-header">
+            <h2 className="admin-card-title">All API Pricing Rules</h2>
+          </div>
+          <div className="admin-card-body">
             {loading ? (
               <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>Loading...</p>
             ) : rules.length === 0 ? (
-              <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>No rules yet. Switch to Individual tab to add rules.</p>
+              <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>No rules yet. Go to Individual or Bulk tabs to add rules.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
