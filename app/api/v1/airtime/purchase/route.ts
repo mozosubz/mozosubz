@@ -109,12 +109,12 @@ export async function POST(request: NextRequest) {
     const transactionId = `V1-AIR-${crypto.randomUUID().replace(/-/g, '').toUpperCase().substring(0, 12)}`
     const balanceAfter = deduction.newBalance ?? walletBalance - parsedAmount
 
-    // Map network to Gsubz service ID
+    // Map network to Gsubz service ID (must match lib/actions/airtime.ts exactly)
     const serviceIdMap: Record<string, string> = {
-      mtn: 'mtn_airtime',
-      glo: 'glo_airtime',
-      airtel: 'airtel_airtime',
-      etisalat: 'etisalat_airtime',
+      mtn: 'mtn',
+      airtel: 'airtel',
+      glo: 'glo',
+      etisalat: 'etisalat',
     }
     const serviceId = serviceIdMap[networkLower]
 
