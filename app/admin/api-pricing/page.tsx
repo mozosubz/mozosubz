@@ -7,6 +7,7 @@ import {
   deleteApiPricingRule,
   updateApiPricingRule,
   bulkUpdateApiPricingRules,
+  bulkCreateApiPricingRules,
 } from '@/lib/actions/api-pricing'
 import { Plus, Trash2, Edit2, Save, X, Zap } from 'lucide-react'
 
@@ -92,6 +93,7 @@ export default function ApiPricingPage() {
   const [bulkMarkupType, setBulkMarkupType] = useState<'fixed' | 'percentage'>('fixed')
   const [bulkMarkupValue, setBulkMarkupValue] = useState('')
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([])
+  const [selectedPlanValues, setSelectedPlanValues] = useState<string[]>([])
   const [formData, setFormData] = useState({
     planName: '',
     basePrice: '',
@@ -228,9 +230,46 @@ export default function ApiPricingPage() {
     setSubmitting(false)
   }
 
+  const handleBulkCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!bulkMarkupValue || selectedPlanValues.length === 0) {
+      alert('Select plans and enter a markup value')
+      return
+    }
+    setSubmitting(true)
+    const plansToCreate = gsubzPlans
+      .filter((p) => selectedPlanValues.includes(p.value))
+      .map((p) => ({
+        planName: p.displayName,
+        basePrice: parseFloat(p.price),
+      }))
+
+    const result = await bulkCreateApiPricingRules(
+      activePlanType,
+      plansToCreate,
+      bulkMarkupType,
+      parseFloat(bulkMarkupValue)
+    )
+    if (result.success) {
+      setSelectedPlanValues([])
+      setBulkMarkupValue('')
+      fetchRules()
+      alert(`Created ${result.created} pricing rules`)
+    } else {
+      alert('Error: ' + result.error)
+    }
+    setSubmitting(false)
+  }
+
   const toggleSelectRule = (id: string) => {
     setSelectedRuleIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSelectPlan = (value: string) => {
+    setSelectedPlanValues((prev) =>
+      prev.includes(value) ? prev.filter((x) => x !== value) : [...prev, value]
     )
   }
 
@@ -323,7 +362,7 @@ export default function ApiPricingPage() {
           className={`admin-tab ${activeTab === 'bulk' ? 'active' : ''}`}
           onClick={() => setActiveTab('bulk')}
         >
-          Bulk Update
+          Bulk Create
         </button>
       </div>
 
@@ -810,13 +849,53 @@ export default function ApiPricingPage() {
       {activeTab === 'bulk' && (
         <div className="admin-card">
           <div className="admin-card-header">
-            <h2 className="admin-card-title">Bulk Update API Prices</h2>
+            <h2 className="admin-card-title">Bulk Create API Pricing Rules</h2>
             <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
-              Select rules below then apply a markup to all at once
+              Select multiple plans and set a markup to create rules for all at once
             </span>
           </div>
           <div className="admin-card-body">
-            <form onSubmit={handleBulkUpdate} style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
+            {/* Plan selector */}
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600 }}>Select Plans to Price</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 200, overflowY: 'auto', paddingRight: 8 }}>
+                {loadingGsubz ? (
+                  <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>Loading plans...</p>
+                ) : gsubzPlans.length === 0 ? (
+                  <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>No plans available</p>
+                ) : (
+                  gsubzPlans.map((plan) => (
+                    <label
+                      key={plan.value}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 10px',
+                        border: `1px solid ${selectedPlanValues.includes(plan.value) ? 'var(--admin-secondary)' : 'var(--admin-border)'}`,
+                        borderRadius: 'var(--radius-sm)',
+                        background: selectedPlanValues.includes(plan.value) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPlanValues.includes(plan.value)}
+                        onChange={() => toggleSelectPlan(plan.value)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      {plan.displayName}
+                    </label>
+                  ))
+                )}
+              </div>
+              <p style={{ margin: '6px 0 0 0', fontSize: 11, color: 'var(--admin-text-tertiary)' }}>
+                Selected: {selectedPlanValues.length} plan(s)
+              </p>
+            </div>
+
+            <form onSubmit={handleBulkCreate} style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
               <div style={{ flex: '1 1 120px' }}>
                 <label className="form-label">Markup Type</label>
                 <select
@@ -887,9 +966,9 @@ export default function ApiPricingPage() {
                 <button
                   type="submit"
                   className="btn btn-primary btn-sm"
-                  disabled={submitting || selectedRuleIds.length === 0}
+                  disabled={submitting || selectedPlanValues.length === 0}
                 >
-                  {submitting ? 'Updating...' : `Apply to ${selectedRuleIds.length} selected`}
+                  {submitting ? 'Creating...' : `Create for ${selectedPlanValues.length} selected`}
                 </button>
               </div>
             </form>

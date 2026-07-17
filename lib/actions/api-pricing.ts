@@ -135,3 +135,39 @@ export async function bulkUpdateApiPricingRules(
     return { success: false, error: String(err) }
   }
 }
+
+export async function bulkCreateApiPricingRules(
+  serviceId: string,
+  plans: Array<{ planName: string; basePrice: number }>,
+  markupType: 'fixed' | 'percentage',
+  markupValue: number
+): Promise<{ success: boolean; error?: string; created?: number }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (!user || authError) return { success: false, error: 'Not authenticated' }
+
+    const admin = createAdminClient()
+    const now = new Date().toISOString()
+    const rulesToInsert = plans.map((plan) => ({
+      service_id: serviceId,
+      plan_name: plan.planName,
+      base_price: plan.basePrice,
+      markup_type: markupType,
+      markup_value: markupValue,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    }))
+
+    const { error } = await admin
+      .from('api_pricing_rules')
+      .insert(rulesToInsert)
+
+    if (error) return { success: false, error: error.message }
+    revalidatePath('/admin/api-pricing')
+    return { success: true, created: plans.length }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
