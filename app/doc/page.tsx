@@ -476,6 +476,304 @@ export default function DocPage() {
             </div>
           </div>
         </div>
+
+        {/* Complete API Documentation */}
+        <div className="mt-16 space-y-12 pb-12">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-6">Complete API Documentation</h2>
+
+            {/* Getting Started */}
+            <div className="space-y-6">
+              <div className="p-6 rounded-lg bg-primary/5 border border-primary/20">
+                <h3 className="text-lg font-bold text-foreground mb-3">Getting Started</h3>
+                <p className="text-text-2 text-sm mb-4">
+                  The Mozosubz V1 API allows you to purchase data and airtime programmatically. All requests require authentication using your API Connect Key.
+                </p>
+                <div className="space-y-2 text-sm">
+                  <p><strong className="text-foreground">Base URL:</strong> <code className="bg-background px-2 py-1 rounded text-primary border border-border text-xs">{API_BASE}</code></p>
+                  <p><strong className="text-foreground">Authentication:</strong> Include your API key in the <code className="bg-background px-2 py-1 rounded text-primary border border-border text-xs">X-Connect-Key</code> header</p>
+                  <p><strong className="text-foreground">Response Format:</strong> All responses are in JSON format</p>
+                </div>
+              </div>
+
+              {/* API Key Format */}
+              <div className="p-6 rounded-lg bg-secondary/30 border border-border">
+                <h3 className="text-lg font-bold text-foreground mb-4">API Key Format</h3>
+                <div className="space-y-3">
+                  <p className="text-text-2 text-sm">Your API key format looks like:</p>
+                  <code className="block bg-background p-4 rounded-lg border border-border text-primary font-mono text-sm overflow-x-auto">
+                    connect_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p
+                  </code>
+                  <p className="text-text-3 text-xs">
+                    You can generate and manage your API keys from the <Link href="/integrations/keys" className="text-primary hover:underline">API Keys page</Link>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Endpoints Documentation */}
+            <div className="mt-8 space-y-8">
+              {/* Endpoint 1: Data Plans */}
+              <div className="border-l-4 border-primary pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">1. Get Data Plans</h3>
+                
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-blue-500/20 text-blue-600">GET</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/data/plans</code>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Query Parameters:</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="text-primary bg-background px-2 py-1 rounded border border-border text-xs flex-shrink-0">service*</code>
+                        <div>
+                          <p className="text-foreground font-medium">Required. The data service ID</p>
+                          <p className="text-text-3 text-xs">Example: <code className="bg-background px-1.5 py-0.5 rounded">mtn_sme</code>, <code className="bg-background px-1.5 py-0.5 rounded">glo_data</code></p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Headers:</h4>
+                    <code className="block bg-background p-3 rounded-lg border border-border text-text-2 font-mono text-xs overflow-x-auto">
+                      X-Connect-Key: your_api_key_here
+                    </code>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Response Example:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
+{JSON.stringify({
+  success: true,
+  service: "mtn_sme",
+  plans: [
+    {
+      id: "plan_1",
+      displayName: "1GB",
+      price: 500,
+      validity: "30 days"
+    }
+  ]
+}, null, 2)}
+                    </pre>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
+                    <strong>✓ Status 200:</strong> Successfully retrieved data plans
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 2: Buy Data */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">2. Purchase Data</h3>
+                
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/data/purchase</code>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request Body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
+{JSON.stringify({
+  service: "mtn_sme",
+  plan_id: "plan_1",
+  phone: "08012345678"
+}, null, 2)}
+                    </pre>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request Fields:</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="text-primary bg-background px-2 py-1 rounded border border-border text-xs flex-shrink-0">service*</code>
+                        <div>
+                          <p className="text-foreground font-medium">Data service ID</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="text-primary bg-background px-2 py-1 rounded border border-border text-xs flex-shrink-0">plan_id*</code>
+                        <div>
+                          <p className="text-foreground font-medium">Plan ID from data plans endpoint</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="text-primary bg-background px-2 py-1 rounded border border-border text-xs flex-shrink-0">phone*</code>
+                        <div>
+                          <p className="text-foreground font-medium">Nigerian phone number</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Response Example:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
+{JSON.stringify({
+  success: true,
+  transaction_id: "V1-DATA-ABC123DEF456",
+  plan: "1GB",
+  phone: "08012345678",
+  amount: 500,
+  balance_after: 9500
+}, null, 2)}
+                    </pre>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
+                    <strong>✓ Status 200:</strong> Data purchase successful
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 3: Buy Airtime */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">3. Purchase Airtime</h3>
+                
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/airtime/purchase</code>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request Body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
+{JSON.stringify({
+  network: "mtn",
+  amount: 1000,
+  phone: "08012345678"
+}, null, 2)}
+                    </pre>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request Fields:</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="text-primary bg-background px-2 py-1 rounded border border-border text-xs flex-shrink-0">network*</code>
+                        <div>
+                          <p className="text-foreground font-medium">Network ID (mtn, glo, airtel, etisalat)</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="text-primary bg-background px-2 py-1 rounded border border-border text-xs flex-shrink-0">amount*</code>
+                        <div>
+                          <p className="text-foreground font-medium">Amount in Nigerian Naira (₦). Minimum: ₦50</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="text-primary bg-background px-2 py-1 rounded border border-border text-xs flex-shrink-0">phone*</code>
+                        <div>
+                          <p className="text-foreground font-medium">Nigerian phone number</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Response Example:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
+{JSON.stringify({
+  success: true,
+  transaction_id: "V1-AIRTIME-XYZ789ABC",
+  network: "MTN",
+  phone: "08012345678",
+  amount: 1000,
+  balance_after: 8500
+}, null, 2)}
+                    </pre>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
+                    <strong>✓ Status 200:</strong> Airtime purchase successful
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Error Codes */}
+            <div className="mt-8 p-6 rounded-lg bg-secondary/30 border border-border">
+              <h3 className="text-lg font-bold text-foreground mb-4">Error Responses</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex gap-3">
+                  <span className="px-2 py-1 rounded text-xs font-bold bg-blue-500/20 text-blue-600 flex-shrink-0">400</span>
+                  <div>
+                    <p className="text-foreground font-medium">Bad Request</p>
+                    <p className="text-text-3 text-xs">Missing or invalid required fields</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-600 flex-shrink-0">401</span>
+                  <div>
+                    <p className="text-foreground font-medium">Unauthorized</p>
+                    <p className="text-text-3 text-xs">Invalid or missing API key</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-500/20 text-yellow-600 flex-shrink-0">402</span>
+                  <div>
+                    <p className="text-foreground font-medium">Payment Required</p>
+                    <p className="text-text-3 text-xs">Insufficient wallet balance</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-600 flex-shrink-0">429</span>
+                  <div>
+                    <p className="text-foreground font-medium">Too Many Requests</p>
+                    <p className="text-text-3 text-xs">Rate limit exceeded (10,000 per day)</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-600 flex-shrink-0">500</span>
+                  <div>
+                    <p className="text-foreground font-medium">Server Error</p>
+                    <p className="text-text-3 text-xs">Internal server error or provider issue</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Best Practices */}
+            <div className="mt-8 p-6 rounded-lg bg-primary/5 border border-primary/20">
+              <h3 className="text-lg font-bold text-foreground mb-4">Best Practices</h3>
+              <ul className="space-y-2 text-sm text-text-2">
+                <li className="flex gap-2">
+                  <span className="text-primary">•</span>
+                  <span>Always validate phone numbers before sending requests</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary">•</span>
+                  <span>Fetch data plans in real-time — don&apos;t hardcode plan IDs</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary">•</span>
+                  <span>Keep your API key secure — never expose it in client-side code</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary">•</span>
+                  <span>Implement retry logic for network failures</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary">•</span>
+                  <span>Check wallet balance before making purchase requests</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Footer />
