@@ -37,12 +37,14 @@ export function PricingBulkTab({
   const [bulkFormData, setBulkFormData] = useState({
     markupType: 'fixed' as 'fixed' | 'percentage',
     markupValue: '',
+    operationType: 'set' as 'set' | 'add' | 'subtract',
   })
   const [submitting, setSubmitting] = useState(false)
 
   const [selectedRules, setSelectedRules] = useState<Set<string>>(new Set())
   const [bulkEditMarkupType, setBulkEditMarkupType] = useState<'fixed' | 'percentage'>('fixed')
   const [bulkEditMarkupValue, setBulkEditMarkupValue] = useState('')
+  const [bulkEditOperationType, setBulkEditOperationType] = useState<'set' | 'add' | 'subtract'>('set')
 
   const togglePlanSelect = (planValue: string) => {
     const next = new Set(selectedPlans)
@@ -305,6 +307,34 @@ export function PricingBulkTab({
             </div>
           </div>
 
+          {/* Operation type selector */}
+          <div style={{ marginTop: 12, marginBottom: 14 }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+              Operation
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['set', 'add', 'subtract'] as const).map((op) => (
+                <button
+                  key={op}
+                  type="button"
+                  onClick={() => setBulkFormData({ ...bulkFormData, operationType: op })}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    border: '1px solid var(--admin-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: bulkFormData.operationType === op ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                    color: bulkFormData.operationType === op ? 'var(--admin-secondary)' : 'var(--admin-text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {op === 'set' ? 'Set to' : op === 'add' ? 'Add +' : 'Subtract −'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Quick preset buttons */}
           <div style={{ marginTop: 12, marginBottom: 14 }}>
             <p style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: 600, color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
@@ -329,7 +359,7 @@ export function PricingBulkTab({
                         cursor: 'pointer',
                       }}
                     >
-                      +{val}%
+                      {bulkFormData.operationType === 'set' ? '' : bulkFormData.operationType === 'add' ? '+' : '−'}{val}%
                     </button>
                   ))}
                 </>
@@ -351,13 +381,72 @@ export function PricingBulkTab({
                         cursor: 'pointer',
                       }}
                     >
-                      +₦{val}
+                      {bulkFormData.operationType === 'set' ? '+₦' : bulkFormData.operationType === 'add' ? '+₦' : '−₦'}{val}
                     </button>
                   ))}
                 </>
               )}
             </div>
           </div>
+
+          {/* Preview of what will be created */}
+          {bulkFormData.markupValue && selectedPlans.size > 0 && (
+            <div
+              style={{
+                padding: 12,
+                background: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 12,
+              }}
+            >
+              <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
+                Preview of {selectedPlans.size} rule(s) to be created
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }}>
+                {Array.from(selectedPlans)
+                  .map((value) => gsubzPlans.find((p) => p.value === value))
+                  .filter(Boolean)
+                  .map((plan) => {
+                    if (!plan) return null
+                    const basePrice = parseFloat(plan.price)
+                    const markupVal = parseFloat(bulkFormData.markupValue)
+                    let finalPrice = basePrice
+                    if (bulkFormData.markupType === 'fixed') {
+                      if (bulkFormData.operationType === 'set') finalPrice = basePrice + markupVal
+                      else if (bulkFormData.operationType === 'add') finalPrice = basePrice + markupVal
+                      else finalPrice = basePrice - markupVal
+                    } else {
+                      if (bulkFormData.operationType === 'set') finalPrice = basePrice * (1 + markupVal / 100)
+                      else if (bulkFormData.operationType === 'add') finalPrice = basePrice * (1 + markupVal / 100)
+                      else finalPrice = basePrice * (1 - markupVal / 100)
+                    }
+                    return (
+                      <div
+                        key={plan.value}
+                        style={{
+                          padding: 10,
+                          background: 'var(--admin-bg)',
+                          border: '1px solid var(--admin-border)',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: 11,
+                        }}
+                      >
+                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {plan.displayName}
+                        </p>
+                        <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
+                          Base: <span style={{ fontWeight: 600 }}>₦{basePrice.toLocaleString()}</span>
+                        </p>
+                        <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
+                          Final: <span style={{ fontWeight: 600 }}>₦{Math.round(finalPrice).toLocaleString()}</span>
+                        </p>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -384,28 +473,42 @@ export function PricingBulkTab({
         <div className="admin-card-header">
           <div>
             <h3>Bulk Edit / Delete</h3>
-            <p className="admin-card-subtitle">Select rules to update or delete in bulk</p>
+            <p className="admin-card-subtitle">{selectedRules.size} rule(s) selected out of {rules.length}</p>
           </div>
-          {selectedRules.size > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={handleBulkUpdate}
-                disabled={submitting || !bulkEditMarkupValue}
-                className="btn btn-success btn-sm"
-              >
-                Update {selectedRules.size}
-              </button>
-              <button
-                type="button"
-                onClick={handleBulkDelete}
-                disabled={submitting}
-                className="btn btn-danger btn-sm"
-              >
-                Delete {selectedRules.size}
-              </button>
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={toggleSelectAllRules}
+              className="btn btn-secondary btn-sm"
+              disabled={rules.length === 0}
+            >
+              {selectedRules.size === rules.length && rules.length > 0
+                ? 'Deselect All'
+                : selectedRules.size > 0
+                  ? 'Select Remaining'
+                  : 'Select All'}
+            </button>
+            {selectedRules.size > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleBulkUpdate}
+                  disabled={submitting || !bulkEditMarkupValue}
+                  className="btn btn-success btn-sm"
+                >
+                  Update {selectedRules.size}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={submitting}
+                  className="btn btn-danger btn-sm"
+                >
+                  Delete {selectedRules.size}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {selectedRules.size > 0 && (
@@ -420,7 +523,7 @@ export function PricingBulkTab({
           >
             <div className="form-row">
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>New Markup Type</label>
+                <label>Markup Type</label>
                 <select
                   value={bulkEditMarkupType}
                   onChange={(e) => setBulkEditMarkupType(e.target.value as 'fixed' | 'percentage')}
@@ -431,7 +534,19 @@ export function PricingBulkTab({
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>New Markup Value (- for discount)</label>
+                <label>Operation</label>
+                <select
+                  value={bulkEditOperationType}
+                  onChange={(e) => setBulkEditOperationType(e.target.value as 'set' | 'add' | 'subtract')}
+                  disabled={submitting}
+                >
+                  <option value="set">Set to value</option>
+                  <option value="add">Add to current</option>
+                  <option value="subtract">Subtract from current</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Value</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                   <input
                     type="number"
@@ -554,7 +669,7 @@ export function PricingBulkTab({
                 }}
               >
                 <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
-                  Preview of changes
+                  Preview of changes ({bulkEditOperationType} mode)
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 400, overflowY: 'auto', paddingRight: 8 }}>
                   {Array.from(selectedRules)
@@ -563,11 +678,17 @@ export function PricingBulkTab({
                     .map((rule) => {
                       if (!rule) return null
                       const markupVal = parseFloat(bulkEditMarkupValue)
-                      const newFinalPrice =
-                        bulkEditMarkupType === 'fixed'
-                          ? rule.base_price + markupVal
-                          : rule.base_price * (1 + markupVal / 100)
                       const oldPrice = rule.base_price + (rule.markup_type === 'fixed' ? rule.markup_value : rule.base_price * (rule.markup_value / 100))
+                      let newFinalPrice = oldPrice
+                      if (bulkEditMarkupType === 'fixed') {
+                        if (bulkEditOperationType === 'set') newFinalPrice = rule.base_price + markupVal
+                        else if (bulkEditOperationType === 'add') newFinalPrice = oldPrice + markupVal
+                        else newFinalPrice = oldPrice - markupVal
+                      } else {
+                        if (bulkEditOperationType === 'set') newFinalPrice = rule.base_price * (1 + markupVal / 100)
+                        else if (bulkEditOperationType === 'add') newFinalPrice = oldPrice * (1 + markupVal / 100)
+                        else newFinalPrice = oldPrice * (1 - markupVal / 100)
+                      }
                       return (
                         <div
                           key={rule.id}
@@ -583,7 +704,7 @@ export function PricingBulkTab({
                             {rule.plan_name}
                           </p>
                           <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
-                            Old: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
+                            Current: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
                           </p>
                           <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
                             New: <span style={{ fontWeight: 600 }}>₦{Math.round(newFinalPrice).toLocaleString()}</span>
@@ -604,19 +725,7 @@ export function PricingBulkTab({
             <p>Create some pricing rules to manage them in bulk</p>
           </div>
         ) : (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <input
-                type="checkbox"
-                checked={selectedRules.size === rules.length}
-                onChange={toggleSelectAllRules}
-              />
-              <span style={{ fontSize: 13, color: 'var(--admin-text-secondary)', fontWeight: 500 }}>
-                Select all ({selectedRules.size}/{rules.length})
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {rules.map((rule) => {
                 const checked = selectedRules.has(rule.id)
                 const finalPrice = calculateFinalPrice(rule)
@@ -676,7 +785,6 @@ export function PricingBulkTab({
                 )
               })}
             </div>
-          </>
         )}
       </div>
     </div>
