@@ -110,6 +110,11 @@ export const RATE_LIMIT_CONFIG = {
   GSUBZ_CABLE_VERIFY: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:cable:verify" },
   GSUBZ_ELECTRICITY: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:electricity" },
   GSUBZ_PIN_PRINT: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:pin:print" },
+
+  // V1 API endpoints (50 per minute per API key)
+  V1_DATA_PLANS: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:data:plans" },
+  V1_DATA_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:data:purchase" },
+  V1_AIRTIME_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:airtime:purchase" },
 }
 
 /**

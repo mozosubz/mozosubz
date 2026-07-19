@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { buyData } from '@/lib/api/gsubz'
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/utils/save-transaction'
 import { logRequest } from '@/lib/api-logger'
+import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
 
 /**
  * POST /api/v1/data/purchase
@@ -12,6 +13,7 @@ import { logRequest } from '@/lib/api-logger'
  * Requires X-Connect-Key header.
  *
  * Deducts API price from user's wallet, purchases data via Gsubz, and saves the transaction.
+ * Rate limited: 50 requests per minute per API key
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -31,6 +33,17 @@ export async function POST(request: NextRequest) {
 
   const userId = auth.context!.userId
   const permissions = auth.context!.permissions ?? []
+
+  // Check rate limit per API key
+  const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_DATA_PURCHASE)
+  if (!allowed) {
+    const duration = Date.now() - startTime
+    console.log(`[Data Purchase API] ✗ Rate limit exceeded | ${duration}ms`)
+    return NextResponse.json(
+      { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    )
+  }
 
   if (!permissions.includes('data') && !permissions.includes('all')) {
     const duration = Date.now() - startTime
@@ -212,6 +225,7 @@ export async function POST(request: NextRequest) {
       phone: phoneClean,
       amount: apiPrice,           // this is the final price the user paid — no breakdown
       balance_after: balanceAfter,
+      remaining,
     })
   } catch (err) {
     const duration = Date.now() - startTime

@@ -3,6 +3,7 @@ import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDataPlansRealtime } from '@/lib/api/gsubz'
 import { logRequest } from '@/lib/api-logger'
+import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
 
 /**
  * GET /api/v1/data/plans?service={service_id}
@@ -10,6 +11,7 @@ import { logRequest } from '@/lib/api-logger'
  * Returns available data plans with clean pricing (no markup details exposed).
  * Prices are always real-time — no cache.
  * Requires X-Connect-Key header.
+ * Rate limited: 50 requests per minute per API key
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
@@ -23,6 +25,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { success: false, error: auth.error },
       { status: auth.status ?? 401 }
+    )
+  }
+
+  // Check rate limit per API key
+  const rateLimitKey = auth.context!.userId
+  const { allowed, remaining } = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIG.V1_DATA_PLANS)
+
+  if (!allowed) {
+    const duration = Date.now() - startTime
+    console.log(`[Data Plans API] ✗ Rate limit exceeded | ${duration}ms`)
+    return NextResponse.json(
+      { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
+      { status: 429, headers: { 'Retry-After': '60' } }
     )
   }
 
@@ -102,6 +117,7 @@ export async function GET(request: NextRequest) {
         success: true,
         service,
         plans,
+        remaining,
       },
       {
         headers: {

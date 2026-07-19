@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { buyAirtime } from '@/lib/api/gsubz'
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/utils/save-transaction'
 import { logRequestWithBody, logResponse, formatLog } from '@/lib/api-logger'
+import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
 
 /**
  * POST /api/v1/airtime/purchase
@@ -16,6 +17,7 @@ import { logRequestWithBody, logResponse, formatLog } from '@/lib/api-logger'
  *
  * Airtime has no markup — the user is charged exactly the amount they specify.
  * The wallet is deducted and airtime is purchased via Gsubz.
+ * Rate limited: 50 requests per minute per API key
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -35,6 +37,17 @@ export async function POST(request: NextRequest) {
 
   const userId = auth.context!.userId
   const permissions = auth.context!.permissions ?? []
+
+  // Check rate limit per API key
+  const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_AIRTIME_PURCHASE)
+  if (!allowed) {
+    const duration = Date.now() - startTime
+    console.log(`[Airtime API] ✗ Rate limit exceeded | ${duration}ms`)
+    return NextResponse.json(
+      { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    )
+  }
 
   if (!permissions.includes('airtime') && !permissions.includes('all')) {
     const duration = Date.now() - startTime
@@ -202,6 +215,7 @@ export async function POST(request: NextRequest) {
       phone: phoneClean,
       amount: parsedAmount,
       balance_after: balanceAfter,
+      remaining,
     })
   } catch (err) {
     const duration = Date.now() - startTime
