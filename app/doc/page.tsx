@@ -733,7 +733,7 @@ export default function DocPage() {
                   <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-600 flex-shrink-0">429</span>
                   <div>
                     <p className="text-foreground font-medium">Too Many Requests</p>
-                    <p className="text-text-3 text-xs">Rate limit exceeded (10,000 per day)</p>
+                    <p className="text-text-3 text-xs">Rate limit exceeded (50 requests per minute)</p>
                   </div>
                 </div>
                 <div className="flex gap-3">

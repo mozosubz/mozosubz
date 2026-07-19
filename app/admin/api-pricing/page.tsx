@@ -92,6 +92,7 @@ export default function ApiPricingPage() {
   const [activeTab, setActiveTab] = useState<'individual' | 'bulk'>('individual')
   const [bulkMarkupType, setBulkMarkupType] = useState<'fixed' | 'percentage'>('fixed')
   const [bulkMarkupValue, setBulkMarkupValue] = useState('')
+  const [bulkOperationType, setBulkOperationType] = useState<'set' | 'add' | 'subtract'>('set')
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([])
   const [selectedPlanValues, setSelectedPlanValues] = useState<string[]>([])
   const [formData, setFormData] = useState({
@@ -898,7 +899,7 @@ export default function ApiPricingPage() {
             </div>
 
             <form onSubmit={handleBulkCreate} style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
-              <div style={{ flex: '1 1 120px' }}>
+              <div style={{ flex: '1 1 110px' }}>
                 <label className="form-label">Markup Type</label>
                 <select
                   className="form-input"
@@ -909,8 +910,20 @@ export default function ApiPricingPage() {
                   <option value="percentage">Percentage (%)</option>
                 </select>
               </div>
+              <div style={{ flex: '1 1 100px' }}>
+                <label className="form-label">Operation</label>
+                <select
+                  className="form-input"
+                  value={bulkOperationType}
+                  onChange={(e) => setBulkOperationType(e.target.value as 'set' | 'add' | 'subtract')}
+                >
+                  <option value="set">Set to value</option>
+                  <option value="add">Add</option>
+                  <option value="subtract">Subtract</option>
+                </select>
+              </div>
               <div style={{ flex: '1 1 120px' }}>
-                <label className="form-label">Markup Value</label>
+                <label className="form-label">Value</label>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input
                     className="form-input"
@@ -1000,7 +1013,7 @@ export default function ApiPricingPage() {
                             cursor: 'pointer',
                           }}
                         >
-                          +{val}%
+                          {bulkOperationType === 'set' ? '' : bulkOperationType === 'add' ? '+' : '−'}{val}%
                         </button>
                       ))}
                     </>
@@ -1022,7 +1035,7 @@ export default function ApiPricingPage() {
                             cursor: 'pointer',
                           }}
                         >
-                          +₦{val}
+                          {bulkOperationType === 'set' ? '+₦' : bulkOperationType === 'add' ? '+₦' : '−₦'}{val}
                         </button>
                       ))}
                     </>
@@ -1031,8 +1044,8 @@ export default function ApiPricingPage() {
               </div>
             )}
 
-            {/* Preview of bulk changes */}
-            {bulkMarkupValue && selectedRuleIds.length > 0 && (
+            {/* Preview of bulk create */}
+            {bulkMarkupValue && selectedPlanValues.length > 0 && (
               <div
                 style={{
                   padding: 12,
@@ -1043,21 +1056,27 @@ export default function ApiPricingPage() {
                 }}
               >
                 <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
-                  Preview of changes to {selectedRuleIds.length} selected rule(s)
+                  Preview of {selectedPlanValues.length} rule(s) to be created
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
-                  {rules
-                    .filter((r) => selectedRuleIds.includes(r.id))
-                    .map((rule) => {
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }}>
+                  {gsubzPlans
+                    .filter((p) => selectedPlanValues.includes(p.value))
+                    .map((plan) => {
+                      const basePrice = parseFloat(plan.price)
                       const markupVal = parseFloat(bulkMarkupValue)
-                      const newFinalPrice =
-                        bulkMarkupType === 'fixed'
-                          ? rule.base_price + markupVal
-                          : rule.base_price * (1 + markupVal / 100)
-                      const oldPrice = calculateFinalPrice(rule)
+                      let finalPrice = basePrice
+                      if (bulkMarkupType === 'fixed') {
+                        if (bulkOperationType === 'set') finalPrice = basePrice + markupVal
+                        else if (bulkOperationType === 'add') finalPrice = basePrice + markupVal
+                        else finalPrice = basePrice - markupVal
+                      } else {
+                        if (bulkOperationType === 'set') finalPrice = basePrice * (1 + markupVal / 100)
+                        else if (bulkOperationType === 'add') finalPrice = basePrice * (1 + markupVal / 100)
+                        else finalPrice = basePrice * (1 - markupVal / 100)
+                      }
                       return (
                         <div
-                          key={rule.id}
+                          key={plan.value}
                           style={{
                             padding: 10,
                             background: 'var(--admin-bg)',
@@ -1067,13 +1086,13 @@ export default function ApiPricingPage() {
                           }}
                         >
                           <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {rule.plan_name}
+                            {plan.displayName}
                           </p>
                           <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
-                            Old: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
+                            Base: <span style={{ fontWeight: 600 }}>₦{basePrice.toLocaleString()}</span>
                           </p>
                           <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
-                            New: <span style={{ fontWeight: 600 }}>₦{Math.round(newFinalPrice).toLocaleString()}</span>
+                            Final: <span style={{ fontWeight: 600 }}>₦{Math.round(finalPrice).toLocaleString()}</span>
                           </p>
                         </div>
                       )
@@ -1088,10 +1107,32 @@ export default function ApiPricingPage() {
           {/* BULK EDIT SECTION */}
           <div className="admin-card" style={{ marginTop: 16 }}>
             <div className="admin-card-header">
-              <h2 className="admin-card-title">Bulk Edit API Pricing Rules</h2>
-              <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
-                Select existing rules and update their markup
-              </span>
+              <div>
+                <h2 className="admin-card-title">Bulk Edit API Pricing Rules</h2>
+                <p style={{ fontSize: 12, color: 'var(--admin-text-tertiary)', margin: '4px 0 0 0' }}>
+                  {selectedRuleIds.length} rule(s) selected out of {rules.length}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedRuleIds.length === rules.length && rules.length > 0) {
+                      setSelectedRuleIds([])
+                    } else {
+                      setSelectedRuleIds(rules.map((r) => r.id))
+                    }
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  disabled={rules.length === 0}
+                >
+                  {selectedRuleIds.length === rules.length && rules.length > 0
+                    ? 'Deselect All'
+                    : selectedRuleIds.length > 0
+                      ? 'Select Remaining'
+                      : 'Select All'}
+                </button>
+              </div>
             </div>
             <div className="admin-card-body">
               {/* Rules selector for bulk edit */}
@@ -1133,7 +1174,7 @@ export default function ApiPricingPage() {
               </div>
 
               <form onSubmit={handleBulkUpdate} style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
-                <div style={{ flex: '1 1 120px' }}>
+                <div style={{ flex: '1 1 110px' }}>
                   <label className="form-label">Markup Type</label>
                   <select
                     className="form-input"
@@ -1144,8 +1185,20 @@ export default function ApiPricingPage() {
                     <option value="percentage">Percentage (%)</option>
                   </select>
                 </div>
+                <div style={{ flex: '1 1 100px' }}>
+                  <label className="form-label">Operation</label>
+                  <select
+                    className="form-input"
+                    value={bulkOperationType}
+                    onChange={(e) => setBulkOperationType(e.target.value as 'set' | 'add' | 'subtract')}
+                  >
+                    <option value="set">Set to value</option>
+                    <option value="add">Add to current</option>
+                    <option value="subtract">Subtract from current</option>
+                  </select>
+                </div>
                 <div style={{ flex: '1 1 120px' }}>
-                  <label className="form-label">Markup Value</label>
+                  <label className="form-label">Value</label>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <input
                       className="form-input"
@@ -1235,7 +1288,7 @@ export default function ApiPricingPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            +{val}%
+                            {bulkOperationType === 'set' ? '' : bulkOperationType === 'add' ? '+' : '−'}{val}%
                           </button>
                         ))}
                       </>
@@ -1257,7 +1310,7 @@ export default function ApiPricingPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            +₦{val}
+                            {bulkOperationType === 'set' ? '+₦' : bulkOperationType === 'add' ? '+₦' : '−₦'}{val}
                           </button>
                         ))}
                       </>
@@ -1277,18 +1330,24 @@ export default function ApiPricingPage() {
                   }}
                 >
                   <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
-                    Preview - All {selectedRuleIds.length} selected rule(s)
+                    Preview of changes ({bulkOperationType} mode) - {selectedRuleIds.length} selected rule(s)
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 400, overflowY: 'auto' }}>
                     {rules
                       .filter((r) => selectedRuleIds.includes(r.id))
                       .map((rule) => {
                         const markupVal = parseFloat(bulkMarkupValue)
-                        const newFinalPrice =
-                          bulkMarkupType === 'fixed'
-                            ? rule.base_price + markupVal
-                            : rule.base_price * (1 + markupVal / 100)
                         const oldPrice = calculateFinalPrice(rule)
+                        let newFinalPrice = oldPrice
+                        if (bulkMarkupType === 'fixed') {
+                          if (bulkOperationType === 'set') newFinalPrice = rule.base_price + markupVal
+                          else if (bulkOperationType === 'add') newFinalPrice = oldPrice + markupVal
+                          else newFinalPrice = oldPrice - markupVal
+                        } else {
+                          if (bulkOperationType === 'set') newFinalPrice = rule.base_price * (1 + markupVal / 100)
+                          else if (bulkOperationType === 'add') newFinalPrice = oldPrice * (1 + markupVal / 100)
+                          else newFinalPrice = oldPrice * (1 - markupVal / 100)
+                        }
                         return (
                           <div
                             key={rule.id}
@@ -1304,7 +1363,7 @@ export default function ApiPricingPage() {
                               {rule.plan_name}
                             </p>
                             <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
-                              Old: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
+                              Current: <span style={{ fontWeight: 600 }}>₦{Math.round(oldPrice).toLocaleString()}</span>
                             </p>
                             <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
                               New: <span style={{ fontWeight: 600 }}>₦{Math.round(newFinalPrice).toLocaleString()}</span>
