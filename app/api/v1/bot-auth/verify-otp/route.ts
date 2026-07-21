@@ -1,0 +1,172 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { logRequest } from '@/lib/api-logger'
+
+/**
+ * POST /api/v1/bot-auth/verify-otp
+ *
+ * Body: {
+ *   email: string,
+ *   otp_code: string,
+ *   platform: 'whatsapp' | 'telegram',
+ *   identifier: string
+ * }
+ *
+ * Verifies OTP code, creates/links bot_connections record, and returns the user's API key.
+ * The returned API key is their existing connect_key (same one used for data/airtime).
+ */
+export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  const requestLog = logRequest(request)
+  console.log(`[Bot Auth Verify OTP] → POST | From: ${requestLog.ip}`)
+
+  try {
+    const body = await request.json()
+    const { email, otp_code, platform, identifier } = body
+
+    // Validate inputs
+    if (!email || !otp_code || !platform || !identifier) {
+      return NextResponse.json(
+        { success: false, error: 'Email, OTP code, platform, and identifier are required' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createAdminClient()
+
+    // 1. Get user by email
+    const { data: authUser, error: authError } = await supabase.auth.admin.getUserByEmail(email)
+    if (authError || !authUser?.user?.id) {
+      console.log(`[Bot Auth Verify OTP] User not found: ${email}`)
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    const userId = authUser.user.id
+
+    // 2. Verify OTP from database
+    const { data: otpRecords, error: otpFetchError } = await supabase
+      .from('bot_otp')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('otp_code', otp_code)
+      .eq('platform', platform)
+      .eq('email', email)
+      .maybeSingle()
+
+    if (otpFetchError) {
+      console.error(`[Bot Auth Verify OTP] OTP fetch error:`, otpFetchError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to verify OTP' },
+        { status: 500 }
+      )
+    }
+
+    if (!otpRecords) {
+      console.log(`[Bot Auth Verify OTP] Invalid or expired OTP for user: ${userId}`)
+      return NextResponse.json(
+        { success: false, error: 'Invalid or expired OTP' },
+        { status: 401 }
+      )
+    }
+
+    // Check expiry
+    const expiresAt = new Date(otpRecords.expires_at)
+    if (expiresAt < new Date()) {
+      console.log(`[Bot Auth Verify OTP] OTP expired for user: ${userId}`)
+      // Clean up expired OTP
+      await supabase.from('bot_otp').delete().eq('id', otpRecords.id)
+      return NextResponse.json(
+        { success: false, error: 'OTP has expired' },
+        { status: 401 }
+      )
+    }
+
+    // 3. Delete used OTP (single use)
+    await supabase.from('bot_otp').delete().eq('id', otpRecords.id)
+
+    // 4. Upsert bot_connections record
+    const { error: connectionError } = await supabase.from('bot_connections').upsert(
+      {
+        user_id: userId,
+        platform,
+        identifier,
+        connected_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'user_id,platform',
+      }
+    )
+
+    if (connectionError) {
+      console.error(`[Bot Auth Verify OTP] Failed to create bot connection:`, connectionError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to link platform' },
+        { status: 500 }
+      )
+    }
+
+    // 5. Get user's connect_key (their existing API key)
+    const { data: connectKeys, error: keyError } = await supabase
+      .from('connect_keys')
+      .select('id, key_preview, permissions, is_active')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (keyError) {
+      console.error(`[Bot Auth Verify OTP] Failed to fetch connect_key:`, keyError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to retrieve API key' },
+        { status: 500 }
+      )
+    }
+
+    // If no active connect_key exists, we'll need to create one
+    // But for now, assume it exists (user should have one from web signup)
+    if (!connectKeys) {
+      console.warn(`[Bot Auth Verify OTP] No active connect_key for user ${userId}`)
+      return NextResponse.json(
+        { success: false, error: 'User does not have an API key set up' },
+        { status: 400 }
+      )
+    }
+
+    // 6. Get user profile for response
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone_number, wallet_balance')
+      .eq('id', userId)
+      .maybeSingle()
+
+    const duration = Date.now() - startTime
+    console.log(`[Bot Auth Verify OTP] ✓ OTP verified and bot connection created for user: ${userId} | ${duration}ms`)
+
+    return NextResponse.json(
+      {
+        success: true,
+        api_key: connectKeys.key_preview, // Return preview, actual key shown separately
+        user: {
+          id: userId,
+          email,
+          name: profile?.full_name || 'User',
+          phone: profile?.phone_number || null,
+          wallet_balance: profile?.wallet_balance || 0,
+        },
+        platform,
+        identifier,
+      },
+      { status: 200 }
+    )
+  } catch (error) {
+    const duration = Date.now() - startTime
+    console.error(`[Bot Auth Verify OTP] Error: ${error} | ${duration}ms`)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
+}
