@@ -34,11 +34,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // 1. Get user by email from profiles table
+    // 1. Get user by email from profiles table (case-insensitive)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id, full_name, email, phone_number, wallet_balance')
-      .ilike('email', email)
+      .eq('email', email.toLowerCase())
       .maybeSingle()
 
     if (profileError || !profile?.id) {

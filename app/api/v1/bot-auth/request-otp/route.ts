@@ -59,12 +59,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user exists by querying profiles table
+    // Check if user exists by querying profiles table (case-insensitive)
     const supabase = createAdminClient()
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id, full_name')
-      .ilike('email', email)
+      .eq('email', email.toLowerCase())
       .maybeSingle()
 
     if (profileError || !profile?.id) {
