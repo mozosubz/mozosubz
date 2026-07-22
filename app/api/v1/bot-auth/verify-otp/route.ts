@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (profileError || !profile?.id) {
-      console.log(`[Bot Auth Verify OTP] User not found: ${email}`)
+      console.log(`[Bot Auth Verify OTP] User not found: ${email} | Error: ${profileError?.message}`)
       return NextResponse.json(
-        { success: false, error: 'User not found' },
+        { success: false, error: 'User not found', details: profileError?.message },
         { status: 404 }
       )
     }
