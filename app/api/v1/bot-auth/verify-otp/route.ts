@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     const userId = profile.id
 
     // 2. Verify OTP from database
+    console.log(`[Bot Auth Verify OTP] Checking OTP | userId: ${userId} | otp_code: ${otp_code} | platform: ${platform}`)
     const { data: otpRecords, error: otpFetchError } = await supabase
       .from('bot_otp')
       .select('*')
@@ -67,6 +68,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+    
+    console.log(`[Bot Auth Verify OTP] OTP record found:`, otpRecords ? 'YES' : 'NO')
 
     if (!otpRecords) {
       console.log(`[Bot Auth Verify OTP] Invalid or expired OTP for user: ${userId}`)
