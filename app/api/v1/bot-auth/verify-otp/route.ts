@@ -119,63 +119,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 5. Always generate and return a new API key on successful OTP verification
-    // This ensures OTP verification gives users immediate access without needing to store keys
-    console.log(`[Bot Auth Verify OTP] Generating new connect_key for user ${userId}`)
-    
-    // Generate a real API key: format connect_<48 hex chars>_<timestamp>
-    const randomBytes = crypto.randomBytes(24).toString('hex')
-    const timestamp = Date.now().toString(16)
-    const plainTextKey = `connect_${randomBytes}_${timestamp}`
-    const keyHash = crypto.createHash('sha256').update(plainTextKey).digest('hex')
-    const keyPreview = `connect_${randomBytes.slice(0, 8)}`
-    
-    const { data: newKey, error: createError } = await supabase
+    // 5. Check if user has existing active key - if not, create one
+    const { data: existingKeys, error: keyError } = await supabase
       .from('connect_keys')
-      .insert({
-        user_id: userId,
-        name: `Bot Key - ${new Date().toISOString()}`,
-        key_hash: keyHash,
-        key_preview: keyPreview,
-        permissions: ['data', 'airtime', 'bot'],
-        is_active: true,
-      })
       .select('id, key_preview, permissions, is_active')
-      .single()
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
 
-    if (createError || !newKey) {
-      console.error(`[Bot Auth Verify OTP] Failed to create connect_key:`, createError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to create API key' },
-        { status: 500 }
-      )
+    let connectKeys = existingKeys && existingKeys[0] ? existingKeys[0] : null
+    let plainTextKey: string | null = null
+    let isNewKey = false
+
+    if (keyError && keyError.code !== 'PGRST116') {
+      console.error(`[Bot Auth Verify OTP] Failed to fetch connect_key:`, keyError)
     }
 
-    const connectKeys = newKey
-    console.log(`[Bot Auth Verify OTP] ✓ New connect_key created: ${keyPreview}`)
+    // If user already has a key, reuse it (don't generate new one)
+    if (connectKeys) {
+      console.log(`[Bot Auth Verify OTP] ✓ User has existing key: ${connectKeys.key_preview}`)
+    } else {
+      // Only create new key if user has none
+      console.log(`[Bot Auth Verify OTP] User has no key, creating one for ${userId}`)
+      
+      const randomBytes = crypto.randomBytes(24).toString('hex')
+      const timestamp = Date.now().toString(16)
+      plainTextKey = `connect_${randomBytes}_${timestamp}`
+      const keyHash = crypto.createHash('sha256').update(plainTextKey).digest('hex')
+      const keyPreview = `connect_${randomBytes.slice(0, 8)}`
+      
+      const { data: newKey, error: createError } = await supabase
+        .from('connect_keys')
+        .insert({
+          user_id: userId,
+          name: `Bot Auth Key - ${new Date().toISOString()}`,
+          key_hash: keyHash,
+          key_preview: keyPreview,
+          permissions: ['data', 'airtime', 'bot'],
+          is_active: true,
+        })
+        .select('id, key_preview, permissions, is_active')
+        .single()
+
+      if (createError || !newKey) {
+        console.error(`[Bot Auth Verify OTP] Failed to create connect_key:`, createError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to create API key' },
+          { status: 500 }
+        )
+      }
+
+      connectKeys = newKey
+      isNewKey = true
+      console.log(`[Bot Auth Verify OTP] ✓ New key created: ${keyPreview}`)
+    }
 
     // 6. Profile already fetched at the start, use it for response
     const duration = Date.now() - startTime
     console.log(`[Bot Auth Verify OTP] ✓ OTP verified and bot connection created for user: ${userId} | ${duration}ms`)
 
-    return NextResponse.json(
-      {
-        success: true,
-        api_key: plainTextKey, // Always return the full plaintext key - OTP proves ownership
-        api_key_preview: connectKeys.key_preview,
-        user: {
-          id: userId,
-          email: profile.email || email,
-          name: profile.full_name || 'User',
-          phone: profile.phone_number || null,
-          wallet_balance: profile.wallet_balance || 0,
-        },
-        platform,
-        identifier,
-        message: 'Store your API key securely. It will not be shown again.',
+    const responseData: any = {
+      success: true,
+      api_key_preview: connectKeys.key_preview,
+      user: {
+        id: userId,
+        email: profile.email || email,
+        name: profile.full_name || 'User',
+        phone: profile.phone_number || null,
+        wallet_balance: profile.wallet_balance || 0,
       },
-      { status: 200 }
-    )
+      platform,
+      identifier,
+    }
+
+    // Return full key only for newly created keys
+    if (isNewKey && plainTextKey) {
+      responseData.api_key = plainTextKey
+      responseData.message = 'Your API key has been generated. Copy it now - it will not be shown again.'
+    } else {
+      // For existing keys, direct user to /integrations/keys to view
+      responseData.api_key = null
+      responseData.message = 'You already have an API key. View and copy it at https://mozosubz.xyz/integrations/keys'
+    }
+
+    return NextResponse.json(responseData, { status: 200 })
   } catch (error) {
     const duration = Date.now() - startTime
     console.error(`[Bot Auth Verify OTP] Error: ${error} | ${duration}ms`)
