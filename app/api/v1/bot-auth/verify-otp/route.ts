@@ -134,13 +134,16 @@ export async function POST(request: NextRequest) {
     }
 
     // If no active connect_key exists, CREATE one for the user
+    let plainTextKey: string | null = null
     if (!connectKeys) {
       console.log(`[Bot Auth Verify OTP] Creating new connect_key for user ${userId}`)
       
-      // Generate a real API key: format mk_live_<random>
-      const randomKey = crypto.randomBytes(32).toString('hex')
-      const keyHash = crypto.createHash('sha256').update(randomKey).digest('hex')
-      const keyPreview = `mk_live_${randomKey.slice(0, 8)}`
+      // Generate a real API key: format connect_<48 hex chars>_<timestamp>
+      const randomBytes = crypto.randomBytes(24).toString('hex')
+      const timestamp = Date.now().toString(16)
+      plainTextKey = `connect_${randomBytes}_${timestamp}`
+      const keyHash = crypto.createHash('sha256').update(plainTextKey).digest('hex')
+      const keyPreview = `connect_${randomBytes.slice(0, 8)}`
       
       const { data: newKey, error: createError } = await supabase
         .from('connect_keys')
@@ -174,7 +177,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        api_key: connectKeys.key_preview, // Return preview, actual key shown separately
+        api_key: plainTextKey || connectKeys.key_preview, // Return full key if newly created, otherwise preview
+        api_key_preview: connectKeys.key_preview,
         user: {
           id: userId,
           email: profile.email || email,
