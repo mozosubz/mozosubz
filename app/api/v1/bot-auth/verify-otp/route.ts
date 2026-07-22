@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
       .eq('user_id', userId)
       .eq('otp_code', otp_code)
       .eq('platform', platform)
-      .eq('email', email)
       .maybeSingle()
 
     if (otpFetchError) {
