@@ -190,30 +190,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mozosubz.xyz'
-    const checkoutUrl = `${appUrl}/checkout/${paymentReference}`
-
     const duration = Date.now() - startTime
     console.log(`[Wallet Deposit] ✓ Deposit initialized for user: ${userId} | Amount: ₦${numAmount} | ${duration}ms`)
 
     return NextResponse.json(
       {
         success: true,
-        payment_reference: paymentReference,
-        transaction_id: txData.id,
-        amount: numAmount,
-        processing_fee: processingFee,
-        net_amount: netAmount,
-        authorization_url: initPayResult.authorizationUrl || checkoutUrl,
-        checkout_url: checkoutUrl,
+        deposit_amount: numAmount,
+        receiving_amount: netAmount,
         bank_details: {
           account_number: initPayResult.accountNumber,
           account_name: initPayResult.accountName,
           bank_name: initPayResult.bankName,
-          bank_code: initPayResult.bankCode,
-          ussd_code: initPayResult.ussdCode,
         },
-        remaining,
+        payment_reference: paymentReference,
       },
       { status: 200 }
     )
