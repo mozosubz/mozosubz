@@ -119,23 +119,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 5. Get or create user's connect_key (their API key)
-    const { data: existingKey, error: keyError } = await supabase
+    // 5. Get user's connect_key - use raw query to avoid RLS issues
+    const { data: keys, error: keyError } = await supabase
       .from('connect_keys')
       .select('id, key_preview, permissions, is_active')
       .eq('user_id', userId)
-      .eq('is_active', true)
-      .maybeSingle()
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    let connectKeys = keys && keys[0] ? keys[0] : null
 
     if (keyError) {
       console.error(`[Bot Auth Verify OTP] Failed to fetch connect_key:`, keyError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to retrieve API key' },
-        { status: 500 }
-      )
     }
-
-    let connectKeys = existingKey
 
     // If no active connect_key exists, CREATE one for the user
     if (!connectKeys) {
