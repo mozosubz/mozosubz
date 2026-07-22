@@ -119,60 +119,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 5. Get user's existing connect_key - only fetch if user has one
-    const { data: existingKeys, error: keyError } = await supabase
+    // 5. Always generate and return a new API key on successful OTP verification
+    // This ensures OTP verification gives users immediate access without needing to store keys
+    console.log(`[Bot Auth Verify OTP] Generating new connect_key for user ${userId}`)
+    
+    // Generate a real API key: format connect_<48 hex chars>_<timestamp>
+    const randomBytes = crypto.randomBytes(24).toString('hex')
+    const timestamp = Date.now().toString(16)
+    const plainTextKey = `connect_${randomBytes}_${timestamp}`
+    const keyHash = crypto.createHash('sha256').update(plainTextKey).digest('hex')
+    const keyPreview = `connect_${randomBytes.slice(0, 8)}`
+    
+    const { data: newKey, error: createError } = await supabase
       .from('connect_keys')
+      .insert({
+        user_id: userId,
+        name: `Bot Key - ${new Date().toISOString()}`,
+        key_hash: keyHash,
+        key_preview: keyPreview,
+        permissions: ['data', 'airtime', 'bot'],
+        is_active: true,
+      })
       .select('id, key_preview, permissions, is_active')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .single()
 
-    let connectKeys = existingKeys && existingKeys[0] ? existingKeys[0] : null
-    let plainTextKey: string | null = null
-
-    if (keyError && keyError.code !== 'PGRST116') {
-      console.error(`[Bot Auth Verify OTP] Failed to fetch existing connect_key:`, keyError)
+    if (createError || !newKey) {
+      console.error(`[Bot Auth Verify OTP] Failed to create connect_key:`, createError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to create API key' },
+        { status: 500 }
+      )
     }
 
-    // If user HAS an existing key, use it (don't create new one)
-    if (connectKeys) {
-      console.log(`[Bot Auth Verify OTP] ✓ Using existing connect_key for user ${userId}: ${connectKeys.key_preview}`)
-    } else {
-      // Only CREATE a new key if user has NO connect_key at all
-      console.log(`[Bot Auth Verify OTP] User has no connect_key, creating new one for ${userId}`)
-      
-      // Generate a real API key: format connect_<48 hex chars>_<timestamp>
-      const randomBytes = crypto.randomBytes(24).toString('hex')
-      const timestamp = Date.now().toString(16)
-      plainTextKey = `connect_${randomBytes}_${timestamp}`
-      const keyHash = crypto.createHash('sha256').update(plainTextKey).digest('hex')
-      const keyPreview = `connect_${randomBytes.slice(0, 8)}`
-      
-      const { data: newKey, error: createError } = await supabase
-        .from('connect_keys')
-        .insert({
-          user_id: userId,
-          name: 'Auto-generated Bot Key',
-          key_hash: keyHash,
-          key_preview: keyPreview,
-          permissions: ['data', 'airtime', 'bot'],
-          is_active: true,
-        })
-        .select('id, key_preview, permissions, is_active')
-        .single()
-
-      if (createError || !newKey) {
-        console.error(`[Bot Auth Verify OTP] Failed to create connect_key:`, createError)
-        return NextResponse.json(
-          { success: false, error: 'Failed to create API key' },
-          { status: 500 }
-        )
-      }
-
-      connectKeys = newKey
-      console.log(`[Bot Auth Verify OTP] ✓ New connect_key created: ${keyPreview}`)
-    }
+    const connectKeys = newKey
+    console.log(`[Bot Auth Verify OTP] ✓ New connect_key created: ${keyPreview}`)
 
     // 6. Profile already fetched at the start, use it for response
     const duration = Date.now() - startTime
@@ -181,7 +161,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        api_key: plainTextKey || connectKeys.key_preview, // Return full key if newly created, otherwise preview
+        api_key: plainTextKey, // Always return the full plaintext key - OTP proves ownership
         api_key_preview: connectKeys.key_preview,
         user: {
           id: userId,
@@ -192,6 +172,7 @@ export async function POST(request: NextRequest) {
         },
         platform,
         identifier,
+        message: 'Store your API key securely. It will not be shown again.',
       },
       { status: 200 }
     )
