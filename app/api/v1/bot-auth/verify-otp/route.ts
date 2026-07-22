@@ -119,24 +119,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 5. Get user's connect_key - use raw query to avoid RLS issues
-    const { data: keys, error: keyError } = await supabase
+    // 5. Get user's existing connect_key - only fetch if user has one
+    const { data: existingKeys, error: keyError } = await supabase
       .from('connect_keys')
       .select('id, key_preview, permissions, is_active')
       .eq('user_id', userId)
+      .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1)
 
-    let connectKeys = keys && keys[0] ? keys[0] : null
+    let connectKeys = existingKeys && existingKeys[0] ? existingKeys[0] : null
+    let plainTextKey: string | null = null
 
-    if (keyError) {
-      console.error(`[Bot Auth Verify OTP] Failed to fetch connect_key:`, keyError)
+    if (keyError && keyError.code !== 'PGRST116') {
+      console.error(`[Bot Auth Verify OTP] Failed to fetch existing connect_key:`, keyError)
     }
 
-    // If no active connect_key exists, CREATE one for the user
-    let plainTextKey: string | null = null
-    if (!connectKeys) {
-      console.log(`[Bot Auth Verify OTP] Creating new connect_key for user ${userId}`)
+    // If user HAS an existing key, use it (don't create new one)
+    if (connectKeys) {
+      console.log(`[Bot Auth Verify OTP] ✓ Using existing connect_key for user ${userId}: ${connectKeys.key_preview}`)
+    } else {
+      // Only CREATE a new key if user has NO connect_key at all
+      console.log(`[Bot Auth Verify OTP] User has no connect_key, creating new one for ${userId}`)
       
       // Generate a real API key: format connect_<48 hex chars>_<timestamp>
       const randomBytes = crypto.randomBytes(24).toString('hex')
