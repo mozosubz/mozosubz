@@ -3,7 +3,7 @@ import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBotOtpEmail } from '@/lib/utils/bot-auth'
 import { logRequest } from '@/lib/api-logger'
-import crypto from 'crypto'
+import { generateConnectKey, hashConnectKey, getKeyPreview } from '@/lib/utils/connect-key'
 
 /**
  * POST /api/v1/bot-auth/verify-otp
@@ -119,12 +119,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 5. Check if user has existing active key - if not, create one
+    // 5. Check if user has existing active key - if not, create one using standard utilities
     const { data: existingKeys, error: keyError } = await supabase
       .from('connect_keys')
       .select('id, key_preview, permissions, is_active')
       .eq('user_id', userId)
       .eq('is_active', true)
+      .is('revoked_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
 
@@ -140,14 +141,13 @@ export async function POST(request: NextRequest) {
     if (connectKeys) {
       console.log(`[Bot Auth Verify OTP] ✓ User has existing key: ${connectKeys.key_preview}`)
     } else {
-      // Only create new key if user has none
+      // Only create new key if user has none - use standard key generation utilities
       console.log(`[Bot Auth Verify OTP] User has no key, creating one for ${userId}`)
       
-      const randomBytes = crypto.randomBytes(24).toString('hex')
-      const timestamp = Date.now().toString(16)
-      plainTextKey = `connect_${randomBytes}_${timestamp}`
-      const keyHash = crypto.createHash('sha256').update(plainTextKey).digest('hex')
-      const keyPreview = `connect_${randomBytes.slice(0, 8)}`
+      // Generate new key using standard utility
+      plainTextKey = generateConnectKey()
+      const keyHash = hashConnectKey(plainTextKey)
+      const keyPreview = getKeyPreview(plainTextKey)
       
       const { data: newKey, error: createError } = await supabase
         .from('connect_keys')
@@ -158,6 +158,7 @@ export async function POST(request: NextRequest) {
           key_preview: keyPreview,
           permissions: ['data', 'airtime', 'bot'],
           is_active: true,
+          created_at: new Date().toISOString(),
         })
         .select('id, key_preview, permissions, is_active')
         .single()
