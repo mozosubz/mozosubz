@@ -48,12 +48,13 @@ export function getPlatformDisplayName(platform: 'whatsapp' | 'telegram'): strin
 
 /**
  * Validate phone number format (basic check)
+ * Accepts: 10348011234567, +2348011234567, +1234567890, etc
  */
 export function isValidPhoneNumber(phone: string): boolean {
-  // Remove spaces and common formatting
+  // Remove spaces, dashes, and parentheses but keep the +
   const cleaned = phone.replace(/[\s\-()]+/g, '')
-  // Check if it's a valid phone number (roughly 10-15 digits)
-  return /^\d{10,15}$/.test(cleaned) && /^\+?[1-9]\d{9,14}$/.test(cleaned)
+  // Check if it's a valid phone number with optional + prefix and 10-15 digits
+  return /^\+?[1-9]\d{9,14}$/.test(cleaned)
 }
 
 /**

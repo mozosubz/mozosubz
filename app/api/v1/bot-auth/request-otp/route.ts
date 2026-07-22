@@ -61,11 +61,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user exists
+    // Check if user exists by querying profiles table
     const supabase = createAdminClient()
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserByEmail(email)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .ilike('email', email)
+      .maybeSingle()
 
-    if (authError || !authUser?.user?.id) {
+    if (profileError || !profile?.id) {
       console.log(`[Bot Auth Request OTP] User not found: ${email}`)
       // Don't leak that user doesn't exist - for security
       return NextResponse.json(
@@ -74,14 +78,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user profile for name
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', authUser.user.id)
-      .maybeSingle()
-
     const firstName = profile?.full_name?.split(' ')[0] || email.split('@')[0] || 'User'
+    const userId = profile.id
 
     // Generate OTP
     const otp = generateOTP()
@@ -90,8 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Store OTP in database
     const { error: otpError } = await supabase.from('bot_otp').insert({
-      user_id: authUser.user.id,
-      email,
+      user_id: userId,
       otp_code: otp,
       platform,
       identifier,

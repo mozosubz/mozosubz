@@ -34,9 +34,14 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // 1. Get user by email
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserByEmail(email)
-    if (authError || !authUser?.user?.id) {
+    // 1. Get user by email from profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, phone_number, wallet_balance')
+      .ilike('email', email)
+      .maybeSingle()
+
+    if (profileError || !profile?.id) {
       console.log(`[Bot Auth Verify OTP] User not found: ${email}`)
       return NextResponse.json(
         { success: false, error: 'User not found' },
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userId = authUser.user.id
+    const userId = profile.id
 
     // 2. Verify OTP from database
     const { data: otpRecords, error: otpFetchError } = await supabase
@@ -135,13 +140,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 6. Get user profile for response
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name, email, phone_number, wallet_balance')
-      .eq('id', userId)
-      .maybeSingle()
-
+    // 6. Profile already fetched at the start, use it for response
     const duration = Date.now() - startTime
     console.log(`[Bot Auth Verify OTP] ✓ OTP verified and bot connection created for user: ${userId} | ${duration}ms`)
 
@@ -151,10 +150,10 @@ export async function POST(request: NextRequest) {
         api_key: connectKeys.key_preview, // Return preview, actual key shown separately
         user: {
           id: userId,
-          email,
-          name: profile?.full_name || 'User',
-          phone: profile?.phone_number || null,
-          wallet_balance: profile?.wallet_balance || 0,
+          email: profile.email || email,
+          name: profile.full_name || 'User',
+          phone: profile.phone_number || null,
+          wallet_balance: profile.wallet_balance || 0,
         },
         platform,
         identifier,
