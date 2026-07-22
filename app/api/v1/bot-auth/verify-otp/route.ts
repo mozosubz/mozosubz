@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendBotOtpEmail } from '@/lib/utils/bot-auth'
 import { logRequest } from '@/lib/api-logger'
+import crypto from 'crypto'
 
 /**
  * POST /api/v1/bot-auth/verify-otp
@@ -116,8 +119,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 5. Get user's connect_key (their existing API key)
-    const { data: connectKeys, error: keyError } = await supabase
+    // 5. Get or create user's connect_key (their API key)
+    const { data: existingKey, error: keyError } = await supabase
       .from('connect_keys')
       .select('id, key_preview, permissions, is_active')
       .eq('user_id', userId)
@@ -132,14 +135,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // If no active connect_key exists, we'll need to create one
-    // But for now, assume it exists (user should have one from web signup)
+    let connectKeys = existingKey
+
+    // If no active connect_key exists, CREATE one for the user
     if (!connectKeys) {
-      console.warn(`[Bot Auth Verify OTP] No active connect_key for user ${userId}`)
-      return NextResponse.json(
-        { success: false, error: 'User does not have an API key set up' },
-        { status: 400 }
-      )
+      console.log(`[Bot Auth Verify OTP] Creating new connect_key for user ${userId}`)
+      
+      // Generate a real API key: format mk_live_<random>
+      const randomKey = crypto.randomBytes(32).toString('hex')
+      const keyHash = crypto.createHash('sha256').update(randomKey).digest('hex')
+      const keyPreview = `mk_live_${randomKey.slice(0, 8)}`
+      
+      const { data: newKey, error: createError } = await supabase
+        .from('connect_keys')
+        .insert({
+          user_id: userId,
+          name: 'Auto-generated Bot Key',
+          key_hash: keyHash,
+          key_preview: keyPreview,
+          permissions: ['data', 'airtime', 'bot'],
+          is_active: true,
+        })
+        .select('id, key_preview, permissions, is_active')
+        .single()
+
+      if (createError || !newKey) {
+        console.error(`[Bot Auth Verify OTP] Failed to create connect_key:`, createError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to create API key' },
+          { status: 500 }
+        )
+      }
+
+      connectKeys = newKey
+      console.log(`[Bot Auth Verify OTP] ✓ New connect_key created: ${keyPreview}`)
     }
 
     // 6. Profile already fetched at the start, use it for response
