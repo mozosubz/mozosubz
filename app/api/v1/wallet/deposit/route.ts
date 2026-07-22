@@ -6,7 +6,6 @@ import {
   initializePayment,
   getMonnifyAccessToken,
 } from '@/lib/actions/monnify'
-import { createTransaction, updateTransactionWithMonnifyData } from '@/lib/actions/transactions'
 import { generatePaymentReference } from '@/lib/utils/payment-reference'
 import { getDepositRules } from '@/lib/actions/deposit-rules'
 import { calculateDepositFee } from '@/lib/utils/deposit-fee'
@@ -101,33 +100,44 @@ export async function POST(request: NextRequest) {
     const paymentReference = generatePaymentReference(userId)
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString()
 
-    // Create local transaction and start Monnify transaction in parallel
-    const [createTxResult, initTxResult] = await Promise.all([
-      createTransaction(
-        paymentReference,
-        numAmount,
-        expiresAt,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        processingFee,
-        netAmount
-      ),
-      initTransaction(
-        numAmount,
-        description || 'Wallet deposit',
-        paymentReference,
-        userId,
-        profile.email,
-        profile.full_name || 'User'
-      ),
-    ])
+    // Create transaction directly with admin client (can't use createTransaction function as it requires session)
+    console.log('[Wallet Deposit] Creating monnify_transactions row')
+    const { data: txData, error: txInsertError } = await supabase
+      .from('monnify_transactions')
+      .insert({
+        user_id: userId,
+        payment_reference: paymentReference,
+        amount: numAmount,
+        status: 'PENDING',
+        expires_at: expiresAt,
+        processing_fee: processingFee,
+        net_amount: netAmount,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .maybeSingle()
 
-    if (!createTxResult.success) {
-      console.error('[Wallet Deposit] Failed to create transaction:', createTxResult.error)
+    if (txInsertError || !txData) {
+      console.error('[Wallet Deposit] Failed to create monnify_transactions row:', txInsertError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to create transaction' },
+        { status: 500 }
+      )
+    }
+
+    // Start Monnify transaction in parallel
+    const initTxResult = await initTransaction(
+      numAmount,
+      description || 'Wallet deposit',
+      paymentReference,
+      userId,
+      profile.email,
+      profile.full_name || 'User'
+    )
+
+    if (!initTxResult.success) {
+      console.error('[Wallet Deposit] Failed to init monnify transaction:', initTxResult.error)
       return NextResponse.json(
         { success: false, error: 'Failed to create transaction' },
         { status: 500 }
@@ -154,19 +164,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update transaction with Monnify data
-    const updateResult = await updateTransactionWithMonnifyData(paymentReference, {
-      transactionReference: monnifyTransactionRef,
-      accountNumber: initPayResult.accountNumber,
-      bankName: initPayResult.bankName,
-      accountName: initPayResult.accountName,
-      bankCode: initPayResult.bankCode,
-      ussdCode: initPayResult.ussdCode,
-      monnifyResponse: initPayResult,
-    })
+    // Update transaction with Monnify data using admin client directly
+    console.log('[Wallet Deposit] Updating monnify_transactions with payment details')
+    const { data: updated, error: updateError } = await supabase
+      .from('monnify_transactions')
+      .update({
+        transaction_reference: monnifyTransactionRef,
+        account_number: initPayResult.accountNumber,
+        bank_name: initPayResult.bankName,
+        account_name: initPayResult.accountName,
+        bank_code: initPayResult.bankCode,
+        ussd_code: initPayResult.ussdCode,
+        monnify_response: initPayResult,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('payment_reference', paymentReference)
+      .select('id, payment_reference')
+      .maybeSingle()
 
-    if (!updateResult.success) {
-      console.error('[Wallet Deposit] Failed to update transaction with Monnify data:', updateResult.error)
+    if (updateError || !updated) {
+      console.error('[Wallet Deposit] Failed to update monnify_transactions:', updateError)
       return NextResponse.json(
         { success: false, error: 'Failed to update payment details in database' },
         { status: 500 }
@@ -183,7 +200,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         payment_reference: paymentReference,
-        transaction_id: createTxResult.transactionId,
+        transaction_id: txData.id,
         amount: numAmount,
         processing_fee: processingFee,
         net_amount: netAmount,
