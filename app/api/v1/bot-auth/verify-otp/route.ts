@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (otpFetchError) {
       console.error(`[Bot Auth Verify OTP] OTP fetch error:`, otpFetchError)
       return NextResponse.json(
-        { success: false, error: 'Failed to verify OTP' },
+        { success: false, error: 'Failed to verify OTP', details: otpFetchError.message },
         { status: 500 }
       )
     }
