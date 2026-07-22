@@ -81,6 +81,8 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
 
     // Fire-and-forget receipt email. Email failures MUST NOT affect the
     // transaction flow — sendTransactionEmail is non-throwing internally.
+    console.log("[v0] Calling sendTransactionEmail for transaction:", payload.transactionId, "status:", payload.status)
+    
     const extras: Array<{ label: string; value: string }> = []
     
     // Add recipient/smartcard info
@@ -110,6 +112,8 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
     }).catch((err) => {
       console.error("[v0] sendTransactionEmail failed (swallowed):", err)
     })
+    
+    console.log("[v0] sendTransactionEmail call queued (fire-and-forget)")
 
     return {
       success: true,

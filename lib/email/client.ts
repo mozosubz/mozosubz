@@ -105,9 +105,12 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean
   try {
     const apiKey = process.env.RESEND_API_KEY
     if (!apiKey) {
-      console.warn("[email] RESEND_API_KEY not set — skipping send")
+      console.error("[email] RESEND_API_KEY not set — skipping send | Recipient:", opts.to)
+      console.error("[email] Available env vars:", Object.keys(process.env).filter(k => k.includes('RESEND') || k.includes('EMAIL')).join(', ') || 'none')
       return { sent: false, skipped: "no_api_key" }
     }
+    
+    console.log("[email] sendEmail called | To:", opts.to, "| Subject:", opts.subject)
 
     if (!opts.to || !opts.to.includes("@")) {
       return { sent: false, skipped: "invalid_recipient" }
