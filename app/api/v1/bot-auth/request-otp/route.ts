@@ -6,14 +6,12 @@ import { logRequest } from '@/lib/api-logger'
 /**
  * POST /api/v1/bot-auth/request-otp
  *
- * Body: {
- *   email: string,
- *   platform: 'whatsapp' | 'telegram',
- *   identifier: string (phone for WhatsApp, telegram_user_id for Telegram)
- * }
+ * Body: { email, platform, identifier }
+ * Response: { success: boolean, message: string }
  *
- * Generates a 6-digit OTP, stores it with 5-minute expiry, and sends via email.
- * Does NOT require authentication (public endpoint for onboarding flow).
+ * Sends a 6-digit OTP via email for bot authentication
+ * Rate limited: 5 requests per minute per IP
+ * Version: 2.0 - Fixed getUserByEmail method
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
