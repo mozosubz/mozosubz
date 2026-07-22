@@ -29,7 +29,7 @@ function buildActionUrl(base: string, input: Input): string {
 }
 
 function getAppUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "https://mozosubz.com").replace(/\/$/, "")
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://mozosubz.xyz").replace(/\/$/, "")
 }
 
 async function resolveRecipient(userId: string): Promise<{ email: string; firstName: string } | null> {

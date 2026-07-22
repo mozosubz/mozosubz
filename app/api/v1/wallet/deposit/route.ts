@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mozosubz.com'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mozosubz.xyz'
     const checkoutUrl = `${appUrl}/checkout/${paymentReference}`
 
     const duration = Date.now() - startTime

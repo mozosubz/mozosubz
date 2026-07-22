@@ -17,7 +17,7 @@ import { buildUnsubscribeUrl } from "@/lib/email/unsubscribe"
 import { loginAlertEmail } from "@/lib/email/templates/login-alert"
 
 function getAppUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "https://mozosubz.com").replace(/\/$/, "")
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://mozosubz.xyz").replace(/\/$/, "")
 }
 
 /**

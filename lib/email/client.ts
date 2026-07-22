@@ -50,7 +50,7 @@ function pickEnv(...keys: string[]): string | undefined {
 function getFromHeader(): string {
   const email = pickEnv("RESEND_FROM_EMAIL", "UNOSEND_FROM_EMAIL")
   const name = pickEnv("RESEND_FROM_NAME", "UNOSEND_FROM_NAME") || "Mozosubz"
-  if (!email) return "Mozosubz <no-reply@mozosubz.com>"
+  if (!email) return "Mozosubz <no-reply@mozosubz.xyz>"
   // RFC 5322 display-name format: "Name <email@domain>"
   return `${name} <${email}>`
 }
@@ -145,7 +145,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean
         "Content-Type": "application/json",
         // Required by Resend — requests without User-Agent are rejected
         // with 403 / error code 1010. See client header docs.
-        "User-Agent": "mozosubz/1.0 (+https://mozosubz.com)",
+        "User-Agent": "mozosubz/1.0 (+https://mozosubz.xyz)",
       },
       body: JSON.stringify(body),
     })

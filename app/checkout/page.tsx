@@ -20,7 +20,7 @@ export default function CheckoutPage() {
         <div className="flex items-center gap-3 flex-1">
           <h1 className="text-base font-bold text-white">Checkout</h1>
         </div>
-        <p className="text-xs text-slate-400">checkout.mozosubz.com</p>
+        <p className="text-xs text-slate-400">checkout.mozosubz.xyz</p>
       </div>
 
       {/* Main Content */}

@@ -67,7 +67,7 @@ export function verifyUnsubscribeToken(
 
 export function buildUnsubscribeUrl(userId: string, category: EmailCategory): string {
   const base =
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://mozosubz.com"
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://mozosubz.xyz"
   const token = createUnsubscribeToken(userId, category)
   return `${base}/unsubscribe?token=${encodeURIComponent(token)}`
 }
