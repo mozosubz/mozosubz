@@ -61,12 +61,12 @@ export async function GET(request: NextRequest) {
       )
       .eq('user_id', userId)
       .eq('status', 'SUCCESS')
-      .order('paid_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .limit(limit)
 
     // If last_check_at provided, only return notifications after that time
     if (lastCheckAt) {
-      query = query.gt('paid_at', lastCheckAt)
+      query = query.gt('updated_at', lastCheckAt)
     }
 
     const { data: completedDeposits, error: queryError } = await query
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
       deposit_amount: Number(deposit.amount),
       receiving_amount: Number(deposit.net_amount),
       payment_reference: deposit.payment_reference,
-      completed_at: deposit.paid_at,
+      completed_at: deposit.updated_at,
       bank_details: {
         account_number: deposit.account_number,
         account_name: deposit.account_name,
