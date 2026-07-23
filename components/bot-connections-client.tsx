@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, RefreshCw } from "lucide-react"
+import { ArrowLeft, RefreshCw, Trash2, Loader2 } from "lucide-react"
 
 interface BotConnection {
   id: string
@@ -49,37 +49,56 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
   const router = useRouter()
   const [connections, setConnections] = useState(initialConnections)
   const [refreshing, setRefreshing] = useState(false)
+  const [disconnecting, setDisconnecting] = useState<string | null>(null)
 
   // Refresh connections periodically to check for disconnections
   useEffect(() => {
-    console.log("[v0] Bot connections component mounted, starting auto-refresh")
     const interval = setInterval(refreshConnections, 3000) // Refresh every 3 seconds
     return () => clearInterval(interval)
   }, [])
 
   const refreshConnections = async () => {
     try {
-      console.log("[v0] Fetching bot connections from API...")
       const res = await fetch("/api/bot-connections")
       
       if (!res.ok) {
-        console.error("[v0] API returned status:", res.status)
         return
       }
       
       const data = await res.json()
-      console.log("[v0] Got connections from API:", data.connections)
       setConnections(data.connections || [])
     } catch (err) {
-      console.error("[v0] Failed to refresh connections:", err)
+      // Silent fail
     }
   }
 
   const handleRefresh = async () => {
-    console.log("[v0] Manual refresh triggered")
     setRefreshing(true)
     await refreshConnections()
     setRefreshing(false)
+  }
+
+  const handleDisconnect = async (connectionId: string) => {
+    setDisconnecting(connectionId)
+    
+    try {
+      const res = await fetch(`/api/bot-connections/disconnect?id=${connectionId}`, {
+        method: "DELETE",
+      })
+
+      if (!res.ok) {
+        alert("Failed to disconnect bot")
+        setDisconnecting(null)
+        return
+      }
+
+      // Remove from local state immediately
+      setConnections(connections.filter(c => c.id !== connectionId))
+      setDisconnecting(null)
+    } catch (err) {
+      alert("Error disconnecting bot")
+      setDisconnecting(null)
+    }
   }
 
   // Create a map of connected platforms for quick lookup
@@ -181,15 +200,32 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
                   </div>
                 </div>
 
-                {/* Action Button */}
-                {!connected && (
-                  <button
-                    onClick={() => handleConnect(platform.directUrl)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex-shrink-0 whitespace-nowrap"
-                  >
-                    Connect
-                  </button>
-                )}
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {connected && connection && (
+                    <button
+                      onClick={() => handleDisconnect(connection.id)}
+                      disabled={disconnecting === connection.id}
+                      className="p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      title="Disconnect"
+                    >
+                      {disconnecting === connection.id ? (
+                        <Loader2 className="w-5 h-5 text-red-600 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-5 h-5 text-gray-400 hover:text-red-600" />
+                      )}
+                    </button>
+                  )}
+                  
+                  {!connected && (
+                    <button
+                      onClick={() => handleConnect(platform.directUrl)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      Connect
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )
