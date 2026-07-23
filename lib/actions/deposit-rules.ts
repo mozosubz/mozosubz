@@ -15,11 +15,26 @@ export async function getDepositRules(): Promise<DepositRules | null> {
     .from('deposit_rules')
     .select('*')
     .eq('is_active', true)
-    .single()
+    .maybeSingle()
 
-  if (error) {
+  if (error && error.code !== 'PGRST116') {
     console.error('[v0] Error fetching deposit rules:', error)
     return null
+  }
+
+  // Return default rules if table is empty
+  if (!data) {
+    console.log('[v0] No deposit rules found, using defaults')
+    return {
+      id: 'default',
+      base_fee: 50,
+      percentage_fee: 1.5,
+      threshold_amount: 2500,
+      max_fee: null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as DepositRules
   }
 
   return data

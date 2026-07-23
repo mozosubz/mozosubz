@@ -1,134 +1,142 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
- * GET /api/v1/bot/pending-notifications
+ * GET /api/v1/bot/check-deposit-status
  * 
- * Bot polls this endpoint to check for completed deposits and wallet updates
- * Returns all deposits that completed since last check
+ * Simple endpoint for bot to check if a deposit has been received
+ * Bot passes the payment reference it showed to user
  * 
  * Query params:
- * - last_check_at (optional): ISO timestamp - only return notifications after this time
- * - limit (optional): max 100, default 20
+ * - payment_reference (required): The payment reference from deposit initiation
  * 
- * Response format perfect for bot to display to user:
+ * Response when payment received:
  * {
  *   "success": true,
- *   "pending_notifications": [
- *     {
- *       "type": "deposit_completed",
- *       "deposit_amount": 500,
- *       "receiving_amount": 450,
- *       "payment_reference": "MOZO_xxx",
- *       "completed_at": "2024-01-15T16:45:00Z",
- *       "new_wallet_balance": 1000
- *     }
- *   ]
+ *   "status": "SUCCESS",
+ *   "deposit_amount": 100,
+ *   "receiving_amount": 50,
+ *   "wallet_balance": 1050,
+ *   "message": "Payment received! You'll receive ₦50 in your wallet."
+ * }
+ * 
+ * Response when still pending:
+ * {
+ *   "success": true,
+ *   "status": "PENDING",
+ *   "message": "Waiting for payment..."
  * }
  */
 
 export async function GET(request: NextRequest) {
-  const startTime = Date.now()
-
   try {
-    // 1. Verify API key
-    const keyVerification = await verifyConnectKey(request)
-    if (!keyVerification.success || !keyVerification.userId) {
-      console.log('[Bot Notifications] ❌ Invalid API key')
+    // 1. Get payment reference from query params
+    const url = new URL(request.url)
+    const paymentReference = url.searchParams.get('payment_reference')
+
+    if (!paymentReference) {
+      console.log('[Check Deposit Status] Missing payment_reference parameter')
       return NextResponse.json(
-        { success: false, error: 'Invalid API key' },
-        { status: 401 }
+        {
+          success: false,
+          error: 'Missing payment_reference parameter',
+        },
+        { status: 400 }
       )
     }
 
-    const userId = keyVerification.userId
-    console.log(`[Bot Notifications] Checking for user: ${userId}`)
+    console.log(`[Check Deposit Status] Checking status for: ${paymentReference}`)
 
-    // 2. Parse query params
-    const url = new URL(request.url)
-    const lastCheckAt = url.searchParams.get('last_check_at')
-    const limitParam = url.searchParams.get('limit')
-    const limit = Math.min(parseInt(limitParam || '20'), 100)
-
-    // 3. Build query to get completed deposits
+    // 2. Query the transaction
     const supabase = createAdminClient()
 
-    let query = supabase
+    const { data: transaction, error: queryError } = await supabase
       .from('monnify_transactions')
-      .select(
-        'id, amount, net_amount, payment_reference, status, paid_at, updated_at, account_number, account_name, bank_name'
-      )
-      .eq('user_id', userId)
-      .eq('status', 'SUCCESS')
-      .order('updated_at', { ascending: false })
-      .limit(limit)
-
-    // If last_check_at provided, only return notifications after that time
-    if (lastCheckAt) {
-      query = query.gt('updated_at', lastCheckAt)
-    }
-
-    const { data: completedDeposits, error: queryError } = await query
+      .select('id, amount, net_amount, status, user_id, updated_at')
+      .eq('payment_reference', paymentReference)
+      .maybeSingle()
 
     if (queryError) {
-      console.error('[Bot Notifications] Error fetching deposits:', queryError)
+      console.error('[Check Deposit Status] Query error:', queryError)
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch notifications' },
+        {
+          success: false,
+          error: 'Failed to check status',
+        },
         { status: 500 }
       )
     }
 
-    // 4. Get current wallet balance
+    // Transaction not found
+    if (!transaction) {
+      console.log(`[Check Deposit Status] Transaction not found: ${paymentReference}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Payment reference not found',
+        },
+        { status: 404 }
+      )
+    }
+
+    // Payment is still pending
+    if (transaction.status !== 'SUCCESS') {
+      console.log(`[Check Deposit Status] Status is ${transaction.status}: ${paymentReference}`)
+      return NextResponse.json(
+        {
+          success: true,
+          status: transaction.status,
+          message: 'Waiting for payment...',
+        },
+        { status: 200 }
+      )
+    }
+
+    // 3. Payment received! Get user's wallet balance
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('wallet_balance')
-      .eq('id', userId)
+      .eq('id', transaction.user_id)
       .maybeSingle()
 
     if (profileError) {
-      console.error('[Bot Notifications] Error fetching profile:', profileError)
+      console.error('[Check Deposit Status] Profile error:', profileError)
+      // Still return success but without balance
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch wallet balance' },
-        { status: 500 }
+        {
+          success: true,
+          status: 'SUCCESS',
+          deposit_amount: Number(transaction.amount),
+          receiving_amount: Number(transaction.net_amount),
+          wallet_balance: 0,
+          message: 'Payment received! Check your wallet.',
+        },
+        { status: 200 }
       )
     }
 
-    const walletBalance = profile?.wallet_balance || 0
-
-    // 5. Format notifications for bot display
-    const pendingNotifications = (completedDeposits || []).map((deposit) => ({
-      type: 'deposit_completed',
-      deposit_amount: Number(deposit.amount),
-      receiving_amount: Number(deposit.net_amount),
-      payment_reference: deposit.payment_reference,
-      completed_at: deposit.updated_at,
-      bank_details: {
-        account_number: deposit.account_number,
-        account_name: deposit.account_name,
-        bank_name: deposit.bank_name,
-      },
-      new_wallet_balance: walletBalance,
-    }))
-
-    const duration = Date.now() - startTime
     console.log(
-      `[Bot Notifications] ✓ Found ${pendingNotifications.length} notifications for user ${userId} | ${duration}ms`
+      `[Check Deposit Status] ✓ Payment received: ${paymentReference} | Amount: ₦${transaction.amount}`
     )
 
     return NextResponse.json(
       {
         success: true,
-        pending_notifications: pendingNotifications,
-        wallet_balance: walletBalance,
-        timestamp: new Date().toISOString(),
+        status: 'SUCCESS',
+        deposit_amount: Number(transaction.amount),
+        receiving_amount: Number(transaction.net_amount),
+        wallet_balance: profile?.wallet_balance || 0,
+        message: `Payment received! You received ₦${Number(transaction.net_amount)} in your wallet.`,
       },
       { status: 200 }
     )
   } catch (error) {
-    console.error('[Bot Notifications] Exception:', error)
+    console.error('[Check Deposit Status] Exception:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Internal server error',
+      },
       { status: 500 }
     )
   }
