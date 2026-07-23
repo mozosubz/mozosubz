@@ -116,11 +116,19 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
     {
       name: "whatsapp",
       displayName: "WhatsApp",
-      directUrl: "https://wa.me/09056458312?text=/start",
+      directUrl: "https://wa.me/09056458312?text=start",
     },
   ]
 
-  const handleConnect = (url: string) => {
+  const handleConnect = (platformName: string, url: string) => {
+    // Check if this platform already has a connection
+    const alreadyConnected = connections.some(c => c.platform.toLowerCase() === platformName.toLowerCase())
+    
+    if (alreadyConnected) {
+      alert(`You already have a ${platformName} bot connected. Please disconnect it first before connecting another one.`)
+      return
+    }
+    
     window.location.href = url
   }
 
@@ -219,7 +227,7 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
                   
                   {!connected && (
                     <button
-                      onClick={() => handleConnect(platform.directUrl)}
+                      onClick={() => handleConnect(platform.name, platform.directUrl)}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
                     >
                       Connect
