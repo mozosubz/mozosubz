@@ -19,7 +19,7 @@ export default async function BotConnectionsPage() {
   const adminSupabase = createAdminClient()
   const { data: connections, error: connectError } = await adminSupabase
     .from("bot_connections")
-    .select("id, platform, identifier, connected_at, last_active_at, status")
+    .select("id, platform, identifier, connected_at, last_active_at")
     .eq("user_id", user.id)
     .order("connected_at", { ascending: false })
 
@@ -34,7 +34,7 @@ export default async function BotConnectionsPage() {
     identifier: conn.identifier,
     connected_at: conn.connected_at,
     last_active: conn.last_active_at,
-    status: conn.status || "active",
+    status: "active",
   }))
 
   return (
