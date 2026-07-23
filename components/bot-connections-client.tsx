@@ -24,18 +24,21 @@ const PlatformLogo = ({ platform }: { platform: string }) => {
   
   if (platformName === "whatsapp") {
     return (
-      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#25D366" }}>
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-4.99 1.513.498.498 0 00-.276.694l.75 2.311a.507.507 0 00.644.324 8.877 8.877 0 015.07-1.64.507.507 0 00.51-.491l-.009-2.4a.505.505 0 00-.508-.506z" />
-        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z" fill="none" />
-      </svg>
+      <img 
+        src="https://cdn.jsdelivr.net/gh/glincker/thesvg@main/public/icons/whatsapp/default.svg" 
+        alt="WhatsApp" 
+        className="w-6 h-6"
+      />
     )
   }
   
   if (platformName === "telegram") {
     return (
-      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#0088cc" }}>
-        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.82-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.332-.373-.119l-6.869 4.326-2.96-.924c-.643-.204-.658-.643.135-.953l11.566-4.461c.538-.196 1.006.128.832.941z" />
-      </svg>
+      <img 
+        src="https://cdn.jsdelivr.net/gh/glincker/thesvg@main/public/icons/telegram/default.svg" 
+        alt="Telegram" 
+        className="w-6 h-6"
+      />
     )
   }
   
@@ -58,9 +61,14 @@ export function BotConnectionsClient({ initialUser, initialConnections }: BotCon
         setConnections(data.connections || [])
       } catch (err: any) {
         console.error("Error fetching connections:", err)
+        setError(`Error loading connections: ${err.message}`)
       }
     }
 
+    // Fetch immediately on mount
+    fetchConnections()
+    
+    // Then set up interval for periodic refresh
     const interval = setInterval(fetchConnections, 30000)
     return () => clearInterval(interval)
   }, [])
