@@ -15,11 +15,11 @@ The bot needs to continuously poll the deposit status endpoint to check if a use
    ↓
 4. Bot displays bank details and stores payment_reference
    ↓
-5. Bot starts polling loop with the payment_reference every 30-60 seconds
+5. Bot starts polling loop with the payment_reference every 10 seconds
    ↓
 6. Webhook receives payment from Monnify
    ↓
-7. Next poll returns status: "SUCCESS"
+7. Next poll (within 10 seconds) returns status: "SUCCESS"
    ↓
 8. Bot notifies user: "✅ Payment received! You received ₦50"
    ↓
@@ -77,9 +77,9 @@ API_BASE = "https://api.mozosubz.xyz"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-def check_deposit_status(chat_id, payment_ref, max_attempts=60):
+def check_deposit_status(chat_id, payment_ref, max_attempts=180):
     """
-    Poll deposit status every 30 seconds for up to 30 minutes
+    Poll deposit status every 10 seconds for up to 30 minutes
     """
     attempts = 0
     
@@ -115,8 +115,8 @@ def check_deposit_status(chat_id, payment_ref, max_attempts=60):
         except Exception as e:
             print(f"Error polling: {e}")
         
-        # Wait 30 seconds before next poll
-        time.sleep(30)
+        # Wait 10 seconds before next poll
+        time.sleep(10)
         attempts += 1
     
     if attempts >= max_attempts:
@@ -186,7 +186,7 @@ const BOT_TOKEN = 'your_bot_token';
 const API_BASE = 'https://api.mozosubz.xyz';
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-async function checkDepositStatus(chatId, paymentRef, maxAttempts = 60) {
+async function checkDepositStatus(chatId, paymentRef, maxAttempts = 180) {
   let attempts = 0;
   
   while (attempts < maxAttempts) {
@@ -224,8 +224,8 @@ async function checkDepositStatus(chatId, paymentRef, maxAttempts = 60) {
       console.log(`Error polling: ${error.message}`);
     }
     
-    // Wait 30 seconds before next poll
-    await new Promise(resolve => setTimeout(resolve, 30000));
+    // Wait 10 seconds before next poll
+    await new Promise(resolve => setTimeout(resolve, 10000));
     attempts++;
   }
   
@@ -334,8 +334,8 @@ class DepositPoller:
             except Exception as e:
                 print(f"Error polling: {e}")
             
-            # Wait 30 seconds
-            await asyncio.sleep(30)
+            # Wait 10 seconds
+            await asyncio.sleep(10)
             attempts += 1
         
         if attempts >= max_attempts:
@@ -370,8 +370,8 @@ async def initiate_deposit(chat_id, payment_ref):
 ## Key Points
 
 1. **Store payment_reference** - Save it immediately when received from deposit endpoint
-2. **Poll every 30-60 seconds** - Not too aggressive, but responsive enough
-3. **Timeout after 30 minutes** - Give up if no response after 30 minutes
+2. **Poll every 10 seconds** - Fast response time for better user experience
+3. **Timeout after 30 minutes** - Give up if no response after 30 minutes (180 attempts x 10 seconds)
 4. **Continuous loop** - Keep polling until status is "SUCCESS" or timeout
 5. **Handle errors gracefully** - If API is down, keep retrying
 6. **Notify user** - Send message when payment is received
