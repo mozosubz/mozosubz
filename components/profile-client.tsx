@@ -15,6 +15,7 @@ import {
   X,
   Settings,
   Key,
+  MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -545,6 +546,18 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
                 <Key className="w-5 h-5 text-[#1a56db]" />
               </div>
               <span className="text-sm font-semibold flex-1 text-left">API Keys</span>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </Link>
+
+            {/* Bot Connections */}
+            <Link
+              href="/dashboard/bot-connections"
+              className="w-full px-4 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+            >
+              <div className="w-9 h-9 bg-[#f0f5ff] rounded-md flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="w-5 h-5 text-[#1a56db]" />
+              </div>
+              <span className="text-sm font-semibold flex-1 text-left">Bot Connections</span>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Link>
 
