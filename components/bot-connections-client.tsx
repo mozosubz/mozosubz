@@ -14,6 +14,7 @@ interface BotConnection {
 }
 
 interface BotConnectionsClientProps {
+  userId: string
   initialUser: { id: string; email: string | null }
   initialConnections: BotConnection[]
 }
@@ -44,7 +45,7 @@ const PlatformLogo = ({ platform }: { platform: string }) => {
   return null
 }
 
-export function BotConnectionsClient({ initialUser, initialConnections }: BotConnectionsClientProps) {
+export function BotConnectionsClient({ userId, initialUser, initialConnections }: BotConnectionsClientProps) {
   const router = useRouter()
   const [connections, setConnections] = useState(initialConnections)
   const [refreshing, setRefreshing] = useState(false)
@@ -57,17 +58,11 @@ export function BotConnectionsClient({ initialUser, initialConnections }: BotCon
 
   const refreshConnections = async () => {
     try {
-      const res = await fetch("/api/v1/bot-auth/connections", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setConnections(data.connections || [])
-      }
+      const { refreshBotConnections } = await import("@/app/dashboard/bot-connections/page")
+      const updatedConnections = await refreshBotConnections(userId)
+      setConnections(updatedConnections)
     } catch (err) {
+      console.error("Failed to refresh connections:", err)
       // Silent fail - just keep the current connections
     }
   }
