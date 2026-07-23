@@ -1,7 +1,8 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, RefreshCw } from "lucide-react"
 
 interface BotConnection {
   id: string
@@ -25,7 +26,7 @@ const PlatformLogo = ({ platform }: { platform: string }) => {
       <img 
         src="https://cdn.jsdelivr.net/gh/glincker/thesvg@main/public/icons/whatsapp/default.svg" 
         alt="WhatsApp" 
-        className="w-4 h-4"
+        className="w-7 h-7"
       />
     )
   }
@@ -35,7 +36,7 @@ const PlatformLogo = ({ platform }: { platform: string }) => {
       <img 
         src="https://cdn.jsdelivr.net/gh/glincker/thesvg@main/public/icons/telegram/default.svg" 
         alt="Telegram" 
-        className="w-4 h-4"
+        className="w-7 h-7"
       />
     )
   }
@@ -45,10 +46,41 @@ const PlatformLogo = ({ platform }: { platform: string }) => {
 
 export function BotConnectionsClient({ initialUser, initialConnections }: BotConnectionsClientProps) {
   const router = useRouter()
+  const [connections, setConnections] = useState(initialConnections)
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Refresh connections periodically to check for disconnections
+  useEffect(() => {
+    const interval = setInterval(refreshConnections, 5000) // Refresh every 5 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  const refreshConnections = async () => {
+    try {
+      const res = await fetch("/api/v1/bot-auth/connections", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setConnections(data.connections || [])
+      }
+    } catch (err) {
+      // Silent fail - just keep the current connections
+    }
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await refreshConnections()
+    setRefreshing(false)
+  }
 
   // Create a map of connected platforms for quick lookup
   const connectedMap = new Map(
-    initialConnections.map((conn) => [conn.platform.toLowerCase(), conn])
+    connections.map((conn) => [conn.platform.toLowerCase(), conn])
   )
 
   // Always show both platforms
@@ -56,17 +88,17 @@ export function BotConnectionsClient({ initialUser, initialConnections }: BotCon
     {
       name: "telegram",
       displayName: "Telegram",
-      connectUrl: "https://t.me/mozosubz_bot",
+      directUrl: "tg://resolve?domain=mozosubz_bot&start=start",
     },
     {
       name: "whatsapp",
       displayName: "WhatsApp",
-      connectUrl: "https://wa.me/09056458312",
+      directUrl: "https://wa.me/09056458312?text=/start",
     },
   ]
 
   const handleConnect = (url: string) => {
-    window.open(url, "_blank")
+    window.location.href = url
   }
 
   const formatDate = (dateString: string) => {
@@ -83,20 +115,30 @@ export function BotConnectionsClient({ initialUser, initialConnections }: BotCon
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
-        <div className="px-3 py-2 flex items-center gap-2">
+        <div className="px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-gray-100 rounded transition-colors"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <h1 className="text-lg font-bold text-gray-900">Bot Connections</h1>
+          </div>
           <button
-            onClick={() => router.back()}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
-            aria-label="Go back"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+            aria-label="Refresh"
           >
-            <ArrowLeft className="w-4 h-4 text-gray-600" />
+            <RefreshCw className={`w-5 h-5 text-gray-600 ${refreshing ? "animate-spin" : ""}`} />
           </button>
-          <h1 className="text-sm font-bold text-gray-900">Bots</h1>
         </div>
       </header>
 
       {/* Content */}
-      <main className="px-3 py-2 space-y-1.5 pb-20">
+      <main className="px-4 py-4 space-y-3 pb-20">
         {/* Platform Cards */}
         {platforms.map((platform) => {
           const connected = connectedMap.has(platform.name)
@@ -105,44 +147,41 @@ export function BotConnectionsClient({ initialUser, initialConnections }: BotCon
           return (
             <div
               key={platform.name}
-              className="bg-white border border-gray-200 rounded-lg p-2.5 hover:shadow-sm transition-all"
+              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all"
             >
-              <div className="flex items-center gap-2.5">
-                {/* Logo */}
-                <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                  <PlatformLogo platform={platform.name} />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <h3 className="text-xs font-bold text-gray-900">{platform.displayName}</h3>
-                    {connected && (
-                      <span className="inline-flex text-xs font-medium px-1.5 py-0.5 rounded bg-green-100 text-green-700">
-                        Connected
-                      </span>
-                    )}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  {/* Logo */}
+                  <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <PlatformLogo platform={platform.name} />
                   </div>
 
-                  {connected && connection ? (
-                    <p className="text-xs text-gray-600">
-                      {new Date(connection.last_active || connection.connected_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500">Not connected</p>
-                  )}
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-base font-bold text-gray-900">{platform.displayName}</h3>
+                      {connected && (
+                        <span className="inline-flex text-sm font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                          Connected
+                        </span>
+                      )}
+                    </div>
+
+                    {connected && connection ? (
+                      <p className="text-sm text-gray-600">
+                        {formatDate(connection.last_active || connection.connected_at)}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500">Not connected</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Action Button */}
                 {!connected && (
                   <button
-                    onClick={() => handleConnect(platform.connectUrl)}
-                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded transition-colors flex-shrink-0 whitespace-nowrap"
+                    onClick={() => handleConnect(platform.directUrl)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex-shrink-0 whitespace-nowrap"
                   >
                     Connect
                   </button>

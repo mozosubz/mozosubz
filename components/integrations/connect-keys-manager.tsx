@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Copy, Check, Eye, EyeOff, Loader2, KeyRound, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -300,16 +299,7 @@ export function ConnectKeysManager() {
           </div>
         </div>
 
-        {/* Docs link */}
-        <Link
-          href="/doc"
-          className="block bg-white rounded-xl border border-gray-100 p-4 hover:bg-gray-50 transition"
-        >
-          <p className="text-sm font-semibold text-gray-900">Full API documentation</p>
-          <p className="text-xs text-gray-500">
-            Request/response examples, error codes, and rate limits.
-          </p>
-        </Link>
+
       </div>
     </div>
   )
