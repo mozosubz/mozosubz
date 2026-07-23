@@ -52,22 +52,31 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
 
   // Refresh connections periodically to check for disconnections
   useEffect(() => {
-    const interval = setInterval(refreshConnections, 5000) // Refresh every 5 seconds
+    console.log("[v0] Bot connections component mounted, starting auto-refresh")
+    const interval = setInterval(refreshConnections, 3000) // Refresh every 3 seconds
     return () => clearInterval(interval)
   }, [])
 
   const refreshConnections = async () => {
     try {
-      const { refreshBotConnections } = await import("@/app/dashboard/bot-connections/page")
-      const updatedConnections = await refreshBotConnections(userId)
-      setConnections(updatedConnections)
+      console.log("[v0] Fetching bot connections from API...")
+      const res = await fetch("/api/bot-connections")
+      
+      if (!res.ok) {
+        console.error("[v0] API returned status:", res.status)
+        return
+      }
+      
+      const data = await res.json()
+      console.log("[v0] Got connections from API:", data.connections)
+      setConnections(data.connections || [])
     } catch (err) {
-      console.error("Failed to refresh connections:", err)
-      // Silent fail - just keep the current connections
+      console.error("[v0] Failed to refresh connections:", err)
     }
   }
 
   const handleRefresh = async () => {
+    console.log("[v0] Manual refresh triggered")
     setRefreshing(true)
     await refreshConnections()
     setRefreshing(false)
