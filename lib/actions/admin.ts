@@ -4,9 +4,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { isValidUUID, isValidAmount, validateBalanceCalculation } from '@/lib/utils/input-validation'
+import {
+  resolveSort,
+  USER_SORT_OPTIONS,
+  DEFAULT_USER_SORT,
+  TRANSACTION_SORT_OPTIONS,
+  DEFAULT_TRANSACTION_SORT,
+} from '@/lib/utils/admin-sort'
 
-// Get all users with pagination and search - uses admin client to bypass RLS
-export async function getUsers(page: number = 1, limit: number = 10, searchTerm?: string) {
+// Get all users with pagination, search and sorting - uses admin client to bypass RLS
+export async function getUsers(
+  page: number = 1,
+  limit: number = 10,
+  searchTerm?: string,
+  sortBy?: string
+) {
   try {
     const supabase = createAdminClient()
 
@@ -27,9 +39,18 @@ export async function getUsers(page: number = 1, limit: number = 10, searchTerm?
       )
     }
 
+    // Sort column/direction come from a fixed allowlist, never from the raw
+    // input, so `sortBy` can't be used to probe unexposed columns.
+    const sort = resolveSort(USER_SORT_OPTIONS, sortBy, DEFAULT_USER_SORT)
+
     const { data: users, error: usersError } = await query
+      .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
+      // Stable tiebreaker. full_name and wallet_balance are non-unique, and
+      // without a deterministic second key Postgres may order ties differently
+      // between page requests — which silently duplicates rows on one page and
+      // drops them from another.
+      .order('id', { ascending: true })
       .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false })
 
     // Get total count for pagination
     let countQuery = supabase
@@ -263,7 +284,12 @@ export async function toggleAdminRole(userId: string, isAdmin: boolean) {
 }
 
 // Get all transactions with pagination - uses admin client to bypass RLS
-export async function getTransactions(page: number = 1, limit: number = 20, statusFilter?: string) {
+export async function getTransactions(
+  page: number = 1,
+  limit: number = 20,
+  statusFilter?: string,
+  sortBy?: string
+) {
   try {
     const supabase = createAdminClient()
 
@@ -277,13 +303,31 @@ export async function getTransactions(page: number = 1, limit: number = 20, stat
       query = query.eq('status', statusFilter)
     }
 
+    const sort = resolveSort(TRANSACTION_SORT_OPTIONS, sortBy, DEFAULT_TRANSACTION_SORT)
+
     const { data: transactions, error: txError } = await query
-      .order('created_at', { ascending: false })
+      .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
+      // Stable tiebreaker so equal amounts/timestamps don't shuffle between
+      // page loads and duplicate or drop rows across pages.
+      .order('id', { ascending: true })
       .range(offset, offset + limit - 1)
 
-    const { count, error: countError } = await supabase
+    // The count must use the same filter as the rows above. It previously
+    // always counted the whole table, so filtering by status still produced
+    // page numbers for the unfiltered total and the extra pages came back empty.
+    let countQuery = supabase
       .from('transactions')
       .select('id', { count: 'exact', head: true })
+
+    if (statusFilter && statusFilter !== 'all') {
+      countQuery = countQuery.eq('status', statusFilter)
+    }
+
+    const { count, error: countError } = await countQuery
+
+    if (countError) {
+      console.error('[v0] Error counting transactions:', countError)
+    }
 
     if (txError) {
       console.error('[v0] Error fetching transactions:', txError)

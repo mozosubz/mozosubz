@@ -3,7 +3,12 @@
 import { useState, useEffect } from 'react'
 import { getTransactions } from '@/lib/actions/admin'
 import { TransactionTable } from '@/components/admin/transaction-table'
-import { CreditCard, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CreditCard, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
+import {
+  TRANSACTION_SORT_OPTIONS,
+  DEFAULT_TRANSACTION_SORT,
+  type TransactionSortKey,
+} from '@/lib/utils/admin-sort'
 
 const STATUS_FILTERS = [
   { value: '', label: 'All' },
@@ -17,12 +22,18 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [sortBy, setSortBy] = useState<TransactionSortKey>(DEFAULT_TRANSACTION_SORT)
   const [totalPages, setTotalPages] = useState(1)
 
   useEffect(() => {
+    // Discard a stale in-flight response so rapid filter/sort switching can't
+    // leave the table showing the results of an older query.
+    let cancelled = false
+
     const fetchTransactions = async () => {
       setLoading(true)
-      const result = await getTransactions(page, 20, statusFilter || undefined)
+      const result = await getTransactions(page, 20, statusFilter || undefined, sortBy)
+      if (cancelled) return
       if (!result.error) {
         setTransactions(result.transactions)
         setTotalPages(result.totalPages)
@@ -30,7 +41,11 @@ export default function TransactionsPage() {
       setLoading(false)
     }
     fetchTransactions()
-  }, [page, statusFilter])
+
+    return () => {
+      cancelled = true
+    }
+  }, [page, statusFilter, sortBy])
 
   return (
     <div className="admin-page">
@@ -57,6 +72,32 @@ export default function TransactionsPage() {
             {f.label}
           </button>
         ))}
+      </div>
+
+      {/* Kept outside .filter-chips, which scrolls horizontally — a select in
+          that track would slide out of view on narrow screens. */}
+      <div className="admin-toolbar">
+        <div className="admin-sort">
+          <ArrowUpDown size={16} aria-hidden="true" />
+          <label htmlFor="transaction-sort" className="sr-only">
+            Sort transactions
+          </label>
+          <select
+            id="transaction-sort"
+            className="admin-select"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value as TransactionSortKey)
+              setPage(1)
+            }}
+          >
+            {TRANSACTION_SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading ? (

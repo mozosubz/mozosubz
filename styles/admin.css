@@ -608,6 +608,50 @@
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
 }
 
+/* Sort control: icon + select share one bordered shell so the control lines up
+   with .admin-search rather than sitting in a second nested box. */
+.admin-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  background: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-md);
+  color: var(--admin-text-secondary);
+  transition: border-color var(--transition-fast);
+}
+
+.admin-sort:hover { border-color: var(--admin-border-strong); }
+.admin-sort:focus-within {
+  border-color: var(--admin-secondary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+/* The shell owns the border, so the select inside is stripped back to text. */
+.admin-sort .admin-select {
+  height: 100%;
+  min-width: 0;
+  padding: 0 4px 0 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  /* Full width on narrow screens: at ~480px the search box and a squeezed
+     select would each be too small to read or tap comfortably. */
+  .admin-sort {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+  .admin-sort .admin-select {
+    flex: 1;
+    text-align: right;
+  }
+}
+
 /* Filter chips */
 .filter-chips {
   display: flex;

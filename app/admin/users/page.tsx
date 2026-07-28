@@ -3,19 +3,39 @@
 import { useState, useEffect } from 'react'
 import { getUsers } from '@/lib/actions/admin'
 import { UserTable } from '@/components/admin/user-table'
-import { Search, Users as UsersIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Users as UsersIcon, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
+import {
+  USER_SORT_OPTIONS,
+  DEFAULT_USER_SORT,
+  type UserSortKey,
+} from '@/lib/utils/admin-sort'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
+  const [sortBy, setSortBy] = useState<UserSortKey>(DEFAULT_USER_SORT)
   const [totalPages, setTotalPages] = useState(1)
 
+  // Typing used to fire one full query per keystroke. Debouncing the term the
+  // query actually depends on collapses a burst of typing into a single request.
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  useEffect(() => {
+    // Guards against out-of-order responses: a slow earlier request resolving
+    // after a newer one would otherwise overwrite the table with stale rows.
+    let cancelled = false
+
     const fetchUsers = async () => {
       setLoading(true)
-      const result = await getUsers(page, 10, searchTerm)
+      const result = await getUsers(page, 10, debouncedSearch, sortBy)
+      if (cancelled) return
       if (!result.error) {
         setUsers(result.users)
         setTotalPages(result.totalPages)
@@ -23,7 +43,11 @@ export default function UsersPage() {
       setLoading(false)
     }
     fetchUsers()
-  }, [page, searchTerm])
+
+    return () => {
+      cancelled = true
+    }
+  }, [page, debouncedSearch, sortBy])
 
   return (
     <div className="admin-page">
@@ -48,6 +72,30 @@ export default function UsersPage() {
               setPage(1)
             }}
           />
+        </div>
+
+        <div className="admin-sort">
+          <ArrowUpDown size={16} aria-hidden="true" />
+          <label htmlFor="user-sort" className="sr-only">
+            Sort users
+          </label>
+          <select
+            id="user-sort"
+            className="admin-select"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value as UserSortKey)
+              // Page 1 of the new ordering — staying on page 4 of the old sort
+              // would land the admin in an arbitrary slice of a different list.
+              setPage(1)
+            }}
+          >
+            {USER_SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
