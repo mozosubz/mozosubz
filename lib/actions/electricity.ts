@@ -1,7 +1,6 @@
 "use server"
 
 import { buyElectricityToken } from "@/lib/api/gsubz"
-import { sanitizeProviderPayload } from "@/lib/utils/sanitize-provider"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
@@ -82,8 +81,6 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       variation_code: meterType,
       requestID,
     })
-
-    console.log("[v0] Provider response (electricity):", JSON.stringify(sanitizeProviderPayload(response)))
 
     // Determine success
     const isSuccess =

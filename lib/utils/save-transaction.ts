@@ -1,5 +1,3 @@
-"use server"
-
 import { createAdminClient } from "@/lib/supabase/admin"
 import { processReferralEarning } from "@/lib/referral"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
