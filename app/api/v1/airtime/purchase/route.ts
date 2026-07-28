@@ -172,7 +172,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const purchased = gsubzResult.code === 200
+    // Gsubz can return HTTP 200 with status "failed" — same bug as the data route.
+    // Must check both code AND status to determine a real success.
+    const purchased =
+      gsubzResult.code === 200 &&
+      gsubzResult.status?.toLowerCase() !== 'failed' &&
+      gsubzResult.status?.toLowerCase() !== 'error'
     const txStatus = purchased ? 'SUCCESS' : 'FAILED'
 
     // Refund if Gsubz failed
@@ -198,9 +203,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (!purchased) {
-      console.log(`[Airtime API] ✗ Final: Purchase failed, wallet refunded`)
+      console.log(`[Airtime API] ✗ Final: Purchase failed, wallet refunded | Gsubz: ${gsubzResult.description}`)
+      const providerReason =
+        (gsubzResult as Record<string, unknown>)['api_response'] as string ||
+        gsubzResult.description ||
+        'Purchase failed. Your wallet has been refunded.'
       return NextResponse.json(
-        { success: false, error: gsubzResult.description || 'Purchase failed. Wallet has been refunded.' },
+        { success: false, error: providerReason, provider_code: gsubzResult.code, provider_status: gsubzResult.status },
         { status: 400 }
       )
     }

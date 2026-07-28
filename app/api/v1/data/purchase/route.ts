@@ -187,7 +187,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const purchased = gsubzResult.code === 200
+    // Gsubz can return HTTP 200 with status "failed" in the body (e.g. "not eligible
+    // for this offer"). Checking code alone caused successful-looking transactions
+    // where the data was never delivered but the wallet was still deducted.
+    // A purchase is only successful when code is 200 AND status is not "failed".
+    const purchased =
+      gsubzResult.code === 200 &&
+      gsubzResult.status?.toLowerCase() !== 'failed' &&
+      gsubzResult.status?.toLowerCase() !== 'error'
     const txStatus = purchased ? 'SUCCESS' : 'FAILED'
 
     // If Gsubz failed, refund the user
@@ -214,9 +221,15 @@ export async function POST(request: NextRequest) {
     })
 
     if (!purchased) {
-      console.log(`[Data Purchase API] ✗ Final: Purchase failed, wallet refunded`)
+      console.log(`[Data Purchase API] ✗ Final: Purchase failed, wallet refunded | Gsubz: ${gsubzResult.description}`)
+      // Surface the provider's actual reason so the API caller knows what went wrong
+      // (e.g. "not eligible for this offer") rather than a generic message.
+      const providerReason =
+        (gsubzResult as Record<string, unknown>)['api_response'] as string ||
+        gsubzResult.description ||
+        'Purchase failed. Your wallet has been refunded.'
       return NextResponse.json(
-        { success: false, error: gsubzResult.description || 'Purchase failed. Wallet has been refunded.' },
+        { success: false, error: providerReason, provider_code: gsubzResult.code, provider_status: gsubzResult.status },
         { status: 400 }
       )
     }
