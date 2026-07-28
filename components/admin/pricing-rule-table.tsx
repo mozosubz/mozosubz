@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Trash2, Power } from 'lucide-react'
+import { useConfirm, useToast } from '@/components/app-dialog'
 
 interface PricingRule {
   id: string
@@ -24,6 +25,8 @@ interface PricingRuleTableProps {
 export function PricingRuleTable({ rules, onRuleUpdated }: PricingRuleTableProps) {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [toggling, setToggling] = useState<string | null>(null)
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,10 +34,24 @@ export function PricingRuleTable({ rules, onRuleUpdated }: PricingRuleTableProps
   )
 
   const handleDelete = async (ruleId: string) => {
-    if (!confirm('Delete this rule?')) return
+    const ok = await confirm({
+      title: 'Delete this pricing rule?',
+      message: 'Pricing for this network and service will fall back to the default rate.',
+      confirmLabel: 'Delete rule',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     setDeleting(ruleId)
     try {
-      await supabase.from('pricing_rules').delete().eq('id', ruleId)
+      // The delete error was previously discarded, so a blocked delete (e.g. RLS)
+      // silently left the row on screen.
+      const { error } = await supabase.from('pricing_rules').delete().eq('id', ruleId)
+      if (error) {
+        toast(error.message || 'Could not delete rule', 'error')
+        return
+      }
+      toast('Pricing rule deleted', 'success')
       onRuleUpdated()
     } finally {
       setDeleting(null)

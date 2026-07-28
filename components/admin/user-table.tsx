@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { creditUserWallet, debitUserWallet, toggleAdminRole } from '@/lib/actions/admin'
 import { Crown, Eye, Plus, Minus } from 'lucide-react'
 import { WalletActionModal } from './wallet-action-modal'
 import { UserDetailComprehensive } from './user-detail-comprehensive'
+import { useConfirm, useToast } from '@/components/app-dialog'
 
 interface User {
   id: string
@@ -24,11 +26,35 @@ export function UserTable({ users }: UserTableProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [action, setAction] = useState<'credit' | 'debit' | null>(null)
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
+  const router = useRouter()
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const handleToggleAdmin = async (userId: string, currentIsAdmin: boolean) => {
-    if (!confirm(`${currentIsAdmin ? 'Remove' : 'Grant'} admin privileges?`)) return
-    await toggleAdminRole(userId, !currentIsAdmin)
-    window.location.reload()
+    const granting = !currentIsAdmin
+    const ok = await confirm({
+      title: granting ? 'Grant admin privileges?' : 'Remove admin privileges?',
+      message: granting
+        ? 'This user will get full access to the admin panel, including wallets and pricing.'
+        : 'This user will immediately lose access to the admin panel.',
+      confirmLabel: granting ? 'Grant access' : 'Remove access',
+      tone: granting ? 'default' : 'danger',
+    })
+    if (!ok) return
+
+    const result = await toggleAdminRole(userId, granting)
+
+    // The old code ignored the result and reloaded unconditionally, so a failed
+    // update looked identical to a successful one.
+    if (result && 'error' in result && result.error) {
+      toast(typeof result.error === 'string' ? result.error : 'Could not update admin role', 'error')
+      return
+    }
+
+    toast(granting ? 'Admin privileges granted' : 'Admin privileges removed', 'success')
+    // router.refresh() re-fetches server data without a full page reload, which
+    // would otherwise discard the current search term, sort order and page.
+    router.refresh()
   }
 
   return (

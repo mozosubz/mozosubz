@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Save, Trash2 } from 'lucide-react'
+import { useConfirm, useToast } from '@/components/app-dialog'
 
 interface Template {
   id: string
@@ -21,6 +22,8 @@ export function PricingTemplatesTab({ onApplyTemplate }: PricingTemplatesTabProp
   const [markupType, setMarkupType] = useState<'fixed' | 'percentage'>('fixed')
   const [markupValue, setMarkupValue] = useState('')
   const [saving, setSaving] = useState(false)
+  const confirm = useConfirm()
+  const toast = useToast()
 
   useEffect(() => {
     const saved = localStorage.getItem('pricingTemplates')
@@ -29,7 +32,7 @@ export function PricingTemplatesTab({ onApplyTemplate }: PricingTemplatesTabProp
 
   const saveTemplate = () => {
     if (!templateName.trim() || !markupValue) {
-      alert('Please enter template name and value')
+      toast('Please enter a template name and value', 'error')
       return
     }
 
@@ -51,11 +54,20 @@ export function PricingTemplatesTab({ onApplyTemplate }: PricingTemplatesTabProp
     }, 200)
   }
 
-  const deleteTemplate = (id: string) => {
-    if (!confirm('Delete this template?')) return
+  const deleteTemplate = async (id: string) => {
+    const template = templates.find((t) => t.id === id)
+    const ok = await confirm({
+      title: 'Delete this template?',
+      message: template ? `"${template.name}" will be removed from your presets.` : undefined,
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     const updated = templates.filter((t) => t.id !== id)
     setTemplates(updated)
     localStorage.setItem('pricingTemplates', JSON.stringify(updated))
+    toast('Template deleted', 'success')
   }
 
   return (

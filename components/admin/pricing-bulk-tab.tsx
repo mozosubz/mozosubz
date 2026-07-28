@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createPricingRule, updatePricingRule, deletePricingRule } from '@/lib/actions/pricing'
 import { Plus, Trash2 } from 'lucide-react'
+import { useConfirm, useToast } from '@/components/app-dialog'
 
 interface PricingRule {
   id: string
@@ -40,6 +41,8 @@ export function PricingBulkTab({
     operationType: 'set' as 'set' | 'add' | 'subtract',
   })
   const [submitting, setSubmitting] = useState(false)
+  const confirm = useConfirm()
+  const toast = useToast()
 
   const [selectedRules, setSelectedRules] = useState<Set<string>>(new Set())
   const [bulkEditMarkupType, setBulkEditMarkupType] = useState<'fixed' | 'percentage'>('fixed')
@@ -72,9 +75,15 @@ export function PricingBulkTab({
 
   const handleBulkCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (selectedPlans.size === 0) return alert('Please select at least one plan')
-    if (!bulkFormData.markupValue) return alert('Please enter a markup value')
-    if (!confirm(`Create ${selectedPlans.size} pricing rule(s)?`)) return
+    if (selectedPlans.size === 0) return toast('Please select at least one plan', 'error')
+    if (!bulkFormData.markupValue) return toast('Please enter a markup value', 'error')
+
+    const ok = await confirm({
+      title: `Create ${selectedPlans.size} pricing rule${selectedPlans.size === 1 ? '' : 's'}?`,
+      message: 'New rules take effect immediately for customers.',
+      confirmLabel: 'Create rules',
+    })
+    if (!ok) return
 
     setSubmitting(true)
     const plansToCreate = Array.from(selectedPlans)
@@ -94,22 +103,36 @@ export function PricingBulkTab({
         )
       )
       const successful = results.filter((r) => r.success).length
-      alert(`Created ${successful}/${plansToCreate.length} rules`)
-      if (successful === plansToCreate.length) {
+      const failed = plansToCreate.length - successful
+
+      if (failed === 0) {
+        toast(`Created ${successful} pricing rule${successful === 1 ? '' : 's'}`, 'success')
         setSelectedPlans(new Set())
-        setBulkFormData({ markupType: 'fixed', markupValue: '' })
+        // operationType was omitted here, which reset it to undefined and broke
+        // the add/subtract mode on the next bulk edit.
+        setBulkFormData({ markupType: 'fixed', markupValue: '', operationType: 'set' })
+        onSuccess()
+      } else {
+        toast(`Created ${successful} of ${plansToCreate.length} rules — ${failed} failed`, 'error')
+        // Still refresh: the successful rules exist and must show up.
         onSuccess()
       }
     } catch (error) {
-      alert('Error creating rules: ' + String(error))
+      toast('Error creating rules: ' + String(error), 'error')
     }
     setSubmitting(false)
   }
 
   const handleBulkUpdate = async () => {
-    if (selectedRules.size === 0) return alert('Please select at least one rule')
-    if (!bulkEditMarkupValue) return alert('Please enter a markup value')
-    if (!confirm(`Update markup for ${selectedRules.size} rule(s)?`)) return
+    if (selectedRules.size === 0) return toast('Please select at least one rule', 'error')
+    if (!bulkEditMarkupValue) return toast('Please enter a markup value', 'error')
+
+    const ok = await confirm({
+      title: `Update ${selectedRules.size} rule${selectedRules.size === 1 ? '' : 's'}?`,
+      message: 'Customer-facing prices for these plans will change immediately.',
+      confirmLabel: 'Update pricing',
+    })
+    if (!ok) return
 
     setSubmitting(true)
     try {
@@ -124,21 +147,33 @@ export function PricingBulkTab({
         })
       )
       const successful = results.filter((r) => r.success).length
-      alert(`Updated ${successful}/${selectedRules.size} rules`)
-      if (successful === selectedRules.size) {
+      const failed = selectedRules.size - successful
+
+      if (failed === 0) {
+        toast(`Updated ${successful} rule${successful === 1 ? '' : 's'}`, 'success')
         setSelectedRules(new Set())
         setBulkEditMarkupValue('')
         onSuccess()
+      } else {
+        toast(`Updated ${successful} of ${selectedRules.size} rules — ${failed} failed`, 'error')
+        onSuccess()
       }
     } catch (error) {
-      alert('Error updating rules: ' + String(error))
+      toast('Error updating rules: ' + String(error), 'error')
     }
     setSubmitting(false)
   }
 
   const handleBulkDelete = async () => {
-    if (selectedRules.size === 0) return alert('Please select at least one rule')
-    if (!confirm(`Delete ${selectedRules.size} rule(s)? This cannot be undone.`)) return
+    if (selectedRules.size === 0) return toast('Please select at least one rule', 'error')
+
+    const ok = await confirm({
+      title: `Delete ${selectedRules.size} rule${selectedRules.size === 1 ? '' : 's'}?`,
+      message: 'This cannot be undone. Affected plans will fall back to default pricing.',
+      confirmLabel: 'Delete rules',
+      tone: 'danger',
+    })
+    if (!ok) return
 
     setSubmitting(true)
     try {
@@ -146,13 +181,18 @@ export function PricingBulkTab({
         Array.from(selectedRules).map((ruleId) => deletePricingRule(ruleId))
       )
       const successful = results.filter((r) => r.success).length
-      alert(`Deleted ${successful}/${selectedRules.size} rules`)
-      if (successful === selectedRules.size) {
+      const failed = selectedRules.size - successful
+
+      if (failed === 0) {
+        toast(`Deleted ${successful} rule${successful === 1 ? '' : 's'}`, 'success')
         setSelectedRules(new Set())
+        onSuccess()
+      } else {
+        toast(`Deleted ${successful} of ${selectedRules.size} rules — ${failed} failed`, 'error')
         onSuccess()
       }
     } catch (error) {
-      alert('Error deleting rules: ' + String(error))
+      toast('Error deleting rules: ' + String(error), 'error')
     }
     setSubmitting(false)
   }

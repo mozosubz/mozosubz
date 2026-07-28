@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme-provider"
 import { PerformanceInitializer } from "@/components/performance-initializer"
+import { AppDialogProvider } from "@/components/app-dialog"
 import "./globals.css"
 
 const dmSans = DM_Sans({
@@ -180,7 +181,9 @@ export default function RootLayout({
       <body className={`${dmSans.className} ${spaceGrotesk.variable} antialiased overflow-y-auto overflow-x-hidden`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <PerformanceInitializer />
-          {children}
+          {/* Mounted at the root so useConfirm()/useToast() work on admin,
+              dashboard and integrations routes without per-route wiring. */}
+          <AppDialogProvider>{children}</AppDialogProvider>
           <Toaster />
         </ThemeProvider>
         <Analytics />

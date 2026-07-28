@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2, ContactRound } from "lucide-react"
 import Link from "next/link"
 import { getWalletBalance } from "@/lib/actions/wallet"
 import { getRecentPhones, saveRecentPhone } from "@/lib/actions/recent-phones"
@@ -11,11 +11,13 @@ import { SuccessOverlay } from "@/components/success-overlay"
 import { ProcessingOverlay } from "@/components/processing-overlay"
 import { NetworkLogo } from "@/lib/utils/network-logo"
 import { PurchaseError } from "@/components/purchase-error"
+import { useContactPicker } from "@/lib/hooks/use-contact-picker"
 
 const networks = ["MTN", "Glo", "Airtel", "9mobile"]
 
 export default function AirtimePage() {
   const router = useRouter()
+  const { pickContact, supported: contactsSupported } = useContactPicker()
   const [network, setNetwork] = useState("MTN")
   const [phone, setPhone] = useState("")
   const [amount, setAmount] = useState("")
@@ -50,34 +52,20 @@ export default function AirtimePage() {
   }, [])
 
   const handleContactsPicker = async () => {
-    try {
-      if (!navigator.contacts) {
-        setError("Contact access not supported on this browser")
-        return
-      }
-      
-      const contacts = await navigator.contacts.select(['tel'], { multiple: false })
-      if (contacts && contacts.length > 0) {
-        let tel = contacts[0].tel?.[0] || ""
-        // Remove all non-numeric characters
-        tel = tel.replace(/\D/g, "")
-        
-        // Handle Nigerian numbers: +234 or 234 prefix -> convert to 0
-        if (tel.startsWith("234")) {
-          tel = "0" + tel.slice(3)
-        }
-        
-        // Ensure we have exactly 11 digits starting with 0
-        if (tel.length > 11) {
-          tel = tel.slice(-11)
-        }
-        
-        if (tel.length === 11 && tel.startsWith("0")) {
-          setPhone(tel)
-        }
-      }
-    } catch {
-      // User cancelled or error occurred, do nothing
+    const result = await pickContact()
+
+    switch (result.status) {
+      case "picked":
+        setPhone(result.phone)
+        setError("")
+        break
+      case "cancelled":
+        // Nothing to report — the user closed the sheet deliberately.
+        break
+      default:
+        // Previously every one of these cases was swallowed by an empty catch,
+        // so the button appeared to do nothing at all.
+        setError(result.message)
     }
   }
 
@@ -199,12 +187,19 @@ export default function AirtimePage() {
         <div className="form-group">
           <div className="flex items-center justify-between mb-2">
             <label className="form-label">Phone Number</label>
-            <button
-              onClick={handleContactsPicker}
-              className="text-[12px] font-bold text-[#1a56db] bg-none border-none cursor-pointer"
-            >
-              Contacts
-            </button>
+            {/* Only rendered where the Contact Picker API actually exists, so
+                iOS/desktop users aren't given a button that can never work.
+                Missing type="button" previously risked a form submit on tap. */}
+            {contactsSupported && (
+              <button
+                type="button"
+                onClick={handleContactsPicker}
+                className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--primary)] bg-transparent border-none cursor-pointer"
+              >
+                <ContactRound size={14} aria-hidden="true" />
+                Contacts
+              </button>
+            )}
           </div>
           <input
             type="tel"
