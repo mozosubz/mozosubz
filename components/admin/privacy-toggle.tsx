@@ -4,10 +4,26 @@ import { useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
 export const PRIVACY_STORAGE_KEY = 'adminPrivacyMode'
-const PRIVACY_EVENT = 'admin-privacy-change'
+export const PRIVACY_EVENT = 'admin-privacy-change'
 
 function apply(on: boolean) {
   document.documentElement.dataset.adminPrivacy = on ? 'on' : 'off'
+}
+
+/**
+ * Resolves the saved preference. The layout's bootstrap script normally sets
+ * the attribute before paint, but falling back to storage keeps this correct
+ * even if that script hasn't run, so state survives a reload either way.
+ */
+export function readPrivacyPreference(): boolean {
+  const attr = document.documentElement.dataset.adminPrivacy
+  if (attr === 'on') return true
+  if (attr === 'off') return false
+  try {
+    return localStorage.getItem(PRIVACY_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
 }
 
 export function PrivacyToggle() {
@@ -16,7 +32,9 @@ export function PrivacyToggle() {
   const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
-    setHidden(document.documentElement.dataset.adminPrivacy === 'on')
+    const saved = readPrivacyPreference()
+    apply(saved)
+    setHidden(saved)
 
     // Keep every mounted toggle (and other tabs) in sync.
     const onLocal = (e: Event) => setHidden((e as CustomEvent<boolean>).detail)

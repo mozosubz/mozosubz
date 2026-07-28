@@ -1,9 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { PRIVACY_STORAGE_KEY } from './privacy-toggle'
-
-const PRIVACY_EVENT = 'admin-privacy-change'
+import { PRIVACY_STORAGE_KEY, PRIVACY_EVENT, readPrivacyPreference } from './privacy-toggle'
 
 /**
  * Masks a value while privacy mode is on. The real value is removed from the
@@ -21,8 +19,13 @@ export function Sensitive({
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    setHidden(document.documentElement.dataset.adminPrivacy === 'on')
+    setHidden(readPrivacyPreference())
     setReady(true)
+    // Tells the stylesheet the dot-swap below is live, so it can drop the
+    // pre-hydration blur instead of blurring the dots. Set by every instance
+    // and never cleared: it means "hydration has happened", so clearing it on
+    // unmount would wrongly re-blur values for instances still mounted.
+    document.documentElement.dataset.adminPrivacyReady = ''
 
     const onLocal = (e: Event) => setHidden((e as CustomEvent<boolean>).detail)
     const onStorage = (e: StorageEvent) => {
