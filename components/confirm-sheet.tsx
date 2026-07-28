@@ -8,7 +8,8 @@ interface ConfirmSheetProps {
   show: boolean
   title: string
   network?: string
-  page?: 'data' | 'airtime'
+  /** Only affects logo styling, and only when `network` is provided. */
+  page?: 'data' | 'airtime' | 'cable' | 'electricity'
   details: { label: string; value: string }[]
   onConfirm: () => void
   onCancel: () => void

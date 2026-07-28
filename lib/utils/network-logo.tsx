@@ -25,7 +25,8 @@ interface NetworkLogoProps {
   network: string
   size: 'tab' | 'confirm' | 'receipt' | 'small'
   active?: boolean
-  page?: 'data' | 'airtime' | 'recharge'
+  /** 'cable' and 'electricity' fall through to the generic logo set. */
+  page?: 'data' | 'airtime' | 'recharge' | 'cable' | 'electricity'
 }
 
 export function NetworkLogo({ network, size, active, page = 'airtime' }: NetworkLogoProps) {

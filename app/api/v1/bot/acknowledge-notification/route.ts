@@ -25,7 +25,10 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Verify API key
     const keyVerification = await verifyConnectKey(request)
-    if (!keyVerification.success || !keyVerification.userId) {
+    // userId lives on `context`, not on the result itself. Reading it directly
+    // always yielded undefined, so this guard fired on every request and the
+    // route returned 401 unconditionally.
+    if (!keyVerification.success || !keyVerification.context?.userId) {
       console.log('[Bot Acknowledge] ❌ Invalid API key')
       return NextResponse.json(
         { success: false, error: 'Invalid API key' },
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userId = keyVerification.userId
+    const userId = keyVerification.context.userId
     const { payment_reference, notification_type } = await request.json()
 
     if (!payment_reference) {

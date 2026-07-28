@@ -106,8 +106,12 @@ export default function ElectricityPage() {
         return;
       }
 
-      if (result?.token) {
-        setSuccessToken(result.token);
+      // The token is nested under `transaction`, not on the result root. Reading
+      // result.token was always undefined, so prepaid customers never saw the
+      // meter token they need to actually load their units.
+      const token = result.transaction?.token;
+      if (token) {
+        setSuccessToken(token);
       }
       setShowSuccess(true);
     } catch (err: any) {
