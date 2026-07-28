@@ -29,6 +29,8 @@ const AIRTIME_NETWORKS = [
 interface ApiResponse {
   data?: unknown
   error?: string
+  /** Stable machine-readable code returned alongside every v1 error. */
+  errorCode?: string
   status?: number
   duration?: number
 }
@@ -85,6 +87,7 @@ export default function DocPage() {
         status: res.status,
         duration,
         error: data.error,
+        errorCode: data.error_code,
       })
     } catch (err: any) {
       const duration = Date.now() - startTime
@@ -133,6 +136,7 @@ export default function DocPage() {
         status: res.status,
         duration,
         error: data.error,
+        errorCode: data.error_code,
       })
     } catch (err: any) {
       const duration = Date.now() - startTime
@@ -181,6 +185,7 @@ export default function DocPage() {
         status: res.status,
         duration,
         error: data.error,
+        errorCode: data.error_code,
       })
     } catch (err: any) {
       const duration = Date.now() - startTime
@@ -427,16 +432,21 @@ export default function DocPage() {
                 )}
 
                 {response.error && (
-                  <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm mb-3">
-                    {response.error}
+                  <div className="p-3 rounded-lg bg-error/10 border border-error/20 mb-3">
+                    {response.errorCode && (
+                      <code className="inline-block mb-1 px-1.5 py-0.5 rounded bg-error/20 text-error text-[10px] font-bold font-mono">
+                        {response.errorCode}
+                      </code>
+                    )}
+                    <p className="text-error text-sm leading-relaxed">{response.error}</p>
                   </div>
                 )}
 
-                {response.data && (
+                {response.data ? (
                   <pre className="text-xs text-foreground bg-background p-3 rounded-lg border border-border overflow-x-auto font-mono">
                     {JSON.stringify(response.data, null, 2)}
                   </pre>
-                )}
+                ) : null}
               </div>
             ) : (
               <div className="p-4 rounded-lg bg-secondary/30 border border-dashed border-border text-text-3 text-sm text-center py-12">
@@ -688,7 +698,7 @@ export default function DocPage() {
                     <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
 {JSON.stringify({
   success: true,
-  transaction_id: "V1-AIRTIME-XYZ789ABC",
+  transaction_id: "V1-AIR-7B2E4F9A1C3D",
   network: "MTN",
   phone: "08012345678",
   amount: 1000,
@@ -706,43 +716,101 @@ export default function DocPage() {
 
             {/* Error Codes */}
             <div className="mt-8 p-6 rounded-lg bg-secondary/30 border border-border">
-              <h3 className="text-lg font-bold text-foreground mb-4">Error Responses</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex gap-3">
-                  <span className="px-2 py-1 rounded text-xs font-bold bg-blue-500/20 text-blue-600 flex-shrink-0">400</span>
-                  <div>
-                    <p className="text-foreground font-medium">Bad Request</p>
-                    <p className="text-text-3 text-xs">Missing or invalid required fields</p>
-                  </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">Error Responses</h3>
+              <p className="text-text-3 text-sm mb-4 leading-relaxed">
+                Every failure returns{' '}
+                <code className="text-primary bg-background px-1.5 py-0.5 rounded border border-border text-xs">success: false</code>{' '}
+                and a human-readable{' '}
+                <code className="text-primary bg-background px-1.5 py-0.5 rounded border border-border text-xs">error</code>{' '}
+                string, plus a stable{' '}
+                <code className="text-primary bg-background px-1.5 py-0.5 rounded border border-border text-xs">error_code</code>{' '}
+                you should branch on instead of matching the message text.
+              </p>
+
+              <div className="mb-6">
+                <h4 className="font-semibold text-foreground text-sm mb-2">Error Response Shape:</h4>
+                <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
+{JSON.stringify({
+  success: false,
+  error: "This number is not eligible for the selected bundle. Please choose a different plan and try again. Your wallet has not been charged.",
+  error_code: "NOT_ELIGIBLE",
+  transaction_id: "V1-DATA-3F8783748ED9",
+  refunded: true,
+  balance_after: 12779.92
+}, null, 2)}
+                </pre>
+                <p className="text-text-3 text-xs mt-2 leading-relaxed">
+                  <code className="text-primary text-xs">transaction_id</code>, <code className="text-primary text-xs">refunded</code> and{' '}
+                  <code className="text-primary text-xs">balance_after</code> are present only once a wallet debit was attempted (provider
+                  failures). Validation and auth errors return just <code className="text-primary text-xs">error</code> and{' '}
+                  <code className="text-primary text-xs">error_code</code>.
+                </p>
+              </div>
+
+              {/* Refund guarantee */}
+              <div className="mb-6 p-3 rounded-lg bg-success/10 border border-success/20">
+                <p className="text-success text-xs font-bold mb-1">Automatic refunds</p>
+                <p className="text-text-2 text-xs leading-relaxed">
+                  If your wallet was debited but the provider did not deliver, the debit is reversed automatically before the
+                  response is returned and <code className="text-success text-xs">refunded: true</code> is set. You never need to
+                  request a refund for a failed API purchase, and you should not retry a{' '}
+                  <code className="text-success text-xs">refunded: true</code> response as if it were a timeout.
+                </p>
+              </div>
+
+              {/* Error code reference */}
+              <div className="mb-6">
+                <h4 className="font-semibold text-foreground text-sm mb-3">Error Code Reference:</h4>
+                <div className="flex flex-col gap-2 text-sm">
+                  {[
+                    { code: 'UNAUTHORIZED', http: '401', desc: 'Invalid, revoked, or missing API key.', retry: false },
+                    { code: 'FORBIDDEN', http: '403', desc: 'Key is valid but lacks permission for this service.', retry: false },
+                    { code: 'INVALID_REQUEST', http: '400', desc: 'Request body is not valid JSON.', retry: false },
+                    { code: 'MISSING_FIELDS', http: '400', desc: 'A required field was omitted.', retry: false },
+                    { code: 'INVALID_PHONE', http: '400', desc: 'Not a valid Nigerian phone number.', retry: false },
+                    { code: 'INVALID_NETWORK', http: '400', desc: 'Airtime only. Network must be mtn, glo, airtel or etisalat.', retry: false },
+                    { code: 'INVALID_AMOUNT', http: '400', desc: 'Airtime only. Amount is below the ₦50 minimum.', retry: false },
+                    { code: 'INVALID_PLAN', http: '404', desc: 'Data only. Unknown plan_id — refetch GET /api/v1/data/plans.', retry: false },
+                    { code: 'PLAN_NOT_ENABLED', http: '404', desc: 'Data only. Plan exists but is not enabled for API access.', retry: false },
+                    { code: 'ACCOUNT_NOT_FOUND', http: '404', desc: 'The account behind this key no longer exists.', retry: false },
+                    { code: 'INSUFFICIENT_BALANCE', http: '402', desc: 'Your wallet cannot cover the purchase. Top up and retry.', retry: false },
+                    { code: 'NOT_ELIGIBLE', http: '400', desc: 'The number is not eligible for this bundle. Use a different plan.', retry: false },
+                    { code: 'PLAN_UNAVAILABLE', http: '400', desc: 'Plan is temporarily out of stock at the provider.', retry: true },
+                    { code: 'INVALID_RECIPIENT', http: '400', desc: 'Provider rejected the number as invalid or barred.', retry: false },
+                    { code: 'DUPLICATE_TRANSACTION', http: '400', desc: 'Provider flagged this as a repeat. Wait before retrying.', retry: true },
+                    { code: 'DELIVERY_FAILED', http: '400', desc: 'Provider accepted then failed to deliver. Safe to retry.', retry: true },
+                    { code: 'SERVICE_UNAVAILABLE', http: '400', desc: 'Provider is temporarily unable to process this service.', retry: true },
+                    { code: 'PROVIDER_TIMEOUT', http: '400', desc: 'Provider timed out. Verify before retrying.', retry: true },
+                    { code: 'PROVIDER_UNREACHABLE', http: '502', desc: 'We could not reach the provider at all.', retry: true },
+                    { code: 'RATE_LIMITED', http: '429', desc: 'Over 50 requests/minute. Honour the Retry-After header.', retry: true },
+                    { code: 'INTERNAL_ERROR', http: '500', desc: 'Unexpected error on our side.', retry: true },
+                    { code: 'UNKNOWN_ERROR', http: '400', desc: 'Unrecognised provider failure. Read the error string.', retry: true },
+                  ].map((row) => (
+                    <div key={row.code} className="flex flex-col gap-1 p-2 rounded-lg bg-background border border-border">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <code className="text-primary text-xs font-mono">{row.code}</code>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-secondary text-text-2">{row.http}</span>
+                        {row.retry && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-600">
+                            retryable
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-text-3 text-xs leading-relaxed">{row.desc}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex gap-3">
-                  <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-600 flex-shrink-0">401</span>
-                  <div>
-                    <p className="text-foreground font-medium">Unauthorized</p>
-                    <p className="text-text-3 text-xs">Invalid or missing API key</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-500/20 text-yellow-600 flex-shrink-0">402</span>
-                  <div>
-                    <p className="text-foreground font-medium">Payment Required</p>
-                    <p className="text-text-3 text-xs">Insufficient wallet balance</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-600 flex-shrink-0">429</span>
-                  <div>
-                    <p className="text-foreground font-medium">Too Many Requests</p>
-                    <p className="text-text-3 text-xs">Rate limit exceeded (50 requests per minute)</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-600 flex-shrink-0">500</span>
-                  <div>
-                    <p className="text-foreground font-medium">Server Error</p>
-                    <p className="text-text-3 text-xs">Internal server error or provider issue</p>
-                  </div>
-                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-foreground text-xs font-bold mb-1">Forward compatibility</p>
+                <p className="text-text-2 text-xs leading-relaxed">
+                  New <code className="text-primary text-xs">error_code</code>{' '}
+                  values may be added over time. Treat any code you
+                  don&apos;t recognise the same way you treat{' '}
+                  <code className="text-primary text-xs">UNKNOWN_ERROR</code> and fall back to displaying the{' '}
+                  <code className="text-primary text-xs">error</code> string.
+                </p>
               </div>
             </div>
 
@@ -764,7 +832,11 @@ export default function DocPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-primary">•</span>
-                  <span>Implement retry logic for network failures</span>
+                  <span>
+                    Only retry errors marked <em>retryable</em> above — retrying a{' '}
+                    <code className="text-primary text-xs">NOT_ELIGIBLE</code> or{' '}
+                    <code className="text-primary text-xs">INVALID_PLAN</code> failure will always fail again
+                  </span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-primary">•</span>

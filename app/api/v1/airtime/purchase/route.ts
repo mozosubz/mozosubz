@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     console.log(`[Airtime API] ✗ Auth failed: ${auth.error} | ${duration}ms`)
     return NextResponse.json(
-      { success: false, error: auth.error },
+      { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
     )
   }
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     console.log(`[Airtime API] ✗ Rate limit exceeded | ${duration}ms`)
     return NextResponse.json(
-      { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
+      { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
     )
   }
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     console.log(`[Airtime API] ✗ Permission denied for user: ${userId} | ${duration}ms`)
     return NextResponse.json(
-      { success: false, error: 'This key does not have airtime purchase permission' },
+      { success: false, error: 'This key does not have airtime purchase permission', error_code: 'FORBIDDEN' },
       { status: 403 }
     )
   }
@@ -64,7 +64,10 @@ export async function POST(request: NextRequest) {
     body = await request.json()
   } catch {
     console.log(`[Airtime API] ✗ Invalid JSON body`)
-    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
+      { status: 400 }
+    )
   }
 
   const { network, amount, phone } = body
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
   if (!network || !amount || !phone) {
     console.log(`[Airtime API] ✗ Missing fields: network=${!!network}, amount=${!!amount}, phone=${!!phone}`)
     return NextResponse.json(
-      { success: false, error: 'Missing required fields: network, amount, phone' },
+      { success: false, error: 'Missing required fields: network, amount, phone', error_code: 'MISSING_FIELDS' },
       { status: 400 }
     )
   }
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest) {
   if (!VALID_NETWORKS.includes(networkLower)) {
     console.log(`[Airtime API] ✗ Invalid network: ${network}`)
     return NextResponse.json(
-      { success: false, error: `Invalid network. Must be one of: ${VALID_NETWORKS.join(', ')}` },
+      { success: false, error: `Invalid network. Must be one of: ${VALID_NETWORKS.join(', ')}`, error_code: 'INVALID_NETWORK' },
       { status: 400 }
     )
   }
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
   if (isNaN(parsedAmount) || parsedAmount < 50) {
     console.log(`[Airtime API] ✗ Invalid amount: ${amount}`)
     return NextResponse.json(
-      { success: false, error: 'Amount must be at least ₦50' },
+      { success: false, error: 'Amount must be at least ₦50', error_code: 'INVALID_AMOUNT' },
       { status: 400 }
     )
   }
@@ -100,7 +103,10 @@ export async function POST(request: NextRequest) {
   const phoneClean = String(phone).replace(/\s+/g, '')
   if (!/^(0|234|\+234)\d{10}$/.test(phoneClean) && !/^\d{11}$/.test(phoneClean)) {
     console.log(`[Airtime API] ✗ Invalid phone: ${phone}`)
-    return NextResponse.json({ success: false, error: 'Invalid Nigerian phone number' }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'Invalid Nigerian phone number', error_code: 'INVALID_PHONE' },
+      { status: 400 }
+    )
   }
 
   const admin = createAdminClient()
@@ -114,7 +120,10 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'User account not found' }, { status: 404 })
+      return NextResponse.json(
+        { success: false, error: 'User account not found', error_code: 'ACCOUNT_NOT_FOUND' },
+        { status: 404 }
+      )
     }
 
     const walletBalance = parseFloat(profile.wallet_balance || '0')
@@ -124,6 +133,9 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: `Insufficient wallet balance. Required: ₦${parsedAmount.toLocaleString()}, Available: ₦${walletBalance.toLocaleString()}`,
+          error_code: 'INSUFFICIENT_BALANCE',
+          required: parsedAmount,
+          balance_after: walletBalance,
         },
         { status: 402 }
       )
@@ -135,7 +147,10 @@ export async function POST(request: NextRequest) {
     const deduction = await atomicDeductWallet(userId, parsedAmount)
     if (!deduction.success) {
       console.log(`[Airtime API] ✗ Wallet deduction failed: ${deduction.error}`)
-      return NextResponse.json({ success: false, error: deduction.error || 'Failed to deduct wallet' }, { status: 402 })
+      return NextResponse.json(
+        { success: false, error: deduction.error || 'Failed to deduct wallet', error_code: 'INSUFFICIENT_BALANCE' },
+        { status: 402 }
+      )
     }
 
     console.log(`[Airtime API] → Wallet deducted | New balance: ₦${deduction.newBalance}`)
@@ -169,7 +184,14 @@ export async function POST(request: NextRequest) {
       console.log(`[Airtime API] ✗ Gsubz API error: ${err}`)
       await atomicRefundWallet(userId, parsedAmount)
       return NextResponse.json(
-        { success: false, error: 'Airtime provider error. Your wallet has been refunded.' },
+        {
+          success: false,
+          error: 'Airtime provider error. Your wallet has been refunded.',
+          error_code: 'PROVIDER_UNREACHABLE',
+          transaction_id: transactionId,
+          refunded: true,
+          balance_after: walletBalance,
+        },
         { status: 502 }
       )
     }
@@ -237,6 +259,9 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const duration = Date.now() - startTime
     console.error(`[Airtime API] ✗ ERROR: ${err} | ${duration}ms`)
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: 'Internal server error', error_code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    )
   }
 }

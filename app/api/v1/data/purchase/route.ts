@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     console.log(`[Data Purchase API] ✗ Auth failed: ${auth.error} | ${duration}ms`)
     return NextResponse.json(
-      { success: false, error: auth.error },
+      { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
     )
   }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     console.log(`[Data Purchase API] ✗ Rate limit exceeded | ${duration}ms`)
     return NextResponse.json(
-      { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
+      { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
     )
   }
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     console.log(`[Data Purchase API] ✗ Permission denied for user: ${userId} | ${duration}ms`)
     return NextResponse.json(
-      { success: false, error: 'This key does not have data purchase permission' },
+      { success: false, error: 'This key does not have data purchase permission', error_code: 'FORBIDDEN' },
       { status: 403 }
     )
   }
@@ -60,7 +60,10 @@ export async function POST(request: NextRequest) {
     body = await request.json()
   } catch {
     console.log(`[Data Purchase API] ✗ Invalid JSON body`)
-    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
+      { status: 400 }
+    )
   }
 
   const { service, plan_id, phone } = body
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
   if (!service || !plan_id || !phone) {
     console.log(`[Data Purchase API] ✗ Missing fields: service=${!!service}, plan_id=${!!plan_id}, phone=${!!phone}`)
     return NextResponse.json(
-      { success: false, error: 'Missing required fields: service, plan_id, phone' },
+      { success: false, error: 'Missing required fields: service, plan_id, phone', error_code: 'MISSING_FIELDS' },
       { status: 400 }
     )
   }
@@ -77,7 +80,10 @@ export async function POST(request: NextRequest) {
   const phoneClean = String(phone).replace(/\s+/g, '')
   if (!/^(0|234|\+234)\d{10}$/.test(phoneClean) && !/^\d{11}$/.test(phoneClean)) {
     console.log(`[Data Purchase API] ✗ Invalid phone: ${phone}`)
-    return NextResponse.json({ success: false, error: 'Invalid Nigerian phone number' }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'Invalid Nigerian phone number', error_code: 'INVALID_PHONE' },
+      { status: 400 }
+    )
   }
 
   const admin = createAdminClient()
@@ -95,7 +101,7 @@ export async function POST(request: NextRequest) {
     if (!matchedPlan) {
       console.log(`[Data Purchase API] ✗ Invalid plan_id: ${plan_id}`)
       return NextResponse.json(
-        { success: false, error: 'Invalid plan_id. Use the id from GET /api/v1/data/plans.' },
+        { success: false, error: 'Invalid plan_id. Use the id from GET /api/v1/data/plans.', error_code: 'INVALID_PLAN' },
         { status: 404 }
       )
     }
@@ -119,7 +125,7 @@ export async function POST(request: NextRequest) {
     if (!rule) {
       console.log(`[Data Purchase API] ✗ Plan not available for API users: ${matchedPlan.displayName}`)
       return NextResponse.json(
-        { success: false, error: 'Plan not available for API users. Contact support.' },
+        { success: false, error: 'Plan not available for API users. Contact support.', error_code: 'PLAN_NOT_ENABLED' },
         { status: 404 }
       )
     }
@@ -138,7 +144,10 @@ export async function POST(request: NextRequest) {
 
     if (!profile) {
       console.log(`[Data Purchase API] ✗ User account not found: ${userId}`)
-      return NextResponse.json({ success: false, error: 'User account not found' }, { status: 404 })
+      return NextResponse.json(
+        { success: false, error: 'User account not found', error_code: 'ACCOUNT_NOT_FOUND' },
+        { status: 404 }
+      )
     }
 
     const walletBalance = parseFloat(profile.wallet_balance || '0')
@@ -148,6 +157,9 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: `Insufficient wallet balance. Required: ₦${apiPrice.toLocaleString()}, Available: ₦${walletBalance.toLocaleString()}`,
+          error_code: 'INSUFFICIENT_BALANCE',
+          required: apiPrice,
+          balance_after: walletBalance,
         },
         { status: 402 }
       )
@@ -159,7 +171,10 @@ export async function POST(request: NextRequest) {
     const deduction = await atomicDeductWallet(userId, apiPrice)
     if (!deduction.success) {
       console.log(`[Data Purchase API] ✗ Wallet deduction failed: ${deduction.error}`)
-      return NextResponse.json({ success: false, error: deduction.error || 'Failed to deduct wallet' }, { status: 402 })
+      return NextResponse.json(
+        { success: false, error: deduction.error || 'Failed to deduct wallet', error_code: 'INSUFFICIENT_BALANCE' },
+        { status: 402 }
+      )
     }
 
     console.log(`[Data Purchase API] → Wallet deducted | New balance: ₦${deduction.newBalance}`)
@@ -185,7 +200,14 @@ export async function POST(request: NextRequest) {
       console.log(`[Data Purchase API] ✗ Gsubz API error: ${err}`)
       await atomicRefundWallet(userId, apiPrice)
       return NextResponse.json(
-        { success: false, error: 'Data provider error. Your wallet has been refunded.' },
+        {
+          success: false,
+          error: 'Data provider error. Your wallet has been refunded.',
+          error_code: 'PROVIDER_UNREACHABLE',
+          transaction_id: transactionId,
+          refunded: true,
+          balance_after: walletBalance,
+        },
         { status: 502 }
       )
     }
@@ -256,6 +278,9 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const duration = Date.now() - startTime
     console.error(`[Data Purchase API] ✗ ERROR: ${err} | ${duration}ms`)
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: 'Internal server error', error_code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    )
   }
 }
