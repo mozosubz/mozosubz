@@ -293,57 +293,43 @@ export async function bulkCreateApiPricingRules(
     const admin = createAdminClient()
     const now = new Date().toISOString()
 
-    // Look up what already exists for this service so we never create duplicates
+    // Count what already exists purely so we can report created vs updated
     const { data: existing, error: fetchError } = await admin
       .from('api_pricing_rules')
-      .select('id, plan_name')
+      .select('plan_name')
       .eq('service_id', serviceId)
 
     if (fetchError) return { success: false, error: fetchError.message }
 
-    const existingByName = new Map(
-      (existing || []).map((row) => [row.plan_name, row.id as string])
-    )
+    const existingNames = new Set((existing || []).map((row) => row.plan_name as string))
+    const updatedCount = plans.filter((p) => existingNames.has(p.planName)).length
 
-    const toInsert = plans.filter((p) => !existingByName.has(p.planName))
-    const toUpdate = plans.filter((p) => existingByName.has(p.planName))
-
-    if (toInsert.length > 0) {
-      const { error: insertError } = await admin
-        .from('api_pricing_rules')
-        .insert(
-          toInsert.map((plan) => ({
-            service_id: serviceId,
-            plan_name: plan.planName,
-            base_price: plan.basePrice,
-            markup_type: markupType,
-            markup_value: markupValue,
-            is_active: true,
-            created_at: now,
-            updated_at: now,
-          }))
-        )
-      if (insertError) return { success: false, error: insertError.message }
-    }
-
-    // Refresh existing rules so base price stays in sync with the live provider price
-    for (const plan of toUpdate) {
-      const id = existingByName.get(plan.planName)!
-      const { error: updateError } = await admin
-        .from('api_pricing_rules')
-        .update({
+    // A unique constraint on (service_id, plan_name) lets this run as a single
+    // atomic upsert, so repeated bulk creates can never duplicate a plan again.
+    const { error: upsertError } = await admin
+      .from('api_pricing_rules')
+      .upsert(
+        plans.map((plan) => ({
+          service_id: serviceId,
+          plan_name: plan.planName,
           base_price: plan.basePrice,
           markup_type: markupType,
           markup_value: markupValue,
           is_active: true,
+          created_at: now,
           updated_at: now,
-        })
-        .eq('id', id)
-      if (updateError) return { success: false, error: updateError.message }
-    }
+        })),
+        { onConflict: 'service_id,plan_name' }
+      )
+
+    if (upsertError) return { success: false, error: upsertError.message }
 
     revalidatePath('/admin/api-pricing')
-    return { success: true, created: toInsert.length, updated: toUpdate.length }
+    return {
+      success: true,
+      created: plans.length - updatedCount,
+      updated: updatedCount,
+    }
   } catch (err) {
     return { success: false, error: String(err) }
   }
