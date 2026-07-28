@@ -10,6 +10,8 @@ import { CategoryPerformance } from '@/components/admin/category-performance'
 import { RevenueForecast } from '@/components/admin/revenue-forecast'
 import { WeekComparison } from '@/components/admin/week-comparison'
 import { ProviderBalance } from '@/components/admin/provider-balance'
+import { PrivacyToggle } from '@/components/admin/privacy-toggle'
+import { Sensitive } from '@/components/admin/sensitive'
 import { Users, DollarSign, TrendingUp, Zap, Activity } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -66,6 +68,7 @@ export default async function AdminDashboard() {
               <p>Real-time overview of system performance and earnings</p>
             </div>
             <div className="admin-header-actions">
+              <PrivacyToggle />
               <Link href="/admin/transactions" className="btn">
                 <Activity size={16} />
                 <span>View Transactions</span>
@@ -83,7 +86,9 @@ export default async function AdminDashboard() {
                 <Zap size={18} />
               </div>
             </div>
-            <div className="stat-value">₦{totalEarnings.toLocaleString()}</div>
+            <div className="stat-value">
+              <Sensitive length={7}>₦{totalEarnings.toLocaleString()}</Sensitive>
+            </div>
             <p className="stat-trend">Fees + Markups combined</p>
           </div>
 
@@ -96,7 +101,9 @@ export default async function AdminDashboard() {
                 <DollarSign size={18} />
               </div>
             </div>
-            <div className="stat-value">₦{revenueData.allTime.toLocaleString()}</div>
+            <div className="stat-value">
+              <Sensitive length={7}>₦{revenueData.allTime.toLocaleString()}</Sensitive>
+            </div>
             <p className="stat-trend positive">Total system revenue</p>
           </div>
 
@@ -107,7 +114,9 @@ export default async function AdminDashboard() {
                 <TrendingUp size={18} />
               </div>
             </div>
-            <div className="stat-value">₦{revenueData.depositFeeRevenue.toLocaleString()}</div>
+            <div className="stat-value">
+              <Sensitive length={6}>₦{revenueData.depositFeeRevenue.toLocaleString()}</Sensitive>
+            </div>
             <p className="stat-trend">{depositPct.toFixed(1)}% of total</p>
           </div>
 
@@ -118,7 +127,9 @@ export default async function AdminDashboard() {
                 <TrendingUp size={18} />
               </div>
             </div>
-            <div className="stat-value">₦{revenueData.markupRevenue.toLocaleString()}</div>
+            <div className="stat-value">
+              <Sensitive length={6}>₦{revenueData.markupRevenue.toLocaleString()}</Sensitive>
+            </div>
             <p className="stat-trend">{markupPct.toFixed(1)}% of total</p>
           </div>
         </div>
@@ -131,11 +142,13 @@ export default async function AdminDashboard() {
               <p className="admin-card-subtitle">Today's performance at a glance</p>
             </div>
           </div>
-          <RevenueMetrics transactions={allTransactions || []} />
+          <div className="chart-sensitive">
+            <RevenueMetrics transactions={allTransactions || []} />
+          </div>
         </div>
 
         {/* Charts grid */}
-        <div className="stats-grid">
+        <div className="stats-grid chart-sensitive">
           <RevenueOverview transactions={allTransactions || []} />
           <RevenueBreakdown
             depositFee={revenueData.depositFeeRevenue}
@@ -144,16 +157,24 @@ export default async function AdminDashboard() {
         </div>
 
         {/* Category Performance */}
-        <CategoryPerformance transactions={allTransactions || []} />
+        <div className="chart-sensitive">
+          <CategoryPerformance transactions={allTransactions || []} />
+        </div>
 
         {/* Revenue Forecast */}
-        <RevenueForecast transactions={allTransactions || []} />
+        <div className="chart-sensitive">
+          <RevenueForecast transactions={allTransactions || []} />
+        </div>
 
         {/* Week-over-Week Comparison */}
-        <WeekComparison transactions={allTransactions || []} />
+        <div className="chart-sensitive">
+          <WeekComparison transactions={allTransactions || []} />
+        </div>
 
         {/* Activity Section */}
-        <RevenueActivityTable activity={activityRes || []} />
+        <div className="chart-sensitive">
+          <RevenueActivityTable activity={activityRes || []} />
+        </div>
 
         {/* Quick Stats Footer */}
         <div className="stats-grid">
@@ -164,7 +185,9 @@ export default async function AdminDashboard() {
                 <DollarSign size={18} />
               </div>
             </div>
-            <div className="stat-value">₦{totalDepositAmount.toLocaleString()}</div>
+            <div className="stat-value">
+              <Sensitive length={7}>₦{totalDepositAmount.toLocaleString()}</Sensitive>
+            </div>
             <p className="stat-trend positive">
               {successTransactions.filter((tx) => tx.category === 'WALLET_FUND').length} successful deposits
             </p>
@@ -178,7 +201,9 @@ export default async function AdminDashboard() {
               </div>
             </div>
             <div className="stat-value">
-              {successTransactions.filter((tx) => tx.category !== 'WALLET_FUND').length}
+              <Sensitive length={4}>
+                {successTransactions.filter((tx) => tx.category !== 'WALLET_FUND').length}
+              </Sensitive>
             </div>
             <p className="stat-trend positive">Data, airtime, cable</p>
           </Link>
@@ -190,7 +215,9 @@ export default async function AdminDashboard() {
                 <Users size={18} />
               </div>
             </div>
-            <div className="stat-value">{userCount.toLocaleString()}</div>
+            <div className="stat-value">
+              <Sensitive length={4}>{userCount.toLocaleString()}</Sensitive>
+            </div>
             <p className="stat-trend positive">Registered accounts</p>
           </Link>
         </div>

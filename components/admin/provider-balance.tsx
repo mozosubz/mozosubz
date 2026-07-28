@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Wallet, RefreshCw } from 'lucide-react'
+import { Sensitive } from './sensitive'
 
 export function ProviderBalance() {
   const [balance, setBalance] = useState<string | null>(null)
@@ -65,7 +66,9 @@ export function ProviderBalance() {
       ) : loading ? (
         <div className="stat-value text-gray-400">Loading...</div>
       ) : balance ? (
-        <div className="stat-value">{balance}</div>
+        <div className="stat-value">
+          <Sensitive length={7}>{balance}</Sensitive>
+        </div>
       ) : (
         <div className="stat-value text-gray-400">—</div>
       )}

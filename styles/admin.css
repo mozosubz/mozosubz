@@ -459,6 +459,21 @@
   word-break: break-word;
 }
 
+/* Privacy mode. The <Sensitive> component swaps values for dots once
+   hydrated; this blur covers the server-rendered markup before that runs so
+   amounts never flash into view on load or refresh. */
+[data-admin-privacy='on'] .stat-value {
+  filter: blur(9px);
+  user-select: none;
+}
+
+/* Charts plot real figures, so hide the whole surface rather than the labels. */
+[data-admin-privacy='on'] .chart-sensitive {
+  filter: blur(10px);
+  user-select: none;
+  pointer-events: none;
+}
+
 .stat-trend {
   font-size: 12px;
   font-weight: 600;

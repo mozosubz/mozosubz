@@ -10,6 +10,9 @@ export const metadata = {
   description: 'Admin dashboard for managing users, transactions, and pricing',
 }
 
+// Runs before first paint so hidden amounts never flash into view on load.
+const PRIVACY_BOOTSTRAP = `try{document.documentElement.dataset.adminPrivacy=localStorage.getItem('adminPrivacyMode')==='true'?'on':'off'}catch(e){}`
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerClient()
 
@@ -26,6 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (isHardcodedAdmin(user.email)) {
     return (
       <div className="admin-container">
+        <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOTSTRAP }} />
         <AdminSidebar />
         <main className="admin-main">{children}</main>
       </div>
@@ -45,6 +49,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="admin-container">
+      <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOTSTRAP }} />
       <AdminSidebar />
       <main className="admin-main">{children}</main>
     </div>
