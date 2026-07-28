@@ -16,6 +16,149 @@ export interface ApiPricingRule {
   updated_at: string
 }
 
+/**
+ * Verifies the caller is an authenticated admin.
+ * Uses the admin client for the profile lookup so RLS can never hide the row.
+ */
+async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (!user || authError) return { ok: false, error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.is_admin) return { ok: false, error: 'Admin access required' }
+  return { ok: true }
+}
+
+/**
+ * Reads pricing rules for a service using the admin client.
+ * The page previously queried from the browser with the anon key, where RLS
+ * silently returned zero rows, making existing rules look like they didn't exist.
+ */
+export async function getApiPricingRules(
+  serviceId: string
+): Promise<{ success: boolean; error?: string; rules?: ApiPricingRule[] }> {
+  const guard = await requireAdmin()
+  if (!guard.ok) return { success: false, error: guard.error }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('api_pricing_rules')
+    .select('*')
+    .eq('service_id', serviceId)
+    .order('base_price', { ascending: true })
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, rules: (data || []) as ApiPricingRule[] }
+}
+
+/**
+ * Per-service counts so the admin can see coverage across every service
+ * without clicking through each tab.
+ */
+export async function getApiPricingOverview(): Promise<{
+  success: boolean
+  error?: string
+  counts?: Record<string, { total: number; active: number; duplicates: number }>
+}> {
+  const guard = await requireAdmin()
+  if (!guard.ok) return { success: false, error: guard.error }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('api_pricing_rules')
+    .select('service_id, plan_name, is_active')
+
+  if (error) return { success: false, error: error.message }
+
+  const counts: Record<string, { total: number; active: number; duplicates: number }> = {}
+  const seen: Record<string, Set<string>> = {}
+
+  for (const row of data || []) {
+    const sid = row.service_id as string
+    if (!counts[sid]) {
+      counts[sid] = { total: 0, active: 0, duplicates: 0 }
+      seen[sid] = new Set()
+    }
+    counts[sid].total += 1
+    if (row.is_active) counts[sid].active += 1
+    if (seen[sid].has(row.plan_name as string)) counts[sid].duplicates += 1
+    else seen[sid].add(row.plan_name as string)
+  }
+
+  return { success: true, counts }
+}
+
+/**
+ * Removes duplicate rules for a service, keeping the most recently updated row
+ * for each plan name. The table has no unique constraint, so repeated bulk
+ * creates in the past produced multiple conflicting prices per plan.
+ */
+export async function dedupeApiPricingRules(
+  serviceId: string
+): Promise<{ success: boolean; error?: string; removed?: number }> {
+  const guard = await requireAdmin()
+  if (!guard.ok) return { success: false, error: guard.error }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('api_pricing_rules')
+    .select('id, plan_name, updated_at, created_at')
+    .eq('service_id', serviceId)
+
+  if (error) return { success: false, error: error.message }
+
+  const newestByPlan = new Map<string, { id: string; stamp: number }>()
+  const idsToRemove: string[] = []
+
+  for (const row of data || []) {
+    const stamp = new Date((row.updated_at || row.created_at) as string).getTime()
+    const current = newestByPlan.get(row.plan_name as string)
+    if (!current) {
+      newestByPlan.set(row.plan_name as string, { id: row.id as string, stamp })
+    } else if (stamp > current.stamp) {
+      idsToRemove.push(current.id)
+      newestByPlan.set(row.plan_name as string, { id: row.id as string, stamp })
+    } else {
+      idsToRemove.push(row.id as string)
+    }
+  }
+
+  if (idsToRemove.length > 0) {
+    const { error: delError } = await admin
+      .from('api_pricing_rules')
+      .delete()
+      .in('id', idsToRemove)
+    if (delError) return { success: false, error: delError.message }
+  }
+
+  revalidatePath('/admin/api-pricing')
+  return { success: true, removed: idsToRemove.length }
+}
+
+/**
+ * Deletes many rules at once.
+ */
+export async function bulkDeleteApiPricingRules(
+  ruleIds: string[]
+): Promise<{ success: boolean; error?: string; removed?: number }> {
+  const guard = await requireAdmin()
+  if (!guard.ok) return { success: false, error: guard.error }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('api_pricing_rules').delete().in('id', ruleIds)
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/api-pricing')
+  return { success: true, removed: ruleIds.length }
+}
+
 export async function createApiPricingRule(
   serviceId: string,
   planName: string,

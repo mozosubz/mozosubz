@@ -101,13 +101,19 @@ export async function POST(request: NextRequest) {
 
     // Look up API pricing rule by full service ID (e.g. mtn_sme, not just mtn)
     // and displayName — this is how the admin API pricing page saves rules.
-    const { data: rule } = await admin
+    // The table has no unique constraint on (service_id, plan_name), so the same
+    // plan can have several rows. maybeSingle() errors out in that case and made
+    // valid plans look unavailable, so take the most recently updated rule instead.
+    const { data: ruleRows } = await admin
       .from('api_pricing_rules')
       .select('plan_name, base_price, markup_type, markup_value')
       .eq('service_id', service)            // full service ID e.g. mtn_sme
       .eq('plan_name', matchedPlan.displayName)
       .eq('is_active', true)
-      .maybeSingle()
+      .order('updated_at', { ascending: false })
+      .limit(1)
+
+    const rule = ruleRows?.[0] ?? null
 
     if (!rule) {
       console.log(`[Data Purchase API] ✗ Plan not available for API users: ${matchedPlan.displayName}`)

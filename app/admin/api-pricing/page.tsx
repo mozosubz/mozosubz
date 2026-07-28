@@ -1,15 +1,31 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
 import {
+  getApiPricingRules,
+  getApiPricingOverview,
+  dedupeApiPricingRules,
+  bulkDeleteApiPricingRules,
   createApiPricingRule,
   deleteApiPricingRule,
   updateApiPricingRule,
   bulkUpdateApiPricingRules,
   bulkCreateApiPricingRules,
 } from '@/lib/actions/api-pricing'
-import { Plus, Trash2, Edit2, Save, X, Zap, AlertTriangle, Check, Search } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  Save,
+  X,
+  Zap,
+  AlertTriangle,
+  Check,
+  Search,
+  RefreshCw,
+  Copy,
+  TrendingUp,
+} from 'lucide-react'
 
 interface GsubzPlan {
   displayName: string
@@ -97,17 +113,18 @@ export default function ApiPricingPage() {
   const [selectedPlanValues, setSelectedPlanValues] = useState<string[]>([])
   const [planSearch, setPlanSearch] = useState('')
   const [hidePricedPlans, setHidePricedPlans] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [overview, setOverview] = useState<
+    Record<string, { total: number; active: number; duplicates: number }>
+  >({})
+  const [ruleSearch, setRuleSearch] = useState('')
+  const [dedupeBusy, setDedupeBusy] = useState(false)
   const [formData, setFormData] = useState({
     planName: '',
     basePrice: '',
     markupType: 'fixed' as 'fixed' | 'percentage',
     markupValue: '',
   })
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   const currentNetwork = NETWORKS.find((n) => n.name === activeNetwork)
   const serviceId = SERVICE_MAP[activePlanType] || activePlanType
@@ -127,21 +144,29 @@ export default function ApiPricingPage() {
 
   const fetchRules = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
-      const { data } = await supabase
-        .from('api_pricing_rules')
-        .select('*')
-        .eq('service_id', serviceId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-      setRules(data || [])
-    } catch {
+      // Read through a server action with the admin client. Reading directly from
+      // the browser with the anon key hit RLS and silently returned zero rows.
+      const result = await getApiPricingRules(serviceId)
+      if (result.success) {
+        setRules(result.rules || [])
+      } else {
+        setRules([])
+        setLoadError(result.error || 'Failed to load pricing rules')
+      }
+    } catch (err) {
       setRules([])
+      setLoadError(String(err))
     } finally {
       setLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceId])
+
+  const fetchOverview = useCallback(async () => {
+    const result = await getApiPricingOverview()
+    if (result.success) setOverview(result.counts || {})
+  }, [])
 
   useEffect(() => {
     fetchGsubzPlans(activePlanType)
@@ -151,7 +176,37 @@ export default function ApiPricingPage() {
     setSelectedRuleIds([])
     setEditingRule(null)
     setPlanSearch('')
+    setRuleSearch('')
   }, [activePlanType, fetchGsubzPlans, fetchRules])
+
+  useEffect(() => {
+    fetchOverview()
+  }, [fetchOverview])
+
+  const handleDedupe = async () => {
+    if (!confirm('Remove duplicate rules for this service, keeping the most recent price for each plan?')) return
+    setDedupeBusy(true)
+    const result = await dedupeApiPricingRules(serviceId)
+    setDedupeBusy(false)
+    if (result.success) {
+      await Promise.all([fetchRules(), fetchOverview()])
+      alert(`Removed ${result.removed} duplicate rule(s)`)
+    } else {
+      alert('Error: ' + result.error)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedRuleIds.length === 0) return
+    if (!confirm(`Delete ${selectedRuleIds.length} rule(s)? API users will lose access to these plans.`)) return
+    const result = await bulkDeleteApiPricingRules(selectedRuleIds)
+    if (result.success) {
+      setSelectedRuleIds([])
+      await Promise.all([fetchRules(), fetchOverview()])
+    } else {
+      alert('Error: ' + result.error)
+    }
+  }
 
   useEffect(() => {
     if (currentNetwork && currentNetwork.types.length > 0) {
@@ -353,6 +408,48 @@ export default function ApiPricingPage() {
     setSelectedPlanValues(unpricedPlans.map((p) => p.value))
   }
 
+  // Duplicate plan names for this service (the table has no unique constraint)
+  const duplicatePlanNames = (() => {
+    const seen = new Set<string>()
+    const dupes = new Set<string>()
+    for (const r of rules) {
+      if (seen.has(r.plan_name)) dupes.add(r.plan_name)
+      else seen.add(r.plan_name)
+    }
+    return dupes
+  })()
+
+  const filteredRules = ruleSearch.trim()
+    ? rules.filter((r) => r.plan_name.toLowerCase().includes(ruleSearch.trim().toLowerCase()))
+    : rules
+
+  const allRulesSelected =
+    filteredRules.length > 0 && filteredRules.every((r) => selectedRuleIds.includes(r.id))
+
+  const toggleSelectAllRules = () => {
+    if (allRulesSelected) {
+      const visible = new Set(filteredRules.map((r) => r.id))
+      setSelectedRuleIds((prev) => prev.filter((id) => !visible.has(id)))
+    } else {
+      setSelectedRuleIds((prev) =>
+        Array.from(new Set([...prev, ...filteredRules.map((r) => r.id)]))
+      )
+    }
+  }
+
+  // Totals across every service, for the overview strip
+  const totalRules = Object.values(overview).reduce((sum, c) => sum + c.total, 0)
+  const totalDuplicates = Object.values(overview).reduce((sum, c) => sum + c.duplicates, 0)
+  const servicesWithPricing = Object.values(overview).filter((c) => c.active > 0).length
+
+  const avgMargin =
+    rules.length > 0
+      ? rules.reduce((sum, r) => {
+          const final = calculateFinalPrice(r)
+          return sum + (r.base_price > 0 ? ((final - r.base_price) / r.base_price) * 100 : 0)
+        }, 0) / rules.length
+      : 0
+
   return (
     <div className="admin-page">
       <div className="admin-header">
@@ -367,36 +464,165 @@ export default function ApiPricingPage() {
               These are separate from your regular user prices.
             </p>
           </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              fetchRules()
+              fetchOverview()
+              fetchGsubzPlans(activePlanType)
+            }}
+            disabled={loading}
+          >
+            <RefreshCw size={14} />
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
         </div>
       </div>
 
+      {/* Account-wide overview */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: 10,
+          marginBottom: 16,
+        }}
+      >
+        {[
+          { label: 'Total API rules', value: totalRules.toLocaleString(), icon: <Zap size={14} /> },
+          {
+            label: 'Services priced',
+            value: `${servicesWithPricing}/${Object.keys(SERVICE_MAP).length}`,
+            icon: <Check size={14} />,
+          },
+          {
+            label: 'Avg margin (this service)',
+            value: `${avgMargin >= 0 ? '+' : ''}${avgMargin.toFixed(1)}%`,
+            icon: <TrendingUp size={14} />,
+            tone: avgMargin < 0 ? 'danger' : 'success',
+          },
+          {
+            label: 'Duplicate rules',
+            value: totalDuplicates.toLocaleString(),
+            icon: <Copy size={14} />,
+            tone: totalDuplicates > 0 ? 'warning' : undefined,
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            style={{
+              background: 'var(--admin-bg-secondary)',
+              border: '1px solid var(--admin-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px 14px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.03em',
+                color: 'var(--admin-text-tertiary)',
+              }}
+            >
+              {stat.icon}
+              <span>{stat.label}</span>
+            </div>
+            <p
+              style={{
+                margin: '6px 0 0 0',
+                fontSize: 20,
+                fontWeight: 700,
+                color:
+                  stat.tone === 'danger'
+                    ? 'var(--admin-danger)'
+                    : stat.tone === 'warning'
+                      ? 'var(--admin-warning)'
+                      : stat.tone === 'success'
+                        ? 'var(--admin-success)'
+                        : 'var(--admin-text)',
+              }}
+            >
+              {stat.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {loadError && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 12px',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: 12,
+            color: 'var(--admin-danger)',
+            marginBottom: 16,
+          }}
+        >
+          <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+          <span>Could not load pricing rules: {loadError}</span>
+        </div>
+      )}
+
       {/* Network selector */}
       <div className="filter-chips">
-        {NETWORKS.map((network) => (
-          <button
-            type="button"
-            key={network.name}
-            className={`filter-chip ${activeNetwork === network.name ? 'active' : ''}`}
-            onClick={() => setActiveNetwork(network.name)}
-          >
-            {network.name}
-          </button>
-        ))}
+        {NETWORKS.map((network) => {
+          const networkTotal = network.types.reduce(
+            (sum, t) => sum + (overview[SERVICE_MAP[t.value] || t.value]?.active || 0),
+            0
+          )
+          return (
+            <button
+              type="button"
+              key={network.name}
+              className={`filter-chip ${activeNetwork === network.name ? 'active' : ''}`}
+              onClick={() => setActiveNetwork(network.name)}
+            >
+              {network.name}
+              {networkTotal > 0 && (
+                <span style={{ marginLeft: 6, opacity: 0.7, fontSize: 11 }}>{networkTotal}</span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Plan type selector */}
       {currentNetwork && currentNetwork.types.length > 1 && (
         <div className="filter-chips">
-          {currentNetwork.types.map((type) => (
-            <button
-              type="button"
-              key={type.value}
-              className={`filter-chip ${activePlanType === type.value ? 'active' : ''}`}
-              onClick={() => setActivePlanType(type.value)}
-            >
-              {type.label}
-            </button>
-          ))}
+          {currentNetwork.types.map((type) => {
+            const count = overview[SERVICE_MAP[type.value] || type.value]?.active || 0
+            return (
+              <button
+                type="button"
+                key={type.value}
+                className={`filter-chip ${activePlanType === type.value ? 'active' : ''}`}
+                onClick={() => setActivePlanType(type.value)}
+              >
+                {type.label}
+                <span
+                  style={{
+                    marginLeft: 6,
+                    fontSize: 11,
+                    opacity: 0.7,
+                    color: count === 0 ? 'var(--admin-warning)' : undefined,
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -461,8 +687,39 @@ export default function ApiPricingPage() {
       </div>
 
       {/* Warnings the admin needs to know about */}
-      {!loadingGsubz && !loading && (staleRules.length > 0 || orphanRules.length > 0 || unpricedPlans.length > 0) && (
+      {!loadingGsubz && !loading && (staleRules.length > 0 || orphanRules.length > 0 || unpricedPlans.length > 0 || duplicatePlanNames.size > 0) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {duplicatePlanNames.size > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 12px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12,
+                color: 'var(--admin-danger)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <Copy size={14} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 180 }}>
+                {duplicatePlanNames.size} plan{duplicatePlanNames.size !== 1 ? 's have' : ' has'}{' '}
+                more than one pricing rule. API buyers may get an unpredictable price.
+              </span>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={handleDedupe}
+                disabled={dedupeBusy}
+                style={{ fontSize: 11 }}
+              >
+                {dedupeBusy ? 'Cleaning...' : 'Keep newest, remove rest'}
+              </button>
+            </div>
+          )}
           {unpricedPlans.length > 0 && (
             <div
               style={{
@@ -810,16 +1067,96 @@ export default function ApiPricingPage() {
           {/* Rules table */}
           <div className="admin-card">
             <div className="admin-card-header">
-              <h2 className="admin-card-title">API Pricing Rules</h2>
+              <h2 className="admin-card-title">
+                API Pricing Rules
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: '2px 7px',
+                    borderRadius: 999,
+                    background: 'var(--admin-bg)',
+                    color: 'var(--admin-text-secondary)',
+                  }}
+                >
+                  {rules.length}
+                </span>
+              </h2>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: '1 1 160px', minWidth: 150 }}>
+                  <Search
+                    size={13}
+                    style={{
+                      position: 'absolute',
+                      left: 10,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--admin-text-tertiary)',
+                    }}
+                  />
+                  <input
+                    className="form-input"
+                    placeholder="Search rules..."
+                    value={ruleSearch}
+                    onChange={(e) => setRuleSearch(e.target.value)}
+                    style={{ paddingLeft: 30, fontSize: 12 }}
+                  />
+                </div>
+                {rules.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11 }}
+                    onClick={toggleSelectAllRules}
+                  >
+                    {allRulesSelected ? 'Deselect all' : 'Select all'}
+                  </button>
+                )}
+                {selectedRuleIds.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    style={{ fontSize: 11 }}
+                    onClick={handleBulkDelete}
+                  >
+                    <Trash2 size={13} />
+                    <span>Delete {selectedRuleIds.length}</span>
+                  </button>
+                )}
+              </div>
             </div>
             {loading ? (
               <div className="admin-card-body">
                 <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>Loading...</p>
               </div>
             ) : rules.length === 0 ? (
+              <div className="admin-card-body" style={{ textAlign: 'center', padding: '32px 16px' }}>
+                <Zap size={28} style={{ color: 'var(--admin-text-tertiary)', marginBottom: 8 }} />
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
+                  No API pricing for {activeNetwork} {planTypeLabel}
+                </p>
+                <p style={{ margin: '6px 0 12px 0', color: 'var(--admin-text-tertiary)', fontSize: 12 }}>
+                  API users cannot buy these plans until you set a price.
+                </p>
+                {unpricedPlans.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      setActiveTab('bulk')
+                      selectUnpricedPlans()
+                    }}
+                  >
+                    <Zap size={14} />
+                    <span>Price all {unpricedPlans.length} plans</span>
+                  </button>
+                )}
+              </div>
+            ) : filteredRules.length === 0 ? (
               <div className="admin-card-body">
                 <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>
-                  No API pricing rules yet for this service. Add one above.
+                  No rules match &ldquo;{ruleSearch}&rdquo;.
                 </p>
               </div>
             ) : (
@@ -829,6 +1166,14 @@ export default function ApiPricingPage() {
                   <table className="data-table">
                     <thead>
                       <tr>
+                        <th style={{ width: 34 }}>
+                          <input
+                            type="checkbox"
+                            checked={allRulesSelected}
+                            onChange={toggleSelectAllRules}
+                            aria-label="Select all rules"
+                          />
+                        </th>
                         <th>Plan Name</th>
                         <th>Base Price</th>
                         <th>Markup</th>
@@ -837,11 +1182,55 @@ export default function ApiPricingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rules.map((rule) => (
-                        <tr key={rule.id}>
+                      {filteredRules.map((rule) => (
+                        <tr
+                          key={rule.id}
+                          style={
+                            selectedRuleIds.includes(rule.id)
+                              ? { background: 'rgba(14, 165, 233, 0.07)' }
+                              : undefined
+                          }
+                        >
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedRuleIds.includes(rule.id)}
+                              onChange={() => toggleSelectRule(rule.id)}
+                              aria-label={`Select ${rule.plan_name}`}
+                            />
+                          </td>
                           <td style={{ fontWeight: 500 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               <span>{rule.plan_name}</span>
+                              {duplicatePlanNames.has(rule.plan_name) && (
+                                <span
+                                  title="This plan has more than one pricing rule"
+                                  style={{
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    padding: '2px 5px',
+                                    borderRadius: 4,
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    color: 'var(--admin-danger)',
+                                  }}
+                                >
+                                  DUPLICATE
+                                </span>
+                              )}
+                              {!rule.is_active && (
+                                <span
+                                  style={{
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    padding: '2px 5px',
+                                    borderRadius: 4,
+                                    background: 'var(--admin-bg)',
+                                    color: 'var(--admin-text-tertiary)',
+                                  }}
+                                >
+                                  INACTIVE
+                                </span>
+                              )}
                               {staleRules.some((r) => r.id === rule.id) && (
                                 <span
                                   title="Provider base price changed — resync this rule"
@@ -909,7 +1298,27 @@ export default function ApiPricingPage() {
                             )}
                           </td>
                           <td className="text-mono" style={{ fontWeight: 700, color: 'var(--admin-success)' }}>
-                            ₦{calculateFinalPrice(rule).toLocaleString()}
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span>₦{Math.round(calculateFinalPrice(rule)).toLocaleString()}</span>
+                              {(() => {
+                                const profit = calculateFinalPrice(rule) - rule.base_price
+                                return (
+                                  <span
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color:
+                                        profit < 0
+                                          ? 'var(--admin-danger)'
+                                          : 'var(--admin-text-tertiary)',
+                                    }}
+                                  >
+                                    {profit >= 0 ? '+' : '−'}₦
+                                    {Math.abs(Math.round(profit)).toLocaleString()} profit
+                                  </span>
+                                )
+                              })()}
+                            </div>
                           </td>
                           <td>
                             <div className="action-buttons">
@@ -973,17 +1382,41 @@ export default function ApiPricingPage() {
 
                 {/* Mobile cards */}
                 <div className="data-list" style={{ padding: 12 }}>
-                  {rules.map((rule) => {
+                  {filteredRules.map((rule) => {
                     const isEditing = editingRule && editingRule.id === rule.id
                     return (
                       <div key={rule.id} className="data-card">
                         <div className="data-card-header">
+                          <input
+                            type="checkbox"
+                            checked={selectedRuleIds.includes(rule.id)}
+                            onChange={() => toggleSelectRule(rule.id)}
+                            aria-label={`Select ${rule.plan_name}`}
+                            style={{ marginRight: 8, marginTop: 4 }}
+                          />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <h3 className="data-card-title">{rule.plan_name}</h3>
+                            <h3 className="data-card-title">
+                              {rule.plan_name}
+                              {duplicatePlanNames.has(rule.plan_name) && (
+                                <span
+                                  style={{
+                                    marginLeft: 6,
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    padding: '2px 5px',
+                                    borderRadius: 4,
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    color: 'var(--admin-danger)',
+                                  }}
+                                >
+                                  DUPLICATE
+                                </span>
+                              )}
+                            </h3>
                             <p className="data-card-subtitle">Base: ₦{rule.base_price.toLocaleString()}</p>
                           </div>
                           <span className="data-card-amount" style={{ color: 'var(--admin-success)', fontSize: 16 }}>
-                            ₦{calculateFinalPrice(rule).toLocaleString()}
+                            ₦{Math.round(calculateFinalPrice(rule)).toLocaleString()}
                           </span>
                         </div>
                         <div className="data-card-grid">
@@ -1739,72 +2172,6 @@ export default function ApiPricingPage() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rules List Tab */}
-      {activeTab === 'list' && (
-        <div className="admin-card">
-          <div className="admin-card-header">
-            <h2 className="admin-card-title">All API Pricing Rules</h2>
-          </div>
-          <div className="admin-card-body">
-            {loading ? (
-              <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>Loading...</p>
-            ) : rules.length === 0 ? (
-              <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>No rules yet. Go to Individual or Bulk tabs to add rules.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() =>
-                      setSelectedRuleIds(
-                        selectedRuleIds.length === rules.length ? [] : rules.map((r) => r.id)
-                      )
-                    }
-                  >
-                    {selectedRuleIds.length === rules.length ? 'Deselect All' : 'Select All'}
-                  </button>
-                  <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
-                    {selectedRuleIds.length} of {rules.length} selected
-                  </span>
-                </div>
-                {rules.map((rule) => (
-                  <div
-                    key={rule.id}
-                    onClick={() => toggleSelectRule(rule.id)}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '10px 12px',
-                      background: selectedRuleIds.includes(rule.id)
-                        ? 'var(--admin-primary-muted)'
-                        : 'var(--admin-bg-secondary)',
-                      border: `1px solid ${selectedRuleIds.includes(rule.id) ? 'var(--admin-primary)' : 'var(--admin-border)'}`,
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--admin-text)' }}>
-                        {rule.plan_name}
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)', marginLeft: 8 }}>
-                        Base: ₦{rule.base_price.toLocaleString()}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-success)' }}>
-                      ₦{calculateFinalPrice(rule).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}

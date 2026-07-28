@@ -75,9 +75,12 @@ export async function GET(request: NextRequest) {
       getDataPlansRealtime(service),   // always real-time, no cache
       createAdminClient()
         .from('api_pricing_rules')
-        .select('plan_name, base_price, markup_type, markup_value')
+        .select('plan_name, base_price, markup_type, markup_value, updated_at')
         .eq('service_id', service)     // full service ID, not just network prefix
-        .eq('is_active', true),
+        .eq('is_active', true)
+        // Newest first, so when duplicates exist the freshest rule wins —
+        // matching the behaviour of /api/v1/data/purchase.
+        .order('updated_at', { ascending: false }),
     ])
 
     const gsubzPlans = planResponse.plans ?? []
