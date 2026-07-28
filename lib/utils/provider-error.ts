@@ -19,6 +19,8 @@
  * because that refers to OUR provider float, not the customer's wallet.
  */
 
+import { maskProviderName } from '@/lib/utils/sanitize-provider'
+
 export type ProviderErrorCode =
   | 'NOT_ELIGIBLE'
   | 'PLAN_UNAVAILABLE'
@@ -178,5 +180,12 @@ export function resolveProviderError(
     message += ' Your wallet has been refunded.'
   }
 
-  return { message, code, providerMessage: raw }
+  // Unrecognised provider copy is passed through verbatim by `polish` above,
+  // and `providerMessage` reaches logs and the admin transaction view, so mask
+  // the upstream brand on both before they leave this function.
+  return {
+    message: maskProviderName(message),
+    code,
+    providerMessage: raw ? maskProviderName(raw) : null,
+  }
 }

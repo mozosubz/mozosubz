@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDataPlans, getCablePlans } from '@/lib/api/gsubz'
+import { maskProviderName, sanitizeProviderPayload } from '@/lib/utils/sanitize-provider'
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,15 +25,17 @@ export async function GET(request: NextRequest) {
       }
     } catch (fetchError) {
       return NextResponse.json(
-        { error: 'Failed to fetch from Gsubz', plans: [] },
+        { error: 'Failed to fetch plans from provider', plans: [] },
         { status: 200 }
       )
     }
 
-    // Handle error responses from Gsubz API
+    // Handle error responses from the provider API
     if (!plansData || plansData.error || plansData.status === 'error') {
+      const providerError = plansData?.message || plansData?.error
       return NextResponse.json({
-        error: plansData?.message || plansData?.error || 'No plans available',
+        // Provider copy — mask the upstream brand before returning it.
+        error: providerError ? maskProviderName(String(providerError)) : 'No plans available',
         plans: []
       })
     }
@@ -40,11 +43,16 @@ export async function GET(request: NextRequest) {
     // Ensure we return an array of plans
     const plans = plansData?.plans || []
 
-    return NextResponse.json({
-      ...plansData,
-      plans: plans,
-      error: plans.length === 0 ? 'No plans available' : null
-    })
+    // The payload is spread straight into the response, so sanitize the whole
+    // object: provider fields such as `service` and `PlanName` can carry the
+    // brand name.
+    return NextResponse.json(
+      sanitizeProviderPayload({
+        ...plansData,
+        plans: plans,
+        error: plans.length === 0 ? 'No plans available' : null,
+      })
+    )
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch plans', plans: [] },

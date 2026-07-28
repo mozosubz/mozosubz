@@ -3,6 +3,7 @@
 import { unstable_cache } from "next/cache"
 import https from "https"
 import http from "http"
+import { maskProviderName } from "@/lib/utils/sanitize-provider"
 
 const API_BASE_URL = "https://gsubz.com"
 const API_PLANS_URL = "https://gsubz.com"
@@ -27,6 +28,24 @@ const httpAgent = new http.Agent({
   timeout: 30000,
   freeSocketTimeout: 60000,
 })
+
+/**
+ * Rewrites a network error so the provider's hostname cannot escape this
+ * module.
+ *
+ * `fetch` failures embed the request URL in the message ("request to
+ * https://gsubz.com/api/plans... failed", "getaddrinfo ENOTFOUND gsubz.com"),
+ * and several callers surface errors to the client via `String(error)`. Masking
+ * here covers every call site at once instead of patching each one.
+ */
+function maskProviderError(error: unknown): Error {
+  const original = error instanceof Error ? error : new Error(String(error))
+  const masked = new Error(maskProviderName(original.message))
+  masked.name = maskProviderName(original.name)
+  // Preserve the abort signal so callers can still branch on timeouts.
+  if (original.name === 'AbortError') masked.name = 'AbortError'
+  return masked
+}
 
 /**
  * Gsubz responses come back in two shapes and the previous type only described
@@ -111,7 +130,7 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
     return data
   } catch (error) {
     clearTimeout(timeoutId)
-    throw error
+    throw maskProviderError(error)
   }
 }
 
@@ -146,7 +165,7 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
     return data
   } catch (error) {
     console.error("[v0] Error fetching plans:", error)
-    throw error
+    throw maskProviderError(error)
   }
 }
 
@@ -202,7 +221,7 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
 
     return data
   } catch (error) {
-    throw error
+    throw maskProviderError(error)
   }
 }
 
