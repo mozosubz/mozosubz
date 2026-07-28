@@ -1,7 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { processReferralEarning } from "@/lib/referral"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
-import { sanitizeProviderPayload } from "@/lib/utils/sanitize-provider"
 
 export type TransactionCategory = "AIRTIME" | "DATA" | "CABLE" | "ELECTRICITY" | "WALLET_FUND" | "RECHARGE_PINS"
 export type TransactionStatus = "SUCCESS" | "FAILED" | "PENDING"
@@ -51,10 +50,8 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       description: payload.description,
       balance_before: payload.balanceBefore,
       balance_after: payload.balanceAfter,
-      // Provider payloads echo the upstream brand name in free-text fields, so
-      // mask it before it is ever persisted.
       api_response: payload.apiResponse
-        ? JSON.stringify(sanitizeProviderPayload(payload.apiResponse))
+        ? JSON.stringify(payload.apiResponse)
         : null,
       plan_details: payload.planDetails || null,
       created_at: new Date().toISOString(),

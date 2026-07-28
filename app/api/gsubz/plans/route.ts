@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDataPlans, getCablePlans } from '@/lib/api/gsubz'
-import { maskProviderName, sanitizeProviderPayload } from '@/lib/utils/sanitize-provider'
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,8 +33,7 @@ export async function GET(request: NextRequest) {
     if (!plansData || plansData.error || plansData.status === 'error') {
       const providerError = plansData?.message || plansData?.error
       return NextResponse.json({
-        // Provider copy — mask the upstream brand before returning it.
-        error: providerError ? maskProviderName(String(providerError)) : 'No plans available',
+        error: providerError ? String(providerError) : 'No plans available',
         plans: []
       })
     }
@@ -43,16 +41,11 @@ export async function GET(request: NextRequest) {
     // Ensure we return an array of plans
     const plans = plansData?.plans || []
 
-    // The payload is spread straight into the response, so sanitize the whole
-    // object: provider fields such as `service` and `PlanName` can carry the
-    // brand name.
-    return NextResponse.json(
-      sanitizeProviderPayload({
-        ...plansData,
-        plans: plans,
-        error: plans.length === 0 ? 'No plans available' : null,
-      })
-    )
+    return NextResponse.json({
+      ...plansData,
+      plans: plans,
+      error: plans.length === 0 ? 'No plans available' : null,
+    })
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch plans', plans: [] },

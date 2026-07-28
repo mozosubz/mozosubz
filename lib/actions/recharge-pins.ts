@@ -4,7 +4,6 @@ import { generateRechargePins as generatePinsAPI } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { atomicDeductWallet } from "@/lib/utils/save-transaction"
-import { maskProviderName, sanitizeProviderPayload } from "@/lib/utils/sanitize-provider"
 import { sendEmail } from "@/lib/email/client"
 import { renderShell, escapeHtml, formatNaira, formatDateTime } from "@/lib/email/templates/shell"
 import { revalidatePath } from "next/cache"
@@ -76,13 +75,11 @@ export async function generateRechargePins(
     }
 
     if (response.status === "error" || response.status !== "success") {
-      // `message`/`title` are raw provider copy, so mask the brand before it
-      // reaches the caller.
       const providerError = response?.message || response?.title
       return {
         success: false,
         error: providerError
-          ? maskProviderName(String(providerError))
+          ? String(providerError)
           : "Failed to generate pins. Please try again.",
       }
     }
@@ -110,8 +107,7 @@ export async function generateRechargePins(
         description: `${data.network.toUpperCase()} Recharge Pins - ${data.number} x ₦${data.value}`,
         phone: "",
         status: "success",
-        // Raw provider payload — mask the upstream brand before persisting.
-        api_response: JSON.stringify(sanitizeProviderPayload(response)),
+        api_response: JSON.stringify(response),
       }
 
       await admin.from("transactions").insert(transactionData)
@@ -145,7 +141,7 @@ export async function generateRechargePins(
 
       return {
         success: true,
-        message: response.message ? maskProviderName(String(response.message)) : response.message,
+        message: response.message,
         pins: pinsArray,
         delivered: response.delivered,
         pending: response.pending,
@@ -155,7 +151,7 @@ export async function generateRechargePins(
       return {
         success: false,
         error: response?.message
-          ? maskProviderName(String(response.message))
+          ? String(response.message)
           : "Failed to generate pins. Invalid response from service.",
       }
     }

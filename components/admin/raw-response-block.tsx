@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
-import { maskProviderName } from '@/lib/utils/sanitize-provider'
 
 /**
  * Copies text to the clipboard.
@@ -90,25 +89,18 @@ export function CopyButton({
  */
 export function RawResponseBlock({ title, value }: { title: string; value: unknown }) {
   const text = (() => {
-    const raw = (() => {
-      if (typeof value === 'string') {
-        try {
-          return JSON.stringify(JSON.parse(value), null, 2)
-        } catch {
-          return value
-        }
-      }
+    if (typeof value === 'string') {
       try {
-        return JSON.stringify(value, null, 2)
+        return JSON.stringify(JSON.parse(value), null, 2)
       } catch {
-        return String(value)
+        return value
       }
-    })()
-
-    // Masked on read as well as on write: rows saved before sanitizing was
-    // added still hold the provider's brand name. Applied to the printed text
-    // so the copy button cannot leak what the screen hides.
-    return maskProviderName(raw)
+    }
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
   })()
 
   return (
