@@ -1,6 +1,7 @@
 "use server"
 
 import { buyAirtime } from "@/lib/api/gsubz"
+import { sanitizeProviderPayload } from "@/lib/utils/sanitize-provider"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
@@ -86,6 +87,8 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
       requestID,
     })
     const gsubzTime = Date.now() - gsubzStartTime
+
+    console.log("[v0] Provider response (airtime):", JSON.stringify(sanitizeProviderPayload(response)))
 
     // Determine success
     const isSuccess =

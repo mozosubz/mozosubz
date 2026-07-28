@@ -1,6 +1,7 @@
 "use server"
 
 import { buyData, getDataPlans } from "@/lib/api/gsubz"
+import { sanitizeProviderPayload } from "@/lib/utils/sanitize-provider"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
@@ -67,13 +68,15 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
 
     const requestID = "TXN" + Date.now()
 
-    // Call GSUBZ API
+    // Call provider API
     const response = await buyData({
       serviceID,
       plan,
       phone,
       requestID,
     })
+
+    console.log("[v0] Provider response (data):", JSON.stringify(sanitizeProviderPayload(response)))
 
     // Use the client-provided amount (which includes markup) instead of API response amount
     const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)

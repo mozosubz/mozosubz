@@ -1,6 +1,7 @@
 "use server"
 
 import { buyCableSubscription, getCablePlans } from "@/lib/api/gsubz"
+import { sanitizeProviderPayload } from "@/lib/utils/sanitize-provider"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
@@ -57,7 +58,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
     const serviceID = serviceIdMap[provider.toLowerCase()] || "dstv"
     const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
-    // Call GSUBZ API
+    // Call provider API
     const response = await buyCableSubscription({
       serviceID,
       plan: package_name,
@@ -65,6 +66,8 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
       customerID: smartcard,
       requestID,
     })
+
+    console.log("[v0] Provider response (cable):", JSON.stringify(sanitizeProviderPayload(response)))
 
     const purchaseAmount = Number(response.amount || 0)
     const balanceBefore = Number(profile.wallet_balance)
