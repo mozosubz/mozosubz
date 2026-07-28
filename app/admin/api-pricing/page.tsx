@@ -9,7 +9,7 @@ import {
   bulkUpdateApiPricingRules,
   bulkCreateApiPricingRules,
 } from '@/lib/actions/api-pricing'
-import { Plus, Trash2, Edit2, Save, X, Zap } from 'lucide-react'
+import { Plus, Trash2, Edit2, Save, X, Zap, AlertTriangle, Check, Search } from 'lucide-react'
 
 interface GsubzPlan {
   displayName: string
@@ -95,6 +95,8 @@ export default function ApiPricingPage() {
   const [bulkOperationType, setBulkOperationType] = useState<'set' | 'add' | 'subtract'>('set')
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([])
   const [selectedPlanValues, setSelectedPlanValues] = useState<string[]>([])
+  const [planSearch, setPlanSearch] = useState('')
+  const [hidePricedPlans, setHidePricedPlans] = useState(false)
   const [formData, setFormData] = useState({
     planName: '',
     basePrice: '',
@@ -144,6 +146,11 @@ export default function ApiPricingPage() {
   useEffect(() => {
     fetchGsubzPlans(activePlanType)
     fetchRules()
+    // Selections are per-service, so reset them when the service changes
+    setSelectedPlanValues([])
+    setSelectedRuleIds([])
+    setEditingRule(null)
+    setPlanSearch('')
   }, [activePlanType, fetchGsubzPlans, fetchRules])
 
   useEffect(() => {
@@ -167,6 +174,32 @@ export default function ApiPricingPage() {
       alert('Please fill in all fields')
       return
     }
+
+    // A plan can only have one API price per service
+    const duplicate = rules.find((r) => r.plan_name === formData.planName)
+    if (duplicate) {
+      const overwrite = confirm(
+        `"${formData.planName}" already has an API price of ₦${Math.round(
+          calculateFinalPrice(duplicate)
+        ).toLocaleString()}. Update it instead?`
+      )
+      if (!overwrite) return
+      setSubmitting(true)
+      const updateResult = await updateApiPricingRule(duplicate.id, {
+        basePrice: parseFloat(formData.basePrice),
+        markupType: formData.markupType,
+        markupValue: parseFloat(formData.markupValue),
+      })
+      if (updateResult.success) {
+        setFormData({ planName: '', basePrice: '', markupType: 'fixed', markupValue: '' })
+        fetchRules()
+      } else {
+        alert('Error: ' + updateResult.error)
+      }
+      setSubmitting(false)
+      return
+    }
+
     setSubmitting(true)
     const result = await createApiPricingRule(
       serviceId,
@@ -255,7 +288,10 @@ export default function ApiPricingPage() {
       setSelectedPlanValues([])
       setBulkMarkupValue('')
       fetchRules()
-      alert(`Created ${result.created} pricing rules`)
+      const parts: string[] = []
+      if (result.created) parts.push(`${result.created} created`)
+      if (result.updated) parts.push(`${result.updated} updated`)
+      alert(`API pricing saved: ${parts.join(', ') || 'no changes'}`)
     } else {
       alert('Error: ' + result.error)
     }
@@ -275,6 +311,47 @@ export default function ApiPricingPage() {
   }
 
   const planTypeLabel = currentNetwork?.types.find((t) => t.value === activePlanType)?.label || ''
+
+  // Which live plans already have an API pricing rule for this service
+  const ruleByPlanName = new Map(rules.map((r) => [r.plan_name, r]))
+  const pricedCount = gsubzPlans.filter((p) => ruleByPlanName.has(p.displayName)).length
+  const unpricedPlans = gsubzPlans.filter((p) => !ruleByPlanName.has(p.displayName))
+
+  // Rules that exist in the DB but no longer match a live provider plan
+  const orphanRules = rules.filter(
+    (r) => !gsubzPlans.some((p) => p.displayName === r.plan_name)
+  )
+
+  // Rules whose stored base price drifted from the live provider price
+  const staleRules = rules.filter((r) => {
+    const live = gsubzPlans.find((p) => p.displayName === r.plan_name)
+    return live && Math.abs(parseFloat(live.price) - r.base_price) > 0.009
+  })
+
+  const visibleBulkPlans = gsubzPlans.filter((plan) => {
+    if (hidePricedPlans && ruleByPlanName.has(plan.displayName)) return false
+    if (!planSearch.trim()) return true
+    return plan.displayName.toLowerCase().includes(planSearch.trim().toLowerCase())
+  })
+
+  const allVisibleSelected =
+    visibleBulkPlans.length > 0 &&
+    visibleBulkPlans.every((p) => selectedPlanValues.includes(p.value))
+
+  const toggleSelectAllVisiblePlans = () => {
+    if (allVisibleSelected) {
+      const visible = new Set(visibleBulkPlans.map((p) => p.value))
+      setSelectedPlanValues((prev) => prev.filter((v) => !visible.has(v)))
+    } else {
+      setSelectedPlanValues((prev) =>
+        Array.from(new Set([...prev, ...visibleBulkPlans.map((p) => p.value)]))
+      )
+    }
+  }
+
+  const selectUnpricedPlans = () => {
+    setSelectedPlanValues(unpricedPlans.map((p) => p.value))
+  }
 
   return (
     <div className="admin-page">
@@ -344,10 +421,120 @@ export default function ApiPricingPage() {
             {activeNetwork} {planTypeLabel}
           </strong>
         </span>
-        <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
-          {rules.length} rule{rules.length !== 1 ? 's' : ''}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              padding: '3px 8px',
+              borderRadius: 999,
+              background:
+                gsubzPlans.length === 0
+                  ? 'var(--admin-bg)'
+                  : pricedCount === gsubzPlans.length
+                    ? 'rgba(34, 197, 94, 0.15)'
+                    : pricedCount === 0
+                      ? 'rgba(239, 68, 68, 0.15)'
+                      : 'rgba(245, 158, 11, 0.15)',
+              color:
+                gsubzPlans.length === 0
+                  ? 'var(--admin-text-tertiary)'
+                  : pricedCount === gsubzPlans.length
+                    ? 'var(--admin-success)'
+                    : pricedCount === 0
+                      ? 'var(--admin-danger)'
+                      : 'var(--admin-warning)',
+            }}
+          >
+            {loadingGsubz
+              ? 'Checking API coverage...'
+              : gsubzPlans.length === 0
+                ? 'No live plans'
+                : pricedCount === gsubzPlans.length
+                  ? `All ${gsubzPlans.length} plans live on API`
+                  : `${pricedCount}/${gsubzPlans.length} plans live on API`}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
+            {rules.length} rule{rules.length !== 1 ? 's' : ''}
+          </span>
+        </div>
       </div>
+
+      {/* Warnings the admin needs to know about */}
+      {!loadingGsubz && !loading && (staleRules.length > 0 || orphanRules.length > 0 || unpricedPlans.length > 0) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {unpricedPlans.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 12px',
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12,
+                color: 'var(--admin-warning)',
+              }}
+            >
+              <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1 }}>
+                {unpricedPlans.length} plan{unpricedPlans.length !== 1 ? 's' : ''} not available to API
+                users yet.
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setActiveTab('bulk')
+                  selectUnpricedPlans()
+                }}
+                style={{ fontSize: 11 }}
+              >
+                Price them
+              </button>
+            </div>
+          )}
+          {staleRules.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 12px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12,
+                color: 'var(--admin-danger)',
+              }}
+            >
+              <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+              <span>
+                {staleRules.length} rule{staleRules.length !== 1 ? 's have' : ' has'} a base price
+                that no longer matches the live provider price. Re-run bulk create on those plans to
+                resync.
+              </span>
+            </div>
+          )}
+          {orphanRules.length > 0 && (
+            <div
+              style={{
+                padding: '10px 12px',
+                background: 'var(--admin-bg-secondary)',
+                border: '1px solid var(--admin-border)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12,
+                color: 'var(--admin-text-secondary)',
+              }}
+            >
+              {orphanRules.length} rule{orphanRules.length !== 1 ? 's' : ''} no longer match any live
+              plan ({orphanRules.map((r) => r.plan_name).join(', ')}). They are still sold on the API
+              — delete them if the plan is retired.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Action tabs */}
       <div className="admin-tabs" style={{ marginBottom: 16 }}>
@@ -374,7 +561,7 @@ export default function ApiPricingPage() {
             <div className="admin-card-header">
               <h2 className="admin-card-title">Live Plans from Gsubz</h2>
               <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
-                Click a plan to auto-fill the form below
+                Green = already available to API users. Click a plan to auto-fill the form below.
               </span>
             </div>
             <div className="admin-card-body">
@@ -384,17 +571,40 @@ export default function ApiPricingPage() {
                 <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 13 }}>No plans available</p>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {gsubzPlans.map((plan) => (
-                    <button
-                      key={plan.value}
-                      type="button"
-                      onClick={() => handleSelectGsubzPlan(plan)}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: 12 }}
-                    >
-                      {plan.displayName} — ₦{plan.price}
-                    </button>
-                  ))}
+                  {gsubzPlans.map((plan) => {
+                    const existing = ruleByPlanName.get(plan.displayName)
+                    return (
+                      <button
+                        key={plan.value}
+                        type="button"
+                        onClick={() => handleSelectGsubzPlan(plan)}
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          fontSize: 12,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          borderColor: existing ? 'rgba(34, 197, 94, 0.5)' : undefined,
+                          background: existing ? 'rgba(34, 197, 94, 0.1)' : undefined,
+                        }}
+                        title={
+                          existing
+                            ? `Already on API at ₦${Math.round(calculateFinalPrice(existing)).toLocaleString()}`
+                            : 'Not available to API users yet'
+                        }
+                      >
+                        {existing && <Check size={12} style={{ color: 'var(--admin-success)' }} />}
+                        <span>
+                          {plan.displayName} — ₦{plan.price}
+                        </span>
+                        {existing && (
+                          <span style={{ color: 'var(--admin-success)', fontWeight: 700 }}>
+                            → ₦{Math.round(calculateFinalPrice(existing)).toLocaleString()}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -629,7 +839,33 @@ export default function ApiPricingPage() {
                     <tbody>
                       {rules.map((rule) => (
                         <tr key={rule.id}>
-                          <td style={{ fontWeight: 500 }}>{rule.plan_name}</td>
+                          <td style={{ fontWeight: 500 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span>{rule.plan_name}</span>
+                              {staleRules.some((r) => r.id === rule.id) && (
+                                <span
+                                  title="Provider base price changed — resync this rule"
+                                  style={{ display: 'inline-flex', color: 'var(--admin-danger)' }}
+                                >
+                                  <AlertTriangle size={12} />
+                                </span>
+                              )}
+                              {orphanRules.some((r) => r.id === rule.id) && (
+                                <span
+                                  style={{
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    padding: '2px 5px',
+                                    borderRadius: 4,
+                                    background: 'var(--admin-bg)',
+                                    color: 'var(--admin-text-tertiary)',
+                                  }}
+                                >
+                                  RETIRED
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="text-mono">₦{rule.base_price.toLocaleString()}</td>
                           <td>
                             {editingRule && editingRule.id === rule.id ? (
@@ -852,49 +1088,177 @@ export default function ApiPricingPage() {
           {/* BULK CREATE SECTION */}
           <div className="admin-card">
             <div className="admin-card-header">
-              <h2 className="admin-card-title">Bulk Create API Pricing Rules</h2>
+              <h2 className="admin-card-title">Bulk Create / Sync API Pricing</h2>
               <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
-                Select multiple plans and set a markup to create rules for all at once
+                Green plans are already on the API. Re-selecting them updates their price instead of
+                duplicating.
               </span>
             </div>
           <div className="admin-card-body">
             {/* Plan selector */}
             <div style={{ marginBottom: 16 }}>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600 }}>Select Plans to Price</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 200, overflowY: 'auto', paddingRight: 8 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  marginBottom: 10,
+                }}
+              >
+                <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Select Plans to Price</h3>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11 }}
+                    onClick={toggleSelectAllVisiblePlans}
+                    disabled={visibleBulkPlans.length === 0}
+                  >
+                    {allVisibleSelected ? 'Deselect All' : 'Select All'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11 }}
+                    onClick={selectUnpricedPlans}
+                    disabled={unpricedPlans.length === 0}
+                  >
+                    Select Unpriced ({unpricedPlans.length})
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11 }}
+                    onClick={() => setSelectedPlanValues([])}
+                    disabled={selectedPlanValues.length === 0}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {/* Search + filter */}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+                <div style={{ position: 'relative', flex: '1 1 180px' }}>
+                  <Search
+                    size={13}
+                    style={{
+                      position: 'absolute',
+                      left: 10,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--admin-text-tertiary)',
+                    }}
+                  />
+                  <input
+                    className="form-input"
+                    placeholder="Search plans..."
+                    value={planSearch}
+                    onChange={(e) => setPlanSearch(e.target.value)}
+                    style={{ paddingLeft: 30, fontSize: 12 }}
+                  />
+                </div>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 12,
+                    color: 'var(--admin-text-secondary)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={hidePricedPlans}
+                    onChange={(e) => setHidePricedPlans(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Hide already priced
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 240, overflowY: 'auto', paddingRight: 8 }}>
                 {loadingGsubz ? (
                   <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>Loading plans...</p>
                 ) : gsubzPlans.length === 0 ? (
                   <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>No plans available</p>
+                ) : visibleBulkPlans.length === 0 ? (
+                  <p style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>
+                    No plans match the current search or filter.
+                  </p>
                 ) : (
-                  gsubzPlans.map((plan) => (
-                    <label
-                      key={plan.value}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 10px',
-                        border: `1px solid ${selectedPlanValues.includes(plan.value) ? 'var(--admin-secondary)' : 'var(--admin-border)'}`,
-                        borderRadius: 'var(--radius-sm)',
-                        background: selectedPlanValues.includes(plan.value) ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedPlanValues.includes(plan.value)}
-                        onChange={() => toggleSelectPlan(plan.value)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      {plan.displayName}
-                    </label>
-                  ))
+                  visibleBulkPlans.map((plan) => {
+                    const existing = ruleByPlanName.get(plan.displayName)
+                    const checked = selectedPlanValues.includes(plan.value)
+                    return (
+                      <label
+                        key={plan.value}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 10px',
+                          border: `1px solid ${
+                            checked
+                              ? 'var(--admin-secondary)'
+                              : existing
+                                ? 'rgba(34, 197, 94, 0.4)'
+                                : 'var(--admin-border)'
+                          }`,
+                          borderRadius: 'var(--radius-sm)',
+                          background: checked
+                            ? 'rgba(14, 165, 233, 0.1)'
+                            : existing
+                              ? 'rgba(34, 197, 94, 0.07)'
+                              : 'transparent',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelectPlan(plan.value)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span>{plan.displayName}</span>
+                        {existing ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 3,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: 'var(--admin-success)',
+                            }}
+                          >
+                            <Check size={10} />
+                            ₦{Math.round(calculateFinalPrice(existing)).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, color: 'var(--admin-text-tertiary)' }}>new</span>
+                        )}
+                      </label>
+                    )
+                  })
                 )}
               </div>
-              <p style={{ margin: '6px 0 0 0', fontSize: 11, color: 'var(--admin-text-tertiary)' }}>
+              <p style={{ margin: '8px 0 0 0', fontSize: 11, color: 'var(--admin-text-tertiary)' }}>
                 Selected: {selectedPlanValues.length} plan(s)
+                {(() => {
+                  const selectedExisting = gsubzPlans.filter(
+                    (p) => selectedPlanValues.includes(p.value) && ruleByPlanName.has(p.displayName)
+                  ).length
+                  if (selectedExisting === 0) return null
+                  return ` — ${selectedExisting} already priced and will be updated, ${
+                    selectedPlanValues.length - selectedExisting
+                  } newly created`
+                })()}
               </p>
             </div>
 
@@ -910,20 +1274,8 @@ export default function ApiPricingPage() {
                   <option value="percentage">Percentage (%)</option>
                 </select>
               </div>
-              <div style={{ flex: '1 1 100px' }}>
-                <label className="form-label">Operation</label>
-                <select
-                  className="form-input"
-                  value={bulkOperationType}
-                  onChange={(e) => setBulkOperationType(e.target.value as 'set' | 'add' | 'subtract')}
-                >
-                  <option value="set">Set to value</option>
-                  <option value="add">Add</option>
-                  <option value="subtract">Subtract</option>
-                </select>
-              </div>
               <div style={{ flex: '1 1 120px' }}>
-                <label className="form-label">Value</label>
+                <label className="form-label">Markup Value</label>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input
                     className="form-input"
@@ -983,7 +1335,7 @@ export default function ApiPricingPage() {
                   className="btn btn-primary btn-sm"
                   disabled={submitting || selectedPlanValues.length === 0}
                 >
-                  {submitting ? 'Creating...' : `Create for ${selectedPlanValues.length} selected`}
+                  {submitting ? 'Saving...' : `Apply to ${selectedPlanValues.length} selected`}
                 </button>
               </div>
             </form>
@@ -1013,7 +1365,7 @@ export default function ApiPricingPage() {
                             cursor: 'pointer',
                           }}
                         >
-                          {bulkOperationType === 'set' ? '' : bulkOperationType === 'add' ? '+' : '−'}{val}%
+                          +{val}%
                         </button>
                       ))}
                     </>
@@ -1035,7 +1387,7 @@ export default function ApiPricingPage() {
                             cursor: 'pointer',
                           }}
                         >
-                          {bulkOperationType === 'set' ? '+₦' : bulkOperationType === 'add' ? '+₦' : '−₦'}{val}
+                          +₦{val}
                         </button>
                       ))}
                     </>
@@ -1056,24 +1408,19 @@ export default function ApiPricingPage() {
                 }}
               >
                 <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
-                  Preview of {selectedPlanValues.length} rule(s) to be created
+                  Preview — {selectedPlanValues.length} plan(s) will be made available to API users
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }}>
                   {gsubzPlans
                     .filter((p) => selectedPlanValues.includes(p.value))
                     .map((plan) => {
                       const basePrice = parseFloat(plan.price)
-                      const markupVal = parseFloat(bulkMarkupValue)
-                      let finalPrice = basePrice
-                      if (bulkMarkupType === 'fixed') {
-                        if (bulkOperationType === 'set') finalPrice = basePrice + markupVal
-                        else if (bulkOperationType === 'add') finalPrice = basePrice + markupVal
-                        else finalPrice = basePrice - markupVal
-                      } else {
-                        if (bulkOperationType === 'set') finalPrice = basePrice * (1 + markupVal / 100)
-                        else if (bulkOperationType === 'add') finalPrice = basePrice * (1 + markupVal / 100)
-                        else finalPrice = basePrice * (1 - markupVal / 100)
-                      }
+                      const markupVal = parseFloat(bulkMarkupValue) || 0
+                      const finalPrice =
+                        bulkMarkupType === 'fixed'
+                          ? basePrice + markupVal
+                          : basePrice * (1 + markupVal / 100)
+                      const existing = ruleByPlanName.get(plan.displayName)
                       return (
                         <div
                           key={plan.value}
@@ -1088,11 +1435,28 @@ export default function ApiPricingPage() {
                           <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {plan.displayName}
                           </p>
+                          <p
+                            style={{
+                              margin: '4px 0 0 0',
+                              fontSize: 9,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              color: existing ? 'var(--admin-warning)' : 'var(--admin-secondary)',
+                            }}
+                          >
+                            {existing ? 'Update existing' : 'New'}
+                          </p>
                           <p style={{ margin: '6px 0 0 0', color: 'var(--admin-text-secondary)', fontSize: 10 }}>
                             Base: <span style={{ fontWeight: 600 }}>₦{basePrice.toLocaleString()}</span>
                           </p>
+                          {existing && (
+                            <p style={{ margin: '2px 0 0 0', color: 'var(--admin-text-tertiary)', fontSize: 10 }}>
+                              Current: ₦{Math.round(calculateFinalPrice(existing)).toLocaleString()}
+                            </p>
+                          )}
                           <p style={{ margin: '2px 0 0 0', color: 'var(--admin-success)', fontSize: 10 }}>
-                            Final: <span style={{ fontWeight: 600 }}>₦{Math.round(finalPrice).toLocaleString()}</span>
+                            {existing ? 'New' : 'Final'}:{' '}
+                            <span style={{ fontWeight: 600 }}>₦{Math.round(finalPrice).toLocaleString()}</span>
                           </p>
                         </div>
                       )

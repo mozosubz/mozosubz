@@ -141,7 +141,7 @@ export async function bulkCreateApiPricingRules(
   plans: Array<{ planName: string; basePrice: number }>,
   markupType: 'fixed' | 'percentage',
   markupValue: number
-): Promise<{ success: boolean; error?: string; created?: number }> {
+): Promise<{ success: boolean; error?: string; created?: number; updated?: number }> {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -149,24 +149,58 @@ export async function bulkCreateApiPricingRules(
 
     const admin = createAdminClient()
     const now = new Date().toISOString()
-    const rulesToInsert = plans.map((plan) => ({
-      service_id: serviceId,
-      plan_name: plan.planName,
-      base_price: plan.basePrice,
-      markup_type: markupType,
-      markup_value: markupValue,
-      is_active: true,
-      created_at: now,
-      updated_at: now,
-    }))
 
-    const { error } = await admin
+    // Look up what already exists for this service so we never create duplicates
+    const { data: existing, error: fetchError } = await admin
       .from('api_pricing_rules')
-      .insert(rulesToInsert)
+      .select('id, plan_name')
+      .eq('service_id', serviceId)
 
-    if (error) return { success: false, error: error.message }
+    if (fetchError) return { success: false, error: fetchError.message }
+
+    const existingByName = new Map(
+      (existing || []).map((row) => [row.plan_name, row.id as string])
+    )
+
+    const toInsert = plans.filter((p) => !existingByName.has(p.planName))
+    const toUpdate = plans.filter((p) => existingByName.has(p.planName))
+
+    if (toInsert.length > 0) {
+      const { error: insertError } = await admin
+        .from('api_pricing_rules')
+        .insert(
+          toInsert.map((plan) => ({
+            service_id: serviceId,
+            plan_name: plan.planName,
+            base_price: plan.basePrice,
+            markup_type: markupType,
+            markup_value: markupValue,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+          }))
+        )
+      if (insertError) return { success: false, error: insertError.message }
+    }
+
+    // Refresh existing rules so base price stays in sync with the live provider price
+    for (const plan of toUpdate) {
+      const id = existingByName.get(plan.planName)!
+      const { error: updateError } = await admin
+        .from('api_pricing_rules')
+        .update({
+          base_price: plan.basePrice,
+          markup_type: markupType,
+          markup_value: markupValue,
+          is_active: true,
+          updated_at: now,
+        })
+        .eq('id', id)
+      if (updateError) return { success: false, error: updateError.message }
+    }
+
     revalidatePath('/admin/api-pricing')
-    return { success: true, created: plans.length }
+    return { success: true, created: toInsert.length, updated: toUpdate.length }
   } catch (err) {
     return { success: false, error: String(err) }
   }
