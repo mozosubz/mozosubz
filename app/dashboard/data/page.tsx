@@ -22,7 +22,7 @@ const networks = [
 
 export default function DataPage() {
   const router = useRouter()
-  const { pickContact, supported: contactsSupported } = useContactPicker()
+  const { pickContact } = useContactPicker()
   const [network, setNetwork] = useState("MTN")
   const [planType, setPlanType] = useState("")
   const [plans, setPlans] = useState<any[]>([])
@@ -268,19 +268,20 @@ export default function DataPage() {
         <div className="form-group">
           <div className="flex items-center justify-between mb-2">
             <label className="form-label">Phone Number</label>
-            {/* Only rendered where the Contact Picker API actually exists, so
-                iOS/desktop users aren't given a button that can never work.
-                Missing type="button" previously risked a form submit on tap. */}
-            {contactsSupported && (
-              <button
-                type="button"
-                onClick={handleContactsPicker}
-                className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--primary)] bg-transparent border-none cursor-pointer"
-              >
-                <ContactRound size={14} aria-hidden="true" />
-                Contacts
-              </button>
-            )}
+            {/* Always rendered. On unsupported browsers the hook returns an
+                "unsupported" status which surfaces as an error message, so the
+                user knows to type manually. The old guard hid the button on
+                Android Chrome because `ContactsManager in window` is a
+                desktop-only global. */}
+            <button
+              type="button"
+              onClick={handleContactsPicker}
+              className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--primary)] bg-transparent border-none cursor-pointer"
+              aria-label="Pick from contacts"
+            >
+              <ContactRound size={14} aria-hidden="true" />
+              Contacts
+            </button>
           </div>
           <input
             type="tel"

@@ -82,12 +82,12 @@ export function useContactPicker() {
   const [supported, setSupported] = useState(false)
 
   useEffect(() => {
-    // Per spec both halves must be present; checking only navigator.contacts
-    // gives false positives on browsers that ship a partial implementation.
+    // The spec only requires `navigator.contacts` to exist; `ContactsManager`
+    // is a desktop-Chrome-only global that doesn't exist on Android Chrome —
+    // the only real-world device where this API is available. Checking for
+    // both meant the button was always hidden on Android.
     setSupported(
-      typeof navigator !== "undefined" &&
-        "contacts" in navigator &&
-        "ContactsManager" in window,
+      typeof navigator !== "undefined" && "contacts" in navigator,
     )
   }, [])
 
