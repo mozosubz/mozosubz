@@ -62,9 +62,12 @@ export default function AirtimePage() {
       case "cancelled":
         // Nothing to report — the user closed the sheet deliberately.
         break
+      case "android-intent-opened":
+        // The native Contacts app opened but can't return the number to a
+        // web page, so guide the user to type it after looking it up.
+        setError(result.message)
+        break
       default:
-        // Previously every one of these cases was swallowed by an empty catch,
-        // so the button appeared to do nothing at all.
         setError(result.message)
     }
   }
