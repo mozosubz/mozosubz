@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 interface ModalPortalProps {
@@ -22,17 +22,39 @@ interface ModalPortalProps {
  * again, no matter what styles get added to the shell later. It also locks
  * background scroll and wires up Escape-to-close.
  */
+/**
+ * Tracks nesting order so Escape only closes the top-most modal.
+ *
+ * Every portal listens on `document`, so without this a nested modal (e.g. a
+ * transaction opened from inside a user's details) would close itself *and*
+ * its parent on a single Escape press.
+ */
+const modalStack: symbol[] = []
+
 export function ModalPortal({ children, onClose }: ModalPortalProps) {
   const [mounted, setMounted] = useState(false)
+  const idRef = useRef<symbol>(Symbol('modal'))
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
+    const id = idRef.current
+    modalStack.push(id)
+    return () => {
+      const index = modalStack.indexOf(id)
+      if (index !== -1) modalStack.splice(index, 1)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!onClose) return
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape') return
+      // Ignore unless this is the top-most modal.
+      if (modalStack[modalStack.length - 1] !== idRef.current) return
+      onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)

@@ -1932,6 +1932,127 @@ button[type='submit']:not(.no-style):disabled {
   color: var(--admin-secondary);
 }
 
+/* Key/value row used by the transaction, wallet and log detail modals. These
+   classes had no styles at all, so both spans fell back to inline layout and
+   the label ran straight into its value. */
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-row-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  text-align: right;
+  font-size: 13px;
+  /* IDs and references are long unbroken strings, so allow them to wrap
+     instead of forcing the row wider than the modal. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-row-value.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Stack label above value on narrow screens: side-by-side leaves almost no
+   room for long monospace IDs. */
+@media (max-width: 560px) {
+  .detail-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .detail-row-value {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
+
+/* Data cards and table rows that open a detail modal. */
+.data-card-clickable {
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.data-card-clickable:hover,
+.data-card-clickable:focus-visible {
+  border-color: var(--admin-secondary);
+  background: var(--admin-bg-elevated);
+}
+
+/* ============================================================================
+   RAW RESPONSE BLOCK (copyable JSON payload)
+   ============================================================================ */
+
+.raw-block {
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--admin-bg-tertiary);
+}
+
+.raw-block + .raw-block {
+  margin-top: 10px;
+}
+
+.raw-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-bg-secondary);
+}
+
+.raw-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--admin-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.raw-block-pre {
+  margin: 0;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--admin-text-secondary);
+  font-family: var(--font-mono);
+  max-height: 240px;
+  overflow: auto;
+  /* Payloads contain long URLs and tokens; wrap them so the modal never
+     scrolls sideways. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Selectable so the payload can still be copied by hand. */
+  user-select: text;
+}
+
 /* ============================================================================
    DATA CARD ROW (key/value pair inside data cards)
    ============================================================================ */

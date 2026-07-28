@@ -1,7 +1,8 @@
 'use client'
 
-import { X, Receipt, Copy } from 'lucide-react'
+import { X, Receipt } from 'lucide-react'
 import { ModalPortal } from './modal-portal'
+import { CopyButton, RawResponseBlock } from './raw-response-block'
 
 interface TransactionDetailModalProps {
   transaction: any
@@ -33,15 +34,7 @@ function DetailRow({
       >
         {value}
         {copyable && typeof value === 'string' && value !== 'N/A' && (
-          <button
-            type="button"
-            onClick={() => navigator.clipboard?.writeText(value)}
-            className="btn btn-ghost btn-icon btn-sm"
-            style={{ marginLeft: 6 }}
-            title="Copy"
-          >
-            <Copy size={12} />
-          </button>
+          <CopyButton value={value} label={`Copy ${label}`} />
         )}
       </span>
     </div>
@@ -224,39 +217,10 @@ export function TransactionDetailModal({
             <div className="detail-section">
               <h4 className="detail-section-title">Raw Response</h4>
               {transaction.api_response && (
-                <pre
-                  style={{
-                    background: 'var(--admin-bg-tertiary)',
-                    border: '1px solid var(--admin-border)',
-                    borderRadius: 8,
-                    padding: 12,
-                    fontSize: 11,
-                    color: 'var(--admin-text-secondary)',
-                    overflow: 'auto',
-                    maxHeight: 200,
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  {JSON.stringify(transaction.api_response, null, 2)}
-                </pre>
+                <RawResponseBlock title="API Response" value={transaction.api_response} />
               )}
               {transaction.monnify_response && (
-                <pre
-                  style={{
-                    background: 'var(--admin-bg-tertiary)',
-                    border: '1px solid var(--admin-border)',
-                    borderRadius: 8,
-                    padding: 12,
-                    fontSize: 11,
-                    color: 'var(--admin-text-secondary)',
-                    overflow: 'auto',
-                    maxHeight: 200,
-                    fontFamily: 'var(--font-mono)',
-                    marginTop: 8,
-                  }}
-                >
-                  {JSON.stringify(transaction.monnify_response, null, 2)}
-                </pre>
+                <RawResponseBlock title="Monnify Response" value={transaction.monnify_response} />
               )}
             </div>
           )}

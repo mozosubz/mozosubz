@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { X, User, Wallet, Activity } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ModalPortal } from './modal-portal'
+import { TransactionDetailModal } from './transaction-detail-modal'
 
 interface UserDetailModalProps {
   userId: string
@@ -15,6 +16,7 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
   const [transactions, setTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalDeposits: 0, totalTransactions: 0, totalAmount: 0 })
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -35,9 +37,11 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
 
         setUser(userData)
 
+        // Select every column so rows can feed the shared transaction detail
+        // modal (balances, raw payloads, bank fields) without a second fetch.
         const { data: txData } = await supabase
           .from('transactions')
-          .select('id, payment_reference, category, amount, status, created_at')
+          .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(20)
@@ -137,7 +141,8 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
   }
 
   return (
-    <ModalPortal onClose={onClose}>
+    <>
+      <ModalPortal onClose={onClose}>
       <div className="modal-overlay" onClick={onClose} role="presentation">
       <div
         className="modal-content modal-large"
@@ -261,7 +266,20 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
                 {/* Mobile Cards */}
                 <div className="data-list">
                   {transactions.map((tx) => (
-                    <div key={tx.id} className="data-card">
+                    <div
+                      key={tx.id}
+                      className="data-card data-card-clickable"
+                      onClick={() => setSelectedTransaction(tx)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSelectedTransaction(tx)
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View details for ${tx.category || 'transaction'}`}
+                    >
                       <div className="data-card-row">
                         <div className="data-card-label">Reference</div>
                         <div className="data-card-value text-mono text-xs">
@@ -308,7 +326,19 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
                     </thead>
                     <tbody>
                       {transactions.map((tx) => (
-                        <tr key={tx.id}>
+                        <tr
+                          key={tx.id}
+                          onClick={() => setSelectedTransaction(tx)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setSelectedTransaction(tx)
+                            }
+                          }}
+                          tabIndex={0}
+                          style={{ cursor: 'pointer' }}
+                          aria-label={`View details for ${tx.category || 'transaction'}`}
+                        >
                           <td className="text-mono text-xs">
                             {tx.payment_reference?.slice(0, 12) || tx.id.slice(0, 8)}
                           </td>
@@ -337,6 +367,19 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
         </div>
       </div>
       </div>
-    </ModalPortal>
+      </ModalPortal>
+
+      {/* Same modal the transactions page uses, opened on top of this one.
+          Kept a sibling of the portal above rather than a descendant: React
+          propagates events through the component tree even across portals, so
+          nesting it would let a click on this modal's overlay bubble into the
+          parent overlay's dismiss handler and close both at once. */}
+      {selectedTransaction && (
+        <TransactionDetailModal
+          transaction={selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+        />
+      )}
+    </>
   )
 }

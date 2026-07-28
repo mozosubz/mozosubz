@@ -2,6 +2,7 @@
 
 import { X, FileText } from 'lucide-react'
 import { ModalPortal } from './modal-portal'
+import { RawResponseBlock } from './raw-response-block'
 
 interface LogDetailModalProps {
   log: any
@@ -73,22 +74,7 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
           {log.details && (
             <div className="detail-section">
               <h4 className="detail-section-title">Raw Details</h4>
-              <pre
-                style={{
-                  background: 'var(--admin-bg-tertiary)',
-                  border: '1px solid var(--admin-border)',
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 11,
-                  color: 'var(--admin-text-secondary)',
-                  overflow: 'auto',
-                  maxHeight: 240,
-                  fontFamily: 'var(--font-mono)',
-                  margin: 0,
-                }}
-              >
-                {JSON.stringify(log.details, null, 2)}
-              </pre>
+              <RawResponseBlock title="Details" value={log.details} />
             </div>
           )}
         </div>
