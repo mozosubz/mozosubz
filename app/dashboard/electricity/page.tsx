@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SuccessOverlay } from '@/components/success-overlay';
 import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
+import { PurchaseError } from '@/components/purchase-error';
 import { ArrowLeft } from 'lucide-react';
 import { payElectricity } from '@/lib/actions/electricity';
 import { getWalletBalance } from '@/lib/actions/wallet';
@@ -95,6 +96,16 @@ export default function ElectricityPage() {
       formData.append('phone', phone);
       
       const result = await payElectricity(formData);
+
+      // The action returns { success: false, message } on a declined payment.
+      // This used to fall straight through to the success overlay, so failures
+      // looked like wins and the customer never saw the provider's reason.
+      if (!result?.success) {
+        setError(result?.message || 'This transaction could not be completed. Please try again.');
+        setShowConfirm(false);
+        return;
+      }
+
       if (result?.token) {
         setSuccessToken(result.token);
       }
@@ -134,11 +145,7 @@ export default function ElectricityPage() {
           <h1 className="text-xl font-semibold">Buy Electricity</h1>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+        <PurchaseError message={error} onDismiss={() => setError(null)} />
 
         {/* DISCO Selector */}
         <div className="mb-6">

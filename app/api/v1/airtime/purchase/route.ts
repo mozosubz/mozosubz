@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buyAirtime } from '@/lib/api/gsubz'
+import { resolveProviderError } from '@/lib/utils/provider-error'
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/utils/save-transaction'
 import { logRequestWithBody, logResponse, formatLog } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
@@ -152,7 +153,8 @@ export async function POST(request: NextRequest) {
     const serviceId = serviceIdMap[networkLower]
 
     // Purchase airtime via Gsubz
-    let gsubzResult: { code: number; status: string; description: string; content?: unknown }
+    // Type comes from buyAirtime's return — see lib/api/gsubz.ts for the full shape.
+    let gsubzResult: Awaited<ReturnType<typeof buyAirtime>>
     try {
       console.log(`[Airtime API] → Calling Gsubz | Service: ${serviceId}`)
       gsubzResult = await buyAirtime({
@@ -199,17 +201,23 @@ export async function POST(request: NextRequest) {
       description: `₦${parsedAmount.toLocaleString()} ${networkLower.toUpperCase()} airtime via API`,
       balanceBefore: walletBalance,
       balanceAfter: purchased ? balanceAfter : walletBalance,
-      apiResponse: gsubzResult as Record<string, unknown>,
+      apiResponse: gsubzResult as unknown as Record<string, unknown>,
     })
 
     if (!purchased) {
-      console.log(`[Airtime API] ✗ Final: Purchase failed, wallet refunded | Gsubz: ${gsubzResult.description}`)
-      const providerReason =
-        (gsubzResult as Record<string, unknown>)['api_response'] as string ||
-        gsubzResult.description ||
-        'Purchase failed. Your wallet has been refunded.'
+      const resolved = resolveProviderError(gsubzResult, { refunded: true })
+      console.log(
+        `[Airtime API] ✗ Final: Purchase failed, wallet refunded | ${resolved.code} | Gsubz: ${resolved.providerMessage}`
+      )
       return NextResponse.json(
-        { success: false, error: providerReason, provider_code: gsubzResult.code, provider_status: gsubzResult.status },
+        {
+          success: false,
+          error: resolved.message,
+          error_code: resolved.code,
+          transaction_id: transactionId,
+          refunded: true,
+          balance_after: walletBalance,
+        },
         { status: 400 }
       )
     }

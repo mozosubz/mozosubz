@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buyData } from '@/lib/api/gsubz'
+import { resolveProviderError } from '@/lib/utils/provider-error'
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/utils/save-transaction'
 import { logRequest } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
@@ -167,7 +168,9 @@ export async function POST(request: NextRequest) {
     const balanceAfter = deduction.newBalance ?? walletBalance - apiPrice
 
     // Purchase data via Gsubz
-    let gsubzResult: { code: number; status: string; description: string; content?: unknown }
+    // Type comes from buyData's return — don't redeclare it here, the provider
+    // returns more fields than this route used to describe (see lib/api/gsubz.ts).
+    let gsubzResult: Awaited<ReturnType<typeof buyData>>
     try {
       console.log(`[Data Purchase API] → Calling Gsubz | Service: ${service}`)
       gsubzResult = await buyData({
@@ -217,19 +220,23 @@ export async function POST(request: NextRequest) {
       balanceBefore: walletBalance,
       balanceAfter: purchased ? balanceAfter : walletBalance,
       planDetails: rule.plan_name,
-      apiResponse: gsubzResult as Record<string, unknown>,
+      apiResponse: gsubzResult as unknown as Record<string, unknown>,
     })
 
     if (!purchased) {
-      console.log(`[Data Purchase API] ✗ Final: Purchase failed, wallet refunded | Gsubz: ${gsubzResult.description}`)
-      // Surface the provider's actual reason so the API caller knows what went wrong
-      // (e.g. "not eligible for this offer") rather than a generic message.
-      const providerReason =
-        (gsubzResult as Record<string, unknown>)['api_response'] as string ||
-        gsubzResult.description ||
-        'Purchase failed. Your wallet has been refunded.'
+      const resolved = resolveProviderError(gsubzResult, { refunded: true })
+      console.log(
+        `[Data Purchase API] ✗ Final: Purchase failed, wallet refunded | ${resolved.code} | Gsubz: ${resolved.providerMessage}`
+      )
       return NextResponse.json(
-        { success: false, error: providerReason, provider_code: gsubzResult.code, provider_status: gsubzResult.status },
+        {
+          success: false,
+          error: resolved.message,
+          error_code: resolved.code,
+          transaction_id: transactionId,
+          refunded: true,
+          balance_after: walletBalance,
+        },
         { status: 400 }
       )
     }

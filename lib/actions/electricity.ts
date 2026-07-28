@@ -4,6 +4,7 @@ import { buyElectricityToken } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
+import { resolveProviderError } from "@/lib/utils/provider-error"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -163,9 +164,13 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
 
     // Email is sent automatically by saveTransaction()
 
+    const resolved = resolveProviderError(response)
+    console.log(`[v0] Electricity payment failed | ${resolved.code} | provider: ${resolved.providerMessage}`)
+
     return {
       success: false,
-      message: response.description || "Transaction failed",
+      message: resolved.message,
+      errorCode: resolved.code,
       transaction: {
         id: failedTransactionId,
         type: "electricity",

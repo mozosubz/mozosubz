@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { PurchaseError } from "@/components/purchase-error"
 import Link from "next/link"
 import { getWalletBalance } from "@/lib/actions/wallet"
 import { getRecentPhones, saveRecentPhone } from "@/lib/actions/recent-phones"
@@ -354,7 +355,7 @@ export default function DataPage() {
         </div>
 
         {/* Error */}
-        {error && <div className="p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-sm text-[#dc2626] mb-4">{error}</div>}
+        <PurchaseError message={error} onDismiss={() => setError("")} />
 
         {/* Summary */}
         <div className="bg-[var(--surface)] rounded-[20px] border border-[var(--border)] p-4 mb-4">

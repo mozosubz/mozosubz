@@ -10,6 +10,7 @@ import { ConfirmSheet } from "@/components/confirm-sheet"
 import { SuccessOverlay } from "@/components/success-overlay"
 import { ProcessingOverlay } from "@/components/processing-overlay"
 import { NetworkLogo } from "@/lib/utils/network-logo"
+import { PurchaseError } from "@/components/purchase-error"
 
 const networks = ["MTN", "Glo", "Airtel", "9mobile"]
 
@@ -258,7 +259,7 @@ export default function AirtimePage() {
         </div>
 
         {/* Error */}
-        {error && <div className="p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-sm text-[#dc2626] mb-4">{error}</div>}
+        <PurchaseError message={error} onDismiss={() => setError("")} />
 
         {/* Summary */}
         <div className="bg-[var(--surface)] rounded-[20px] border border-[var(--border)] p-4 mb-4">

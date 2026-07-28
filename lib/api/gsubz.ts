@@ -28,10 +28,32 @@ const httpAgent = new http.Agent({
   freeSocketTimeout: 60000,
 })
 
+/**
+ * Gsubz responses come back in two shapes and the previous type only described
+ * one of them, so every real field (api_response, transactionID, amount, token)
+ * was a type error at each call site.
+ *
+ * Soft failure — HTTP 200, reason in `api_response`, no `description`:
+ *   { code: 200, status: "failed", api_response: "...not eligible..." }
+ * Hard failure / success — code as number OR string, ALL_CAPS `description`:
+ *   { code: "402", status: "TRANSACTION_FAILED", description: "INSUFFICIENT_BALANCE" }
+ */
 interface ApiResponse {
-  code: number
+  /** Numeric on soft failures, string ("200"/"000"/"402") on hard ones. */
+  code: number | string
   status: string
-  description: string
+  /** Absent on soft failures — check `api_response` too. */
+  description?: string
+  /** Human-readable reason on soft failures. */
+  api_response?: string
+  transactionID?: number | string
+  amount?: number | string
+  amountPaid?: number | string
+  phone?: string
+  serviceID?: string
+  /** Electricity purchases only. */
+  token?: string
+  date?: string
   content?: any
   gateway?: any
 }

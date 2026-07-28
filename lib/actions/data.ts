@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
+import { resolveProviderError } from "@/lib/utils/provider-error"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -178,9 +179,16 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
 
     // Email is sent automatically by saveTransaction()
 
+    // Gsubz puts the real reason in `api_response` on soft failures and an
+    // ALL_CAPS enum in `description` on hard ones. resolveProviderError reads
+    // both and returns something safe to show the customer.
+    const resolved = resolveProviderError(response)
+    console.log(`[v0] Data purchase failed | ${resolved.code} | provider: ${resolved.providerMessage}`)
+
     return {
       success: false,
-      message: response.description || "Transaction failed",
+      message: resolved.message,
+      errorCode: resolved.code,
       transaction: {
         id: failedTransactionId,
         type: "data",

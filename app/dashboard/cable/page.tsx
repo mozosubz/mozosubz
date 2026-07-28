@@ -14,6 +14,7 @@ import {
 import { SuccessOverlay } from '@/components/success-overlay';
 import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
+import { PurchaseError } from '@/components/purchase-error';
 import { ArrowLeft } from 'lucide-react';
 import { getWalletBalance } from '@/lib/actions/wallet';
 
@@ -162,11 +163,7 @@ export default function CablePage() {
           <h1 className="text-xl font-semibold">Buy Cable</h1>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+        <PurchaseError message={error} onDismiss={() => setError(null)} />
 
         {/* Provider Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
