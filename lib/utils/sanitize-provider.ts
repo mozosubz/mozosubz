@@ -11,19 +11,24 @@
 
 export const PROVIDER_MASK = '*****'
 
-/** Case-insensitive match for the exact word "gsubz" only. */
-const PROVIDER_PATTERN = /gsubz/gi
+/**
+ * Do NOT use a module-level regex with the `g` flag. A `g`-flagged regex is
+ * stateful: `.test()` and `.replace()` advance `lastIndex` after each match,
+ * so sharing one instance across calls causes the next call to start mid-string
+ * and miss or corrupt replacements.  We create a fresh instance every call
+ * instead — cheap, and completely avoids the statefulness issue.
+ */
+const makePattern = () => /gsubz/gi
 
 /** Replaces every occurrence of "gsubz" (any case) in a string with *****. */
 export function maskProviderName(value: string): string {
-  return value.replace(PROVIDER_PATTERN, PROVIDER_MASK)
+  return value.replace(makePattern(), PROVIDER_MASK)
 }
 
 /** True when the string contains "gsubz" in any capitalisation. */
 export function containsProviderName(value: unknown): boolean {
   if (typeof value !== 'string') return false
-  PROVIDER_PATTERN.lastIndex = 0
-  return PROVIDER_PATTERN.test(value)
+  return makePattern().test(value)
 }
 
 /**
