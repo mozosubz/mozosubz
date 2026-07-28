@@ -49,18 +49,37 @@
   border-color: var(--admin-border-strong);
 }
 
+/* .title and .btnCancel set color explicitly, so the inherited .admin color
+   above does not reach them and they'd stay dark-on-dark. */
+.admin .title {
+  color: var(--admin-text);
+}
+
 .admin .message {
   color: var(--admin-text-secondary);
 }
 
-.admin .cancel {
+.admin .btnCancel {
   background: var(--admin-bg-tertiary);
   color: var(--admin-text-secondary);
   border-color: var(--admin-border-strong);
 }
 
-.admin .cancel:hover:not(:disabled) {
+.admin .btnCancel:hover:not(:disabled) {
   background: var(--admin-bg-secondary);
+  color: var(--admin-text);
+}
+
+/* --primary-light is a pale tint meant for light surfaces. */
+.admin .iconDefault {
+  background: var(--admin-primary-bg);
+}
+
+.admin .toastClose {
+  color: var(--admin-text-tertiary);
+}
+
+.admin .toastClose:hover {
   color: var(--admin-text);
 }
 
