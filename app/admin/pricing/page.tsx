@@ -6,6 +6,7 @@ import { createPricingRule, deletePricingRule, updatePricingRule } from '@/lib/a
 import { Plus, Trash2, Edit2, Save, X } from 'lucide-react'
 import { PricingBulkTab } from '@/components/admin/pricing-bulk-tab'
 import { PricingTemplatesTab } from '@/components/admin/pricing-templates-tab'
+import { useConfirm, useToast } from '@/components/app-dialog'
 
 interface GsubzPlan {
   displayName: string
@@ -68,6 +69,8 @@ const CABLE_SERVICES = [
 ]
 
 export default function PricingPage() {
+  const confirm = useConfirm()
+  const toast = useToast()
   const [activeService, setActiveService] = useState<'data' | 'cable'>('data')
   const [activeNetwork, setActiveNetwork] = useState('MTN')
   const [activePlanType, setActivePlanType] = useState('mtn_sme')
@@ -165,7 +168,7 @@ export default function PricingPage() {
   const handleAddRule = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.planName || !formData.basePrice || formData.markupValue === '') {
-      alert('Please fill in all fields')
+      toast('Please fill in all fields', 'error')
       return
     }
 
@@ -184,8 +187,9 @@ export default function PricingPage() {
     if (result.success) {
       setFormData({ planName: '', basePrice: '', markupType: 'fixed', markupValue: '' })
       fetchRules()
+      toast('Pricing rule created', 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not create rule', 'error')
     }
     setSubmitting(false)
   }
@@ -201,19 +205,28 @@ export default function PricingPage() {
     if (result.success) {
       setEditingRule(null)
       fetchRules()
+      toast('Rule updated', 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not update rule', 'error')
     }
     setSubmitting(false)
   }
 
   const handleDeleteRule = async (ruleId: string) => {
-    if (!confirm('Delete this pricing rule?')) return
+    const ok = await confirm({
+      title: 'Delete this pricing rule?',
+      message: 'This plan will fall back to default pricing for customers.',
+      confirmLabel: 'Delete rule',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     const result = await deletePricingRule(ruleId)
     if (result.success) {
       fetchRules()
+      toast('Pricing rule deleted', 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not delete rule', 'error')
     }
   }
 

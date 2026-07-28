@@ -12,6 +12,7 @@ import {
   bulkUpdateApiPricingRules,
   bulkCreateApiPricingRules,
 } from '@/lib/actions/api-pricing'
+import { useConfirm, useToast } from '@/components/app-dialog'
 import {
   Plus,
   Trash2,
@@ -96,6 +97,8 @@ const SERVICE_MAP: Record<string, string> = {
 }
 
 export default function ApiPricingPage() {
+  const confirm = useConfirm()
+  const toast = useToast()
   const [activeNetwork, setActiveNetwork] = useState('MTN')
   const [activePlanType, setActivePlanType] = useState('mtn_sme')
 
@@ -184,27 +187,43 @@ export default function ApiPricingPage() {
   }, [fetchOverview])
 
   const handleDedupe = async () => {
-    if (!confirm('Remove duplicate rules for this service, keeping the most recent price for each plan?')) return
+    const ok = await confirm({
+      title: 'Remove duplicate rules?',
+      message: 'The most recent price for each plan is kept; older duplicates are deleted.',
+      confirmLabel: 'Remove duplicates',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     setDedupeBusy(true)
     const result = await dedupeApiPricingRules(serviceId)
     setDedupeBusy(false)
     if (result.success) {
       await Promise.all([fetchRules(), fetchOverview()])
-      alert(`Removed ${result.removed} duplicate rule(s)`)
+      toast(`Removed ${result.removed} duplicate rule${result.removed === 1 ? '' : 's'}`, 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not remove duplicates', 'error')
     }
   }
 
   const handleBulkDelete = async () => {
     if (selectedRuleIds.length === 0) return
-    if (!confirm(`Delete ${selectedRuleIds.length} rule(s)? API users will lose access to these plans.`)) return
+    const count = selectedRuleIds.length
+    const ok = await confirm({
+      title: `Delete ${count} rule${count === 1 ? '' : 's'}?`,
+      message: 'API users will lose access to these plans immediately.',
+      confirmLabel: 'Delete rules',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     const result = await bulkDeleteApiPricingRules(selectedRuleIds)
     if (result.success) {
       setSelectedRuleIds([])
       await Promise.all([fetchRules(), fetchOverview()])
+      toast(`Deleted ${count} rule${count === 1 ? '' : 's'}`, 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not delete rules', 'error')
     }
   }
 
@@ -226,19 +245,22 @@ export default function ApiPricingPage() {
   const handleAddRule = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.planName || !formData.basePrice || formData.markupValue === '') {
-      alert('Please fill in all fields')
+      toast('Please fill in all fields', 'error')
       return
     }
 
     // A plan can only have one API price per service
     const duplicate = rules.find((r) => r.plan_name === formData.planName)
     if (duplicate) {
-      const overwrite = confirm(
-        `"${formData.planName}" already has an API price of ₦${Math.round(
+      const overwrite = await confirm({
+        title: 'Plan already priced',
+        message: `"${formData.planName}" already has an API price of ₦${Math.round(
           calculateFinalPrice(duplicate)
-        ).toLocaleString()}. Update it instead?`
-      )
+        ).toLocaleString()}. Update it instead?`,
+        confirmLabel: 'Update price',
+      })
       if (!overwrite) return
+
       setSubmitting(true)
       const updateResult = await updateApiPricingRule(duplicate.id, {
         basePrice: parseFloat(formData.basePrice),
@@ -248,8 +270,9 @@ export default function ApiPricingPage() {
       if (updateResult.success) {
         setFormData({ planName: '', basePrice: '', markupType: 'fixed', markupValue: '' })
         fetchRules()
+        toast('API price updated', 'success')
       } else {
-        alert('Error: ' + updateResult.error)
+        toast(updateResult.error || 'Could not update price', 'error')
       }
       setSubmitting(false)
       return
@@ -266,8 +289,9 @@ export default function ApiPricingPage() {
     if (result.success) {
       setFormData({ planName: '', basePrice: '', markupType: 'fixed', markupValue: '' })
       fetchRules()
+      toast('API pricing rule created', 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not create rule', 'error')
     }
     setSubmitting(false)
   }
@@ -283,23 +307,35 @@ export default function ApiPricingPage() {
     if (result.success) {
       setEditingRule(null)
       fetchRules()
+      toast('Rule updated', 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not update rule', 'error')
     }
     setSubmitting(false)
   }
 
   const handleDeleteRule = async (ruleId: string) => {
-    if (!confirm('Delete this API pricing rule?')) return
+    const ok = await confirm({
+      title: 'Delete this API pricing rule?',
+      message: 'API users will lose access to this plan immediately.',
+      confirmLabel: 'Delete rule',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     const result = await deleteApiPricingRule(ruleId)
-    if (result.success) fetchRules()
-    else alert('Error: ' + result.error)
+    if (result.success) {
+      fetchRules()
+      toast('Rule deleted', 'success')
+    } else {
+      toast(result.error || 'Could not delete rule', 'error')
+    }
   }
 
   const handleBulkUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!bulkMarkupValue || selectedRuleIds.length === 0) {
-      alert('Select rules and enter a markup value')
+      toast('Select rules and enter a markup value', 'error')
       return
     }
     setSubmitting(true)
@@ -312,9 +348,9 @@ export default function ApiPricingPage() {
       setSelectedRuleIds([])
       setBulkMarkupValue('')
       fetchRules()
-      alert(`Updated ${result.updated} rules`)
+      toast(`Updated ${result.updated} rule${result.updated === 1 ? '' : 's'}`, 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not update rules', 'error')
     }
     setSubmitting(false)
   }
@@ -322,7 +358,7 @@ export default function ApiPricingPage() {
   const handleBulkCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!bulkMarkupValue || selectedPlanValues.length === 0) {
-      alert('Select plans and enter a markup value')
+      toast('Select plans and enter a markup value', 'error')
       return
     }
     setSubmitting(true)
@@ -346,9 +382,9 @@ export default function ApiPricingPage() {
       const parts: string[] = []
       if (result.created) parts.push(`${result.created} created`)
       if (result.updated) parts.push(`${result.updated} updated`)
-      alert(`API pricing saved: ${parts.join(', ') || 'no changes'}`)
+      toast(`API pricing saved: ${parts.join(', ') || 'no changes'}`, 'success')
     } else {
-      alert('Error: ' + result.error)
+      toast(result.error || 'Could not save API pricing', 'error')
     }
     setSubmitting(false)
   }

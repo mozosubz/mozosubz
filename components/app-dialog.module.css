@@ -39,6 +39,31 @@
   animation: pop-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* The admin panel is permanently dark via hardcoded --admin-* tokens rather
+   than the .dark class, so a dialog built on --surface/--text-1 would render
+   light-on-dark there. The provider adds .admin on /admin routes to match. */
+.admin .dialog,
+.admin .toast {
+  background: var(--admin-bg-elevated);
+  color: var(--admin-text);
+  border-color: var(--admin-border-strong);
+}
+
+.admin .message {
+  color: var(--admin-text-secondary);
+}
+
+.admin .cancel {
+  background: var(--admin-bg-tertiary);
+  color: var(--admin-text-secondary);
+  border-color: var(--admin-border-strong);
+}
+
+.admin .cancel:hover:not(:disabled) {
+  background: var(--admin-bg-secondary);
+  color: var(--admin-text);
+}
+
 .iconRow {
   display: flex;
   align-items: center;

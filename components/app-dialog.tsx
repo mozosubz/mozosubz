@@ -10,6 +10,7 @@ import {
   useState,
 } from "react"
 import { createPortal } from "react-dom"
+import { usePathname } from "next/navigation"
 import { AlertTriangle, CheckCircle2, HelpCircle, Info, X } from "lucide-react"
 import styles from "./app-dialog.module.css"
 
@@ -66,6 +67,11 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
   } | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [mounted, setMounted] = useState(false)
+
+  // The dialog is portalled to <body>, outside the admin markup, so it can't
+  // inherit the admin panel's dark styling contextually — it's keyed off the route.
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith("/admin") ?? false
 
   const confirmButtonRef = useRef<HTMLButtonElement>(null)
   // Kept in a ref so the unmount cleanup can settle a still-open promise
@@ -144,21 +150,25 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
       {mounted &&
         pending &&
         createPortal(
-          <ConfirmDialog
-            options={pending.options}
-            onSettle={settle}
-            confirmButtonRef={confirmButtonRef}
-          />,
+          <div className={isAdmin ? styles.admin : undefined}>
+            <ConfirmDialog
+              options={pending.options}
+              onSettle={settle}
+              confirmButtonRef={confirmButtonRef}
+            />
+          </div>,
           document.body,
         )}
 
       {mounted &&
         toasts.length > 0 &&
         createPortal(
-          <div className={styles.toastWrap} role="region" aria-label="Notifications">
-            {toasts.map((item) => (
-              <ToastItem key={item.id} toast={item} onDismiss={dismissToast} />
-            ))}
+          <div className={isAdmin ? styles.admin : undefined}>
+            <div className={styles.toastWrap} role="region" aria-label="Notifications">
+              {toasts.map((item) => (
+                <ToastItem key={item.id} toast={item} onDismiss={dismissToast} />
+              ))}
+            </div>
           </div>,
           document.body,
         )}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, RefreshCw, Trash2, Loader2 } from "lucide-react"
+import { useConfirm, useToast } from "@/components/app-dialog"
 
 interface BotConnection {
   id: string
@@ -49,6 +50,8 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
   const router = useRouter()
   const [connections, setConnections] = useState(initialConnections)
   const [refreshing, setRefreshing] = useState(false)
+  const confirm = useConfirm()
+  const toast = useToast()
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
 
   // Refresh connections periodically to check for disconnections
@@ -79,15 +82,27 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
   }
 
   const handleDisconnect = async (connectionId: string) => {
+    const connection = connections.find((c) => c.id === connectionId)
+    const platform = connection?.platform ?? "bot"
+
+    // Disconnecting was previously a single unconfirmed tap on a destructive action.
+    const ok = await confirm({
+      title: `Disconnect ${platform}?`,
+      message: "You will need to link the bot again from scratch to keep using it.",
+      confirmLabel: "Disconnect",
+      tone: "danger",
+    })
+    if (!ok) return
+
     setDisconnecting(connectionId)
-    
+
     try {
       const res = await fetch(`/api/bot-connections/disconnect?id=${connectionId}`, {
         method: "DELETE",
       })
 
       if (!res.ok) {
-        alert("Failed to disconnect bot")
+        toast("Failed to disconnect bot", "error")
         setDisconnecting(null)
         return
       }
@@ -95,8 +110,9 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
       // Remove from local state immediately
       setConnections(connections.filter(c => c.id !== connectionId))
       setDisconnecting(null)
+      toast(`${platform} disconnected`, "success")
     } catch (err) {
-      alert("Error disconnecting bot")
+      toast("Error disconnecting bot", "error")
       setDisconnecting(null)
     }
   }
@@ -125,7 +141,7 @@ export function BotConnectionsClient({ userId, initialUser, initialConnections }
     const alreadyConnected = connections.some(c => c.platform.toLowerCase() === platformName.toLowerCase())
     
     if (alreadyConnected) {
-      alert(`You already have a ${platformName} bot connected. Please disconnect it first before connecting another one.`)
+      toast(`A ${platformName} bot is already connected. Disconnect it first.`, "error")
       return
     }
     

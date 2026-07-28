@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Copy, Check, Eye, EyeOff, Loader2, KeyRound, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useConfirm } from '@/components/app-dialog'
 
 interface ActiveKey {
   id: string
@@ -23,6 +24,7 @@ export function ConnectKeysManager() {
   const [loadingList, setLoadingList] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
+  const confirm = useConfirm()
 
   useEffect(() => {
     fetchActiveKey()
@@ -53,12 +55,16 @@ export function ConnectKeysManager() {
   }
 
   async function handleGenerate() {
-    if (
-      activeKey &&
-      !confirm('Generating a new key will invalidate your current one. Continue?')
-    ) {
-      return
-    }
+  if (activeKey) {
+  const ok = await confirm({
+  title: 'Replace your Connect Key?',
+  message:
+  'Your current key stops working immediately. Any app or script using it will start failing until you update it.',
+  confirmLabel: 'Generate new key',
+  tone: 'danger',
+  })
+  if (!ok) return
+  }
 
     setGenerating(true)
     setError('')

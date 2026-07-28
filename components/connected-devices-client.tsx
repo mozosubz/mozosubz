@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useConfirm, useToast } from '@/components/app-dialog'
 
 interface BotConnection {
   id: string
@@ -21,6 +22,8 @@ export function ConnectedDevicesClient({
 }: ConnectedDevicesClientProps) {
   const [connections, setConnections] = useState<BotConnection[]>([])
   const [loading, setLoading] = useState(true)
+  const confirm = useConfirm()
+  const toast = useToast()
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -56,6 +59,15 @@ export function ConnectedDevicesClient({
   const handleDisconnect = async (connectionId: string, platform: string) => {
     if (!connectKey) return
 
+    // Destructive and previously unconfirmed — one tap revoked the device.
+    const ok = await confirm({
+      title: `Disconnect ${platform}?`,
+      message: 'This device will need to be linked again before it can be used.',
+      confirmLabel: 'Disconnect',
+      tone: 'danger',
+    })
+    if (!ok) return
+
     try {
       setDisconnectingId(connectionId)
       const response = await fetch('/api/v1/bot-auth/disconnect', {
@@ -69,12 +81,13 @@ export function ConnectedDevicesClient({
 
       if (response.ok) {
         setConnections(connections.filter((c) => c.id !== connectionId))
+        toast(`${platform} disconnected`, 'success')
       } else {
-        alert('Failed to disconnect')
+        toast('Failed to disconnect', 'error')
       }
     } catch (error) {
       console.error('Failed to disconnect:', error)
-      alert('Error disconnecting device')
+      toast('Error disconnecting device', 'error')
     } finally {
       setDisconnectingId(null)
     }
