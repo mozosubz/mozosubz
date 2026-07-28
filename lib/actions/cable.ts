@@ -57,7 +57,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
     const serviceID = serviceIdMap[provider.toLowerCase()] || "dstv"
     const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
-    // Call provider API
+    // Call GSUBZ API
     const response = await buyCableSubscription({
       serviceID,
       plan: package_name,

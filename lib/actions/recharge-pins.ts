@@ -75,12 +75,9 @@ export async function generateRechargePins(
     }
 
     if (response.status === "error" || response.status !== "success") {
-      const providerError = response?.message || response?.title
       return {
         success: false,
-        error: providerError
-          ? String(providerError)
-          : "Failed to generate pins. Please try again.",
+        error: response?.message || response?.title || "Failed to generate pins from Gsubz API. Please try again.",
       }
     }
 
@@ -150,9 +147,7 @@ export async function generateRechargePins(
     } else {
       return {
         success: false,
-        error: response?.message
-          ? String(response.message)
-          : "Failed to generate pins. Invalid response from service.",
+        error: response?.message || "Failed to generate pins. Invalid response from service.",
       }
     }
   } catch (error) {

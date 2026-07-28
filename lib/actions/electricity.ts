@@ -72,7 +72,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       return { success: false, message: "Insufficient wallet balance" }
     }
 
-    // Call provider API
+    // Call GSUBZ API
     const response = await buyElectricityToken({
       serviceID,
       phone,

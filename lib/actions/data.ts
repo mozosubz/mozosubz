@@ -67,7 +67,7 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
 
     const requestID = "TXN" + Date.now()
 
-    // Call provider API
+    // Call GSUBZ API
     const response = await buyData({
       serviceID,
       plan,

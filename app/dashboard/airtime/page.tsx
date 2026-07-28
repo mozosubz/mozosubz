@@ -17,7 +17,7 @@ const networks = ["MTN", "Glo", "Airtel", "9mobile"]
 
 export default function AirtimePage() {
   const router = useRouter()
-  const { pickContact } = useContactPicker()
+  const { pickContact, supported: contactsSupported } = useContactPicker()
   const [network, setNetwork] = useState("MTN")
   const [phone, setPhone] = useState("")
   const [amount, setAmount] = useState("")
@@ -62,12 +62,9 @@ export default function AirtimePage() {
       case "cancelled":
         // Nothing to report — the user closed the sheet deliberately.
         break
-      case "android-intent-opened":
-        // The native Contacts app opened but can't return the number to a
-        // web page, so guide the user to type it after looking it up.
-        setError(result.message)
-        break
       default:
+        // Previously every one of these cases was swallowed by an empty catch,
+        // so the button appeared to do nothing at all.
         setError(result.message)
     }
   }
@@ -190,20 +187,19 @@ export default function AirtimePage() {
         <div className="form-group">
           <div className="flex items-center justify-between mb-2">
             <label className="form-label">Phone Number</label>
-            {/* Always rendered. On unsupported browsers (iOS, desktop) the
-                hook surfaces a message so the user knows to type instead.
-                The old `ContactsManager in window` guard hid the button on
-                Android Chrome — the only real-world target — because that
-                global only exists on desktop Chrome. */}
-            <button
-              type="button"
-              onClick={handleContactsPicker}
-              className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--primary)] bg-transparent border-none cursor-pointer"
-              aria-label="Pick from contacts"
-            >
-              <ContactRound size={14} aria-hidden="true" />
-              Contacts
-            </button>
+            {/* Only rendered where the Contact Picker API actually exists, so
+                iOS/desktop users aren't given a button that can never work.
+                Missing type="button" previously risked a form submit on tap. */}
+            {contactsSupported && (
+              <button
+                type="button"
+                onClick={handleContactsPicker}
+                className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--primary)] bg-transparent border-none cursor-pointer"
+              >
+                <ContactRound size={14} aria-hidden="true" />
+                Contacts
+              </button>
+            )}
           </div>
           <input
             type="tel"

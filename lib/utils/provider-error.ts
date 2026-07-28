@@ -178,9 +178,5 @@ export function resolveProviderError(
     message += ' Your wallet has been refunded.'
   }
 
-  return {
-    message,
-    code,
-    providerMessage: raw ?? null,
-  }
+  return { message, code, providerMessage: raw }
 }

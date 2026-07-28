@@ -24,16 +24,15 @@ export async function GET(request: NextRequest) {
       }
     } catch (fetchError) {
       return NextResponse.json(
-        { error: 'Failed to fetch plans from provider', plans: [] },
+        { error: 'Failed to fetch from Gsubz', plans: [] },
         { status: 200 }
       )
     }
 
-    // Handle error responses from the provider API
+    // Handle error responses from Gsubz API
     if (!plansData || plansData.error || plansData.status === 'error') {
-      const providerError = plansData?.message || plansData?.error
       return NextResponse.json({
-        error: providerError ? String(providerError) : 'No plans available',
+        error: plansData?.message || plansData?.error || 'No plans available',
         plans: []
       })
     }
@@ -44,7 +43,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ...plansData,
       plans: plans,
-      error: plans.length === 0 ? 'No plans available' : null,
+      error: plans.length === 0 ? 'No plans available' : null
     })
   } catch (error) {
     return NextResponse.json(
