@@ -60,8 +60,23 @@ html[data-slow-network='true'] {
   }
 }
 
-/* Optimize containment for performance */
-main, section, article, div[class*='container'] {
+/*
+ * Containment is opt-in, never blanket.
+ *
+ * This used to be applied to `main, section, article, div[class*='container']`.
+ * `contain: layout` and `contain: paint` both make an element a *containing
+ * block for `position: fixed` descendants*, so every fixed overlay inside a
+ * <main> or a `*container*` div resolved its `inset: 0` against that wrapper
+ * instead of the viewport. In the admin panel that wrapper is `main.admin-main`
+ * (min-height: 100vh + full table height), which pushed modals to the bottom of
+ * the scrollable page and forced you to scroll to reach them. `contain: paint`
+ * additionally clips them.
+ *
+ * Apply `.contain-paint` deliberately to small, repeated leaf elements where
+ * containment actually helps — not to page-level wrappers, where the benefit is
+ * negligible and the positioning breakage is severe.
+ */
+.contain-paint {
   contain: layout style paint;
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { X, User, Wallet, Activity } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { ModalPortal } from './modal-portal'
 
 interface UserDetailModalProps {
   userId: string
@@ -73,40 +74,57 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
 
   if (loading) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-body">
-            <div className="empty-state">
-              <p>Loading user details...</p>
+      <ModalPortal onClose={onClose}>
+        <div className="modal-overlay" onClick={onClose} role="presentation">
+          <div
+            className="modal-content modal-large"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-busy="true"
+            aria-label="Loading user details"
+          >
+            <div className="modal-body">
+              <div className="empty-state">
+                <p>Loading user details...</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </ModalPortal>
     )
   }
 
   if (!user) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header">
-            <h2 className="modal-title">User Not Found</h2>
-            <button onClick={onClose} className="modal-close" aria-label="Close">
-              <X size={20} />
-            </button>
-          </div>
-          <div className="modal-body">
-            <div className="empty-state">
-              <p>User data not available</p>
+      <ModalPortal onClose={onClose}>
+        <div className="modal-overlay" onClick={onClose} role="presentation">
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="User not found"
+          >
+            <div className="modal-header">
+              <h2 className="modal-title">User Not Found</h2>
+              <button onClick={onClose} className="modal-close" aria-label="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="empty-state">
+                <p>User data not available</p>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={onClose} type="button">
+                Close
+              </button>
             </div>
           </div>
-          <div className="modal-actions">
-            <button className="btn btn-secondary" onClick={onClose}>
-              Close
-            </button>
-          </div>
         </div>
-      </div>
+      </ModalPortal>
     )
   }
 
@@ -119,11 +137,18 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+    <ModalPortal onClose={onClose}>
+      <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="modal-content modal-large"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Details for ${user.full_name || 'user'}`}
+      >
         <div className="modal-header">
           <h2 className="modal-title">{user.full_name || 'User'}</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
+          <button onClick={onClose} className="modal-close" aria-label="Close" type="button">
             <X size={20} />
           </button>
         </div>
@@ -306,11 +331,12 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
         </div>
 
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>
+          <button className="btn btn-secondary" onClick={onClose} type="button">
             Close
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   )
 }

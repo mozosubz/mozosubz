@@ -1,6 +1,7 @@
 'use client'
 
 import { X, FileText } from 'lucide-react'
+import { ModalPortal } from './modal-portal'
 
 interface LogDetailModalProps {
   log: any
@@ -31,8 +32,15 @@ function DetailRow({
 
 export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <ModalPortal onClose={onClose}>
+      <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Action details"
+      >
         <div className="modal-header">
           <h2>
             <FileText size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: '-3px' }} />
@@ -91,6 +99,7 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   )
 }

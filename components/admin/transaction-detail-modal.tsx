@@ -1,6 +1,7 @@
 'use client'
 
 import { X, Receipt, Copy } from 'lucide-react'
+import { ModalPortal } from './modal-portal'
 
 interface TransactionDetailModalProps {
   transaction: any
@@ -54,8 +55,15 @@ export function TransactionDetailModal({
   const status = transaction.status?.toLowerCase() || 'pending'
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+    <ModalPortal onClose={onClose}>
+      <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="modal-content modal-large"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Transaction details"
+      >
         <div className="modal-header">
           <h2>
             <Receipt size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: '-3px' }} />
@@ -260,6 +268,7 @@ export function TransactionDetailModal({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   )
 }

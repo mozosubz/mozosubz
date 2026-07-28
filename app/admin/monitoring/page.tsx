@@ -13,6 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { ModalPortal } from '@/components/admin/modal-portal'
 
 interface EndpointCheck {
   name: string
@@ -546,8 +547,15 @@ export default function MonitoringPage() {
 
       {/* Endpoint Modal */}
       {selectedEndpoint && (
-        <div className="modal-overlay" onClick={() => setSelectedEndpoint(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <ModalPortal onClose={() => setSelectedEndpoint(null)}>
+        <div className="modal-overlay" onClick={() => setSelectedEndpoint(null)} role="presentation">
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${selectedEndpoint.name} endpoint details`}
+          >
             <div className="modal-header">
               <h2>{selectedEndpoint.name}</h2>
               <button className="modal-close" onClick={() => setSelectedEndpoint(null)} type="button">
@@ -600,12 +608,20 @@ export default function MonitoringPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Gsubz Modal */}
       {selectedGsubz && (
-        <div className="modal-overlay" onClick={() => setSelectedGsubz(null)}>
-          <div className="modal-content modal-lg" onClick={(e) => e.stopPropagation()}>
+        <ModalPortal onClose={() => setSelectedGsubz(null)}>
+        <div className="modal-overlay" onClick={() => setSelectedGsubz(null)} role="presentation">
+          <div
+            className="modal-content modal-lg"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Gsubz service details"
+          >
             <div className="modal-header">
               <h2>
                 {selectedGsubz.service} — {selectedGsubz.type}
@@ -667,6 +683,7 @@ export default function MonitoringPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   )

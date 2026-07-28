@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X, CheckCircle, AlertCircle, Wallet } from 'lucide-react'
+import { ModalPortal } from './modal-portal'
 
 interface WalletActionModalProps {
   user: {
@@ -74,8 +75,21 @@ export function WalletActionModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    // Escape and backdrop clicks are disabled while the request is in flight so
+    // an in-progress wallet credit/debit can't be dismissed mid-submit.
+    <ModalPortal onClose={loading ? undefined : onClose}>
+      <div
+        className="modal-overlay"
+        onClick={loading ? undefined : onClose}
+        role="presentation"
+      >
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${isCredit ? 'Credit' : 'Debit'} wallet`}
+      >
         <div className="modal-header">
           <h2>
             <Wallet size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: '-3px' }} />
@@ -268,6 +282,7 @@ export function WalletActionModal({
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   )
 }
