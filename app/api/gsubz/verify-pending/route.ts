@@ -1,61 +1,63 @@
 /**
  * POST /api/gsubz/verify-pending
  *
- * Internal-only endpoint. Called fire-and-forget by purchaseData (and the
- * other service actions) whenever a provider API call times out.
+ * Internal-only endpoint. Called fire-and-forget from every service action
+ * whenever the provider API call times out.
  *
  * Flow
  * ────
- * 1. Validates the internal bearer token so this can never be triggered by an
- *    external caller.
- * 2. Waits an initial delay (default 30 s) then calls verifyTransaction().
- * 3. If the provider hasn't settled yet it retries up to two more times (at
- *    ~60 s and ~120 s from the first call).
- * 4. On a confirmed SUCCESS  → atomicDeductWallet + updateTransactionStatus
- * 5. On a confirmed FAILURE  → updateTransactionStatus (wallet untouched)
- * 6. If the provider still hasn't settled after all retries → mark FAILED and
- *    leave wallet untouched.
+ * 1. Validates the internal bearer token.
+ * 2. Polls verifyTransaction() every 500 ms for up to 120 s.
+ * 3. On confirmed SUCCESS  → atomicDeductWallet + updateTransactionStatus("SUCCESS")
+ * 4. On confirmed FAILURE  → updateTransactionStatus("FAILED"), wallet untouched
+ * 5. If 120 s elapses with no settlement → mark FAILED, wallet untouched
  *
  * Security
  * ────────
- * The route checks Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>.  That
- * key is server-side only and is never sent to the browser.
+ * Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY> — server-side only, never
+ * exposed to the browser.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { verifyTransaction } from "@/lib/api/gsubz"
 import { resolveProviderError } from "@/lib/utils/provider-error"
-import {
-  atomicDeductWallet,
-  updateTransactionStatus,
-} from "@/lib/utils/save-transaction"
+import { atomicDeductWallet, updateTransactionStatus } from "@/lib/utils/save-transaction"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
 const INTERNAL_TOKEN = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-/** Delay helper — resolves after `ms` milliseconds. */
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Poll interval in ms */
+const POLL_INTERVAL_MS = 500
+/** Maximum total time to keep polling in ms (2 minutes) */
+const MAX_POLL_MS = 120_000
 
-/** True when a provider response code/status indicates settled success. */
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+/** True when the provider response indicates a settled success. */
 function isProviderSuccess(r: any): boolean {
   return (
-    (r.code === 200 || r.code === "200" || r.code === "000") &&
-    (r.status === "TRANSACTION_SUCCESSFUL" ||
-      r.status === "success" ||
-      r.status === "successful" ||
-      r.description === "TRANSACTION_SUCCESSFUL")
+    (r?.code === 200 || r?.code === "200" || r?.code === "000") &&
+    (r?.status === "TRANSACTION_SUCCESSFUL" ||
+      r?.status === "success" ||
+      r?.status === "successful" ||
+      r?.description === "TRANSACTION_SUCCESSFUL")
   )
 }
 
-/** True when the provider response is a hard failure (not still pending). */
+/**
+ * True when the provider response is a hard failure.
+ * Statuses that indicate the provider is still processing are NOT failures.
+ */
 function isProviderFailure(r: any): boolean {
-  const pending = ["pending", "processing", "PENDING", "PROCESSING"]
-  return !isProviderSuccess(r) && !pending.includes(r.status ?? "")
+  if (!r) return false
+  const pending = ["pending", "processing", "PENDING", "PROCESSING", "initiated", "INITIATED"]
+  if (isProviderSuccess(r)) return false
+  return !pending.includes(r?.status ?? "")
 }
 
 export async function POST(request: NextRequest) {
-  // ── Auth ────────────────────────────────────────────────────────────────
+  // ── Auth ─────────────────────────────────────────────────────────────────
   const auth = request.headers.get("Authorization") ?? ""
   if (!INTERNAL_TOKEN || auth !== `Bearer ${INTERNAL_TOKEN}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -67,7 +69,6 @@ export async function POST(request: NextRequest) {
     amount: number
     balanceBefore: number
     category: string
-    initialDelayMs?: number
   }
 
   try {
@@ -76,46 +77,42 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 })
   }
 
-  const {
-    requestID,
-    userId,
-    amount,
-    balanceBefore,
-    category,
-    initialDelayMs = 30_000,
-  } = body
+  const { requestID, userId, amount, balanceBefore, category } = body
 
-  console.log(`[v0] verify-pending START | requestID=${requestID} | category=${category}`)
+  if (!requestID || !userId) {
+    return NextResponse.json({ error: "Missing requestID or userId" }, { status: 400 })
+  }
 
-  // ── Retry schedule: 30 s → 30 s → 60 s (total ≈ 2 min) ─────────────────
-  const delays = [initialDelayMs, 30_000, 60_000]
+  console.log(`[v0] verify-pending START | requestID=${requestID} | category=${category} | userId=${userId}`)
 
-  for (let attempt = 0; attempt < delays.length; attempt++) {
-    await delay(delays[attempt])
+  const deadline = Date.now() + MAX_POLL_MS
+  let attempt = 0
 
-    console.log(`[v0] verify-pending attempt ${attempt + 1} | requestID=${requestID}`)
+  while (Date.now() < deadline) {
+    attempt++
 
     let verifyResponse: any
     try {
       verifyResponse = await verifyTransaction(requestID)
     } catch (err) {
-      console.error(`[v0] verify-pending attempt ${attempt + 1} fetch error:`, err)
-      // Network error — try again on next iteration
+      console.error(`[v0] verify-pending attempt ${attempt} fetch error:`, err)
+      // Network error — wait and retry
+      await delay(POLL_INTERVAL_MS)
       continue
     }
 
-    console.log(`[v0] verify-pending response attempt ${attempt + 1}:`, JSON.stringify(verifyResponse))
+    console.log(
+      `[v0] verify-pending attempt ${attempt} | requestID=${requestID} | status=${verifyResponse?.status} | code=${verifyResponse?.code}`
+    )
 
+    // ── Confirmed SUCCESS ───────────────────────────────────────────────────
     if (isProviderSuccess(verifyResponse)) {
-      // ── SUCCESS path ──────────────────────────────────────────────────────
-      console.log(`[v0] verify-pending CONFIRMED SUCCESS | requestID=${requestID}`)
+      console.log(`[v0] verify-pending CONFIRMED SUCCESS | requestID=${requestID} | attempts=${attempt}`)
 
       const deductResult = await atomicDeductWallet(userId, amount)
 
       if (!deductResult.success) {
-        // Wallet deduction failed (e.g. insufficient balance at settle time).
-        // Mark as FAILED so the user isn't left with a ghost PENDING row.
-        console.error(`[v0] verify-pending deduct failed after success:`, deductResult.error)
+        console.error(`[v0] verify-pending deduct failed after confirmed success:`, deductResult.error)
         await updateTransactionStatus(requestID, "FAILED", { apiResponse: verifyResponse })
         return NextResponse.json({ settled: "FAILED", reason: "deduct_failed" })
       }
@@ -127,8 +124,7 @@ export async function POST(request: NextRequest) {
         apiResponse: verifyResponse,
       })
 
-      // Fire success email. Fetch the transaction row to get full details for
-      // the email template.
+      // Fire receipt email — non-blocking, swallow errors
       try {
         const supabase = createAdminClient()
         const { data: tx } = await supabase
@@ -153,29 +149,32 @@ export async function POST(request: NextRequest) {
           }).catch(() => {})
         }
       } catch {
-        // Email failure must not affect settlement
+        // Email failure must never affect settlement
       }
 
-      return NextResponse.json({ settled: "SUCCESS", balanceAfter })
+      return NextResponse.json({ settled: "SUCCESS", balanceAfter, attempts: attempt })
     }
 
+    // ── Confirmed FAILURE ───────────────────────────────────────────────────
     if (isProviderFailure(verifyResponse)) {
-      // ── FAILURE path ──────────────────────────────────────────────────────
       const resolved = resolveProviderError(verifyResponse)
-      console.log(`[v0] verify-pending CONFIRMED FAILURE | requestID=${requestID} | code=${resolved.code}`)
+      console.log(
+        `[v0] verify-pending CONFIRMED FAILURE | requestID=${requestID} | code=${resolved.code} | attempts=${attempt}`
+      )
 
       await updateTransactionStatus(requestID, "FAILED", { apiResponse: verifyResponse })
-
-      return NextResponse.json({ settled: "FAILED", code: resolved.code })
+      return NextResponse.json({ settled: "FAILED", code: resolved.code, attempts: attempt })
     }
 
-    // Still pending — continue to next retry
-    console.log(`[v0] verify-pending still pending, will retry | requestID=${requestID}`)
+    // Still pending — wait 500ms and poll again
+    await delay(POLL_INTERVAL_MS)
   }
 
-  // ── All retries exhausted — treat as failed ───────────────────────────────
-  console.log(`[v0] verify-pending TIMEOUT EXHAUSTED | requestID=${requestID} — marking FAILED`)
+  // ── Deadline exceeded ─────────────────────────────────────────────────────
+  console.log(
+    `[v0] verify-pending DEADLINE EXCEEDED | requestID=${requestID} | attempts=${attempt} — marking FAILED`
+  )
   await updateTransactionStatus(requestID, "FAILED")
 
-  return NextResponse.json({ settled: "FAILED", reason: "retries_exhausted" })
+  return NextResponse.json({ settled: "FAILED", reason: "deadline_exceeded", attempts: attempt })
 }

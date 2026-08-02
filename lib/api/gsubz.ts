@@ -92,9 +92,10 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
     options.body = body
   }
 
-  // Tighter timeout: 25 seconds max
+  // 55 second timeout — gives the provider enough time on slow networks.
+  // If it fires, the action saves a PENDING row and the verify job takes over.
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 25000)
+  const timeoutId = setTimeout(() => controller.abort(), 55000)
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {

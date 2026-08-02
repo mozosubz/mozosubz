@@ -25,6 +25,10 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
   const clientAmount = formData.get("amount") as string
   const planDisplayName = formData.get("planDisplayName") as string
 
+  // Hoisted above try so the catch block can use the real requestID that was
+  // sent to the provider — not a newly generated one.
+  const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
+
   try {
     // SECURITY: Validate all inputs before processing
     const amount = parseFloat(clientAmount)
@@ -65,8 +69,6 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
     if (balanceBefore < amount) {
       return { success: false, message: "Insufficient wallet balance" }
     }
-
-    const requestID = "TXN" + Date.now()
 
     // Call GSUBZ API
     const response = await buyData({
@@ -205,58 +207,55 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
     const isTimeout = error instanceof Error && error.name === "AbortError"
 
     if (isTimeout) {
-      // The provider didn't respond within the timeout window. We don't know
-      // whether the transaction went through, so save it as PENDING and
-      // schedule a background requery. The wallet is NOT touched yet — it will
-      // only be deducted if the verify job confirms success.
-      console.log("[v0] Data purchase timed out — saving PENDING, scheduling verify")
+      console.log(`[v0] Data purchase timed out — saving PENDING | requestID=${requestID}`)
 
-      // Reconstruct the values we need (they're in scope from the try block)
       const amount = parseFloat(clientAmount)
       const networkNameMap: Record<string, string> = { mtn: "MTN", glo: "Glo", airtel: "Airtel", etisalat: "9mobile" }
-      const networkKey = (formData.get("serviceID") as string)?.split("_")[0]?.toLowerCase() ?? ""
+      const networkKey = serviceID?.split("_")[0]?.toLowerCase() ?? ""
       const networkName = networkNameMap[networkKey] || "Data"
-      const serviceID2 = formData.get("serviceID") as string
-      const serviceType2 = serviceID2?.split("_").slice(1).join("_") || "data"
+      const serviceType2 = serviceID?.split("_").slice(1).join("_") || "data"
 
-      // We need a userId for the PENDING row — re-derive it
+      // userId and balanceBefore may not be in scope if the timeout happened
+      // before those variables were assigned — re-derive them safely.
       let pendingUserId: string | undefined = trustedUserId
       if (!pendingUserId) {
         try {
-          const { createClient: createC } = await import("@/lib/supabase/server")
-          const sup = await createC()
+          const sup = await createClient()
           const { data: { user } } = await sup.auth.getUser()
           pendingUserId = user?.id
         } catch {}
       }
 
       if (pendingUserId) {
-        const admin = createAdminClient()
-        const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
+        const adminClient = createAdminClient()
+        const { data: profile } = await adminClient
+          .from("profiles")
+          .select("wallet_balance")
+          .eq("id", pendingUserId)
+          .single()
         const bal = Number(profile?.wallet_balance ?? 0)
-        const requestID2 = "TXN" + Date.now()
 
         await saveTransaction({
           userId: pendingUserId,
-          transactionId: requestID2,
+          transactionId: requestID,
           category: "DATA",
-          serviceId: serviceID2,
+          serviceId: serviceID,
           serviceName: `${networkName} Data`,
           serviceType: "Data",
           serviceVariant: `${networkName.toUpperCase()} ${serviceType2.toUpperCase().replace("_", " ")}`,
           amount,
-          phone: formData.get("phone") as string,
+          phone,
           status: "PENDING",
           description: planDisplayName
             ? `${networkName} Data · ${planDisplayName}`
-            : `${networkName} Data · ${formData.get("phone")}`,
+            : `${networkName} Data · ${phone}`,
           balanceBefore: bal,
-          balanceAfter: bal, // unchanged until verify confirms success
+          balanceAfter: bal,
           planDetails: planDisplayName,
         })
 
         scheduleVerifyPending({
-          requestID: requestID2,
+          requestID,
           userId: pendingUserId,
           amount,
           balanceBefore: bal,
@@ -268,7 +267,7 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
         success: false,
         pending: true,
         message:
-          "Your request is taking longer than expected. We are checking on it in the background — your wallet will only be charged if the transaction succeeds. Check your transaction history in a moment.",
+          "Your request is taking longer than expected. We are verifying it in the background — your wallet will only be charged if it succeeds. Check your transaction history in a moment.",
       }
     }
 

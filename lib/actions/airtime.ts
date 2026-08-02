@@ -24,6 +24,8 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
   const amount = formData.get("amount") as string
 
   const startTime = Date.now()
+  // Hoisted so the catch block references the exact ID sent to the provider.
+  const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
   try {
     // SECURITY: Validate inputs
@@ -76,7 +78,6 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
     }
 
     const serviceID = serviceIdMap[network.toLowerCase()] || "mtn"
-    const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
     // Call GSUBZ API
     const gsubzStartTime = Date.now()
@@ -193,7 +194,7 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
     const isTimeout = error instanceof Error && error.name === "AbortError"
 
     if (isTimeout) {
-      console.log("[v0] Airtime purchase timed out — saving PENDING, scheduling verify")
+      console.log(`[v0] Airtime purchase timed out — saving PENDING | requestID=${requestID}`)
 
       const numAmount = parseFloat(amount)
       const networkNameMap: Record<string, string> = { mtn: "MTN", glo: "Glo", airtel: "Airtel", etisalat: "9mobile" }
@@ -209,14 +210,13 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
       }
 
       if (pendingUserId) {
-        const admin = createAdminClient()
-        const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
+        const adminClient = createAdminClient()
+        const { data: profile } = await adminClient.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
         const bal = Number(profile?.wallet_balance ?? 0)
-        const requestID2 = "TXN" + Date.now()
 
         await saveTransaction({
           userId: pendingUserId,
-          transactionId: requestID2,
+          transactionId: requestID,
           category: "AIRTIME",
           serviceId: network,
           serviceName: `${networkName} Airtime`,
@@ -230,7 +230,7 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
         })
 
         scheduleVerifyPending({
-          requestID: requestID2,
+          requestID,
           userId: pendingUserId,
           amount: numAmount,
           balanceBefore: bal,
@@ -242,7 +242,7 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
         success: false,
         pending: true,
         message:
-          "Your request is taking longer than expected. We are checking on it in the background — your wallet will only be charged if the transaction succeeds. Check your transaction history in a moment.",
+          "Your request is taking longer than expected. We are verifying it in the background — your wallet will only be charged if it succeeds. Check your transaction history in a moment.",
       }
     }
 
