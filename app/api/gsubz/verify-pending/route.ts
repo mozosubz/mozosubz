@@ -21,7 +21,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyTransaction } from "@/lib/api/gsubz"
 import { resolveProviderError } from "@/lib/utils/provider-error"
-import { atomicDeductWallet, updateTransactionStatus } from "@/lib/utils/save-transaction"
+import { atomicDeductWallet, atomicRefundWallet, updateTransactionStatus } from "@/lib/utils/save-transaction"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
@@ -159,11 +159,14 @@ export async function POST(request: NextRequest) {
     if (isProviderFailure(verifyResponse)) {
       const resolved = resolveProviderError(verifyResponse)
       console.log(
-        `[v0] verify-pending CONFIRMED FAILURE | requestID=${requestID} | code=${resolved.code} | attempts=${attempt}`
+        `[v0] verify-pending CONFIRMED FAILURE | requestID=${requestID} | code=${resolved.code} | attempts=${attempt} — refunding`
       )
 
       await updateTransactionStatus(requestID, "FAILED", { apiResponse: verifyResponse })
-      return NextResponse.json({ settled: "FAILED", code: resolved.code, attempts: attempt })
+      // Refund the user since the provider confirmed the transaction failed
+      await atomicRefundWallet(userId, amount)
+      
+      return NextResponse.json({ settled: "FAILED", code: resolved.code, attempts: attempt, refunded: true })
     }
 
     // Still pending — wait 500ms and poll again
@@ -172,9 +175,11 @@ export async function POST(request: NextRequest) {
 
   // ── Deadline exceeded ─────────────────────────────────────────────────────
   console.log(
-    `[v0] verify-pending DEADLINE EXCEEDED | requestID=${requestID} | attempts=${attempt} — marking FAILED`
+    `[v0] verify-pending DEADLINE EXCEEDED | requestID=${requestID} | attempts=${attempt} — marking FAILED and refunding`
   )
   await updateTransactionStatus(requestID, "FAILED")
+  // Provider never settled the transaction within 2 minutes, so refund the user
+  await atomicRefundWallet(userId, amount)
 
-  return NextResponse.json({ settled: "FAILED", reason: "deadline_exceeded", attempts: attempt })
+  return NextResponse.json({ settled: "FAILED", reason: "deadline_exceeded", attempts: attempt, refunded: true })
 }
