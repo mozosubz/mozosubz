@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { resolveProviderError } from "@/lib/utils/provider-error"
+import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -189,6 +190,62 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
       },
     }
   } catch (error) {
+    const isTimeout = error instanceof Error && error.name === "AbortError"
+
+    if (isTimeout) {
+      console.log("[v0] Airtime purchase timed out — saving PENDING, scheduling verify")
+
+      const numAmount = parseFloat(amount)
+      const networkNameMap: Record<string, string> = { mtn: "MTN", glo: "Glo", airtel: "Airtel", etisalat: "9mobile" }
+      const networkName = networkNameMap[network?.toLowerCase()] || network || "Airtime"
+
+      let pendingUserId: string | undefined = trustedUserId
+      if (!pendingUserId) {
+        try {
+          const sup = await createClient()
+          const { data: { user } } = await sup.auth.getUser()
+          pendingUserId = user?.id
+        } catch {}
+      }
+
+      if (pendingUserId) {
+        const admin = createAdminClient()
+        const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
+        const bal = Number(profile?.wallet_balance ?? 0)
+        const requestID2 = "TXN" + Date.now()
+
+        await saveTransaction({
+          userId: pendingUserId,
+          transactionId: requestID2,
+          category: "AIRTIME",
+          serviceId: network,
+          serviceName: `${networkName} Airtime`,
+          serviceType: "Airtime",
+          amount: numAmount,
+          phone,
+          status: "PENDING",
+          description: `${networkName} Airtime · ${phone}`,
+          balanceBefore: bal,
+          balanceAfter: bal,
+        })
+
+        scheduleVerifyPending({
+          requestID: requestID2,
+          userId: pendingUserId,
+          amount: numAmount,
+          balanceBefore: bal,
+          category: "AIRTIME",
+        })
+      }
+
+      return {
+        success: false,
+        pending: true,
+        message:
+          "Your request is taking longer than expected. We are checking on it in the background — your wallet will only be charged if the transaction succeeds. Check your transaction history in a moment.",
+      }
+    }
+
     console.error("[v0] Airtime purchase error:", error)
     return { success: false, message: "An error occurred while processing your request", error: String(error) }
   }

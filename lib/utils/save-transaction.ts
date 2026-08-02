@@ -128,6 +128,46 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
 }
 
 /**
+ * UPDATE TRANSACTION STATUS
+ * Patches an existing PENDING transaction to SUCCESS or FAILED after a
+ * background requery confirms the real outcome. Also updates balance_after
+ * when the transaction resolved as SUCCESS (the deduction happened post-save).
+ */
+export async function updateTransactionStatus(
+  transactionId: string,
+  status: "SUCCESS" | "FAILED",
+  opts?: { balanceAfter?: number; apiResponse?: Record<string, any> }
+) {
+  try {
+    const supabase = createAdminClient()
+
+    const patch: Record<string, any> = {
+      status,
+      updated_at: new Date().toISOString(),
+    }
+    if (opts?.balanceAfter !== undefined) patch.balance_after = opts.balanceAfter
+    if (opts?.apiResponse) patch.api_response = JSON.stringify(opts.apiResponse)
+
+    const { error } = await supabase
+      .from("transactions")
+      .update(patch)
+      .eq("transaction_id", transactionId)
+      .eq("status", "PENDING") // Safety guard: never overwrite a finalised row
+
+    if (error) {
+      console.error("[v0] updateTransactionStatus error:", error)
+      return { success: false, error: error.message }
+    }
+
+    console.log("[v0] updateTransactionStatus:", { transactionId, status })
+    return { success: true }
+  } catch (error) {
+    console.error("[v0] updateTransactionStatus exception:", error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/**
  * ATOMIC WALLET DEDUCTION
  * Deducts amount from wallet in a single database transaction
  * This prevents race conditions when multiple requests hit simultaneously

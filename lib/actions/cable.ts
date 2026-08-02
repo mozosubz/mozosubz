@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { isValidAmount } from "@/lib/utils/input-validation"
 import { resolveProviderError } from "@/lib/utils/provider-error"
+import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -176,6 +177,62 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
       },
     }
   } catch (error) {
+    const isTimeout = error instanceof Error && error.name === "AbortError"
+
+    if (isTimeout) {
+      console.log("[v0] Cable purchase timed out — saving PENDING, scheduling verify")
+
+      let pendingUserId: string | undefined = trustedUserId
+      if (!pendingUserId) {
+        try {
+          const sup = await createClient()
+          const { data: { user } } = await sup.auth.getUser()
+          pendingUserId = user?.id
+        } catch {}
+      }
+
+      if (pendingUserId) {
+        const admin = createAdminClient()
+        const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
+        const bal = Number(profile?.wallet_balance ?? 0)
+        const requestID2 = "TXN" + Date.now()
+        const clientAmount2 = parseFloat(formData.get("amount") as string || "0")
+
+        await saveTransaction({
+          userId: pendingUserId,
+          transactionId: requestID2,
+          category: "CABLE",
+          serviceId: provider,
+          serviceName: `${provider?.toUpperCase()} Cable`,
+          serviceType: "Cable",
+          amount: clientAmount2,
+          phone: smartcard,
+          status: "PENDING",
+          description: packageDisplayName
+            ? `${provider?.toUpperCase()} · ${packageDisplayName}`
+            : `${provider?.toUpperCase()} Cable · ${smartcard}`,
+          balanceBefore: bal,
+          balanceAfter: bal,
+          planDetails: packageDisplayName,
+        })
+
+        scheduleVerifyPending({
+          requestID: requestID2,
+          userId: pendingUserId,
+          amount: clientAmount2,
+          balanceBefore: bal,
+          category: "CABLE",
+        })
+      }
+
+      return {
+        success: false,
+        pending: true,
+        message:
+          "Your request is taking longer than expected. We are checking on it in the background — your wallet will only be charged if the transaction succeeds. Check your transaction history in a moment.",
+      }
+    }
+
     console.error("[v0] Request processing error")
     return { success: false, message: "An error occurred while processing your request" }
   }

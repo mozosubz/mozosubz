@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { resolveProviderError } from "@/lib/utils/provider-error"
+import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -183,6 +184,74 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       },
     }
   } catch (error) {
+    const isTimeout = error instanceof Error && error.name === "AbortError"
+
+    if (isTimeout) {
+      console.log("[v0] Electricity payment timed out — saving PENDING, scheduling verify")
+
+      let pendingUserId: string | undefined = trustedUserId
+      if (!pendingUserId) {
+        try {
+          const sup = await createClient()
+          const { data: { user } } = await sup.auth.getUser()
+          pendingUserId = user?.id
+        } catch {}
+      }
+
+      if (pendingUserId) {
+        const admin = createAdminClient()
+        const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
+        const bal = Number(profile?.wallet_balance ?? 0)
+        const requestID2 = "TXN" + Date.now()
+        const numAmount = parseFloat(amount)
+
+        const serviceIdMap: Record<string, string> = {
+          "Ikeja Electric": "ikeja-electric",
+          "Eko Electric": "eko-electric",
+          "Abuja Electric": "abuja-electric",
+          "Kano Electric": "kano-electric",
+          "Port Harcourt Electric": "portharcourt-electric",
+          "Jos Electric": "jos-electric",
+          "Ibadan Electric": "ibadan-electric",
+          "Kaduna Electric": "kaduna-electric",
+          "Enugu Electric": "enugu-electric",
+          "Benin Electric": "benin-electric",
+          "Aba Electric": "aba-electric",
+          "Yola Electric": "yola-electric",
+        }
+        const serviceID2 = serviceIdMap[disco] || "ikeja-electric"
+
+        await saveTransaction({
+          userId: pendingUserId,
+          transactionId: requestID2,
+          category: "ELECTRICITY",
+          serviceId: serviceID2,
+          serviceName: "Electricity",
+          amount: numAmount,
+          phone: meterNumber,
+          status: "PENDING",
+          description: `${disco} Electricity · ${meterNumber}`,
+          balanceBefore: bal,
+          balanceAfter: bal,
+        })
+
+        scheduleVerifyPending({
+          requestID: requestID2,
+          userId: pendingUserId,
+          amount: numAmount,
+          balanceBefore: bal,
+          category: "ELECTRICITY",
+        })
+      }
+
+      return {
+        success: false,
+        pending: true,
+        message:
+          "Your request is taking longer than expected. We are checking on it in the background — your wallet will only be charged if the transaction succeeds. Check your transaction history in a moment.",
+      }
+    }
+
     console.error("[v0] Request processing error")
     return { success: false, message: "An error occurred while processing your request" }
   }

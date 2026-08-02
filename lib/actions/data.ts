@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { resolveProviderError } from "@/lib/utils/provider-error"
+import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -201,6 +202,76 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
       },
     }
   } catch (error) {
+    const isTimeout = error instanceof Error && error.name === "AbortError"
+
+    if (isTimeout) {
+      // The provider didn't respond within the timeout window. We don't know
+      // whether the transaction went through, so save it as PENDING and
+      // schedule a background requery. The wallet is NOT touched yet — it will
+      // only be deducted if the verify job confirms success.
+      console.log("[v0] Data purchase timed out — saving PENDING, scheduling verify")
+
+      // Reconstruct the values we need (they're in scope from the try block)
+      const amount = parseFloat(clientAmount)
+      const networkNameMap: Record<string, string> = { mtn: "MTN", glo: "Glo", airtel: "Airtel", etisalat: "9mobile" }
+      const networkKey = (formData.get("serviceID") as string)?.split("_")[0]?.toLowerCase() ?? ""
+      const networkName = networkNameMap[networkKey] || "Data"
+      const serviceID2 = formData.get("serviceID") as string
+      const serviceType2 = serviceID2?.split("_").slice(1).join("_") || "data"
+
+      // We need a userId for the PENDING row — re-derive it
+      let pendingUserId: string | undefined = trustedUserId
+      if (!pendingUserId) {
+        try {
+          const { createClient: createC } = await import("@/lib/supabase/server")
+          const sup = await createC()
+          const { data: { user } } = await sup.auth.getUser()
+          pendingUserId = user?.id
+        } catch {}
+      }
+
+      if (pendingUserId) {
+        const admin = createAdminClient()
+        const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
+        const bal = Number(profile?.wallet_balance ?? 0)
+        const requestID2 = "TXN" + Date.now()
+
+        await saveTransaction({
+          userId: pendingUserId,
+          transactionId: requestID2,
+          category: "DATA",
+          serviceId: serviceID2,
+          serviceName: `${networkName} Data`,
+          serviceType: "Data",
+          serviceVariant: `${networkName.toUpperCase()} ${serviceType2.toUpperCase().replace("_", " ")}`,
+          amount,
+          phone: formData.get("phone") as string,
+          status: "PENDING",
+          description: planDisplayName
+            ? `${networkName} Data · ${planDisplayName}`
+            : `${networkName} Data · ${formData.get("phone")}`,
+          balanceBefore: bal,
+          balanceAfter: bal, // unchanged until verify confirms success
+          planDetails: planDisplayName,
+        })
+
+        scheduleVerifyPending({
+          requestID: requestID2,
+          userId: pendingUserId,
+          amount,
+          balanceBefore: bal,
+          category: "DATA",
+        })
+      }
+
+      return {
+        success: false,
+        pending: true,
+        message:
+          "Your request is taking longer than expected. We are checking on it in the background — your wallet will only be charged if the transaction succeeds. Check your transaction history in a moment.",
+      }
+    }
+
     console.error("[v0] Request processing error")
     return { success: false, message: "An error occurred while processing your request" }
   }
