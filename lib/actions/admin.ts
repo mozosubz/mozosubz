@@ -306,16 +306,16 @@ export async function getTransactions(
 
     const offset = (page - 1) * limit
 
-    // Join profiles so each transaction row carries the user's name and email
+    // Step 1: fetch transactions (no FK join — transactions.user_id has no
+    // formal FK constraint so PostgREST can't auto-resolve the relationship).
     let query = supabase
       .from('transactions')
-      .select('*, profiles!transactions_user_id_fkey(full_name, email)')
+      .select('*')
 
     if (statusFilter && statusFilter !== 'all') {
       query = query.eq('status', statusFilter)
     }
 
-    // Filter by a specific user ID when the admin searches by user
     if (userId && userId.trim()) {
       query = query.eq('user_id', userId.trim())
     }
@@ -327,7 +327,7 @@ export async function getTransactions(
       .order('id', { ascending: true })
       .range(offset, offset + limit - 1)
 
-    // The count must use the same filter as the rows above.
+    // Count query with the same filters
     let countQuery = supabase
       .from('transactions')
       .select('id', { count: 'exact', head: true })
@@ -351,15 +351,31 @@ export async function getTransactions(
       return { transactions: [], count: 0, error: txError.message, totalPages: 0 }
     }
 
-    // Flatten the joined profiles data onto each transaction row
-    const transactions = (rawTransactions || []).map((tx: any) => {
-      const { profiles, ...rest } = tx
-      return {
-        ...rest,
-        user_full_name: profiles?.full_name ?? null,
-        user_email: profiles?.email ?? null,
+    // Step 2: collect unique user IDs from this page, then fetch their
+    // profiles in a single query and build a lookup map.
+    const rows = rawTransactions || []
+    const userIds = [...new Set(rows.map((tx: any) => tx.user_id).filter(Boolean))]
+
+    let profileMap: Record<string, { full_name: string | null; email: string | null }> = {}
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds)
+
+      if (profiles) {
+        for (const p of profiles) {
+          profileMap[p.id] = { full_name: p.full_name ?? null, email: p.email ?? null }
+        }
       }
-    })
+    }
+
+    const transactions = rows.map((tx: any) => ({
+      ...tx,
+      user_full_name: profileMap[tx.user_id]?.full_name ?? null,
+      user_email: profileMap[tx.user_id]?.email ?? null,
+    }))
 
     const totalPages = Math.ceil((count || 0) / limit)
 
