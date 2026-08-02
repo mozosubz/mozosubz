@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { buyData } from '@/lib/api/gsubz'
 import { resolveProviderError } from '@/lib/utils/provider-error'
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/utils/save-transaction'
+import { scheduleVerifyPending } from '@/lib/utils/schedule-verify'
 import { logRequest } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
 
@@ -196,7 +197,47 @@ export async function POST(request: NextRequest) {
       })
       console.log(`[Data Purchase API] → Gsubz response | Code: ${gsubzResult.code} | Status: ${gsubzResult.status}`)
     } catch (err) {
-      // Refund on API failure
+      const isTimeout = err instanceof Error && err.name === 'AbortError'
+
+      if (isTimeout) {
+        // Timeout — provider may have processed it, so save as PENDING and verify in background.
+        // The wallet was already deducted; if verification confirms failure, we refund.
+        console.log(`[Data Purchase API] ✗ Timeout | Saving PENDING | TX: ${transactionId}`)
+
+        await saveTransaction({
+          userId,
+          transactionId,
+          category: 'DATA',
+          serviceId: service,
+          serviceName: `${service.split('_')[0].toUpperCase()} Data`,
+          amount: apiPrice,
+          phone: phoneClean,
+          status: 'PENDING',
+          description: `${rule.plan_name} data purchase via API (PENDING verification)`,
+          balanceBefore: walletBalance,
+          balanceAfter: balanceAfter,
+          planDetails: rule.plan_name,
+        })
+
+        scheduleVerifyPending({
+          requestID: transactionId,
+          userId,
+          amount: apiPrice,
+          balanceBefore: walletBalance,
+          category: 'DATA',
+        })
+
+        return NextResponse.json({
+          success: false,
+          pending: true,
+          error: 'Request timed out. Verifying in the background — wallet will be refunded if unsuccessful.',
+          error_code: 'TIMEOUT_PENDING_VERIFICATION',
+          transaction_id: transactionId,
+          balance_after: balanceAfter,
+        })
+      }
+
+      // Non-timeout error — refund immediately
       console.log(`[Data Purchase API] ✗ Gsubz API error: ${err}`)
       await atomicRefundWallet(userId, apiPrice)
       return NextResponse.json(
