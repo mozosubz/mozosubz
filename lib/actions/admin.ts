@@ -32,11 +32,16 @@ export async function getUsers(
     const trimmedSearch = searchTerm?.trim()
     if (trimmedSearch && trimmedSearch.length > 0) {
       const lowerSearchTerm = trimmedSearch.toLowerCase()
-      // Search across text fields only (username, full_name, email, phone_number)
-      // Note: id is UUID type and cannot use ilike operator
-      query = query.or(
-        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${trimmedSearch}%`
-      )
+      // UUID regex — when the term matches, do an exact eq on id instead of
+      // ilike (which Postgres rejects on uuid columns).
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (UUID_RE.test(trimmedSearch)) {
+        query = query.eq('id', trimmedSearch)
+      } else {
+        query = query.or(
+          `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${trimmedSearch}%`
+        )
+      }
     }
 
     // Sort column/direction come from a fixed allowlist, never from the raw
@@ -59,9 +64,14 @@ export async function getUsers(
 
     if (trimmedSearch && trimmedSearch.length > 0) {
       const lowerSearchTerm = trimmedSearch.toLowerCase()
-      countQuery = countQuery.or(
-        `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${trimmedSearch}%`
-      )
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (UUID_RE.test(trimmedSearch)) {
+        countQuery = countQuery.eq('id', trimmedSearch)
+      } else {
+        countQuery = countQuery.or(
+          `username.ilike.%${lowerSearchTerm}%,full_name.ilike.%${lowerSearchTerm}%,email.ilike.%${lowerSearchTerm}%,phone_number.ilike.%${trimmedSearch}%`
+        )
+      }
     }
 
     const { count, error: countError } = await countQuery
@@ -288,39 +298,46 @@ export async function getTransactions(
   page: number = 1,
   limit: number = 20,
   statusFilter?: string,
-  sortBy?: string
+  sortBy?: string,
+  userId?: string
 ) {
   try {
     const supabase = createAdminClient()
 
     const offset = (page - 1) * limit
 
+    // Join profiles so each transaction row carries the user's name and email
     let query = supabase
       .from('transactions')
-      .select('*')
+      .select('*, profiles!transactions_user_id_fkey(full_name, email)')
 
     if (statusFilter && statusFilter !== 'all') {
       query = query.eq('status', statusFilter)
     }
 
+    // Filter by a specific user ID when the admin searches by user
+    if (userId && userId.trim()) {
+      query = query.eq('user_id', userId.trim())
+    }
+
     const sort = resolveSort(TRANSACTION_SORT_OPTIONS, sortBy, DEFAULT_TRANSACTION_SORT)
 
-    const { data: transactions, error: txError } = await query
+    const { data: rawTransactions, error: txError } = await query
       .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
-      // Stable tiebreaker so equal amounts/timestamps don't shuffle between
-      // page loads and duplicate or drop rows across pages.
       .order('id', { ascending: true })
       .range(offset, offset + limit - 1)
 
-    // The count must use the same filter as the rows above. It previously
-    // always counted the whole table, so filtering by status still produced
-    // page numbers for the unfiltered total and the extra pages came back empty.
+    // The count must use the same filter as the rows above.
     let countQuery = supabase
       .from('transactions')
       .select('id', { count: 'exact', head: true })
 
     if (statusFilter && statusFilter !== 'all') {
       countQuery = countQuery.eq('status', statusFilter)
+    }
+
+    if (userId && userId.trim()) {
+      countQuery = countQuery.eq('user_id', userId.trim())
     }
 
     const { count, error: countError } = await countQuery
@@ -334,11 +351,21 @@ export async function getTransactions(
       return { transactions: [], count: 0, error: txError.message, totalPages: 0 }
     }
 
+    // Flatten the joined profiles data onto each transaction row
+    const transactions = (rawTransactions || []).map((tx: any) => {
+      const { profiles, ...rest } = tx
+      return {
+        ...rest,
+        user_full_name: profiles?.full_name ?? null,
+        user_email: profiles?.email ?? null,
+      }
+    })
+
     const totalPages = Math.ceil((count || 0) / limit)
 
-    console.log('[v0] getTransactions - Real data:', { totalCount: count, txReturned: transactions?.length, page, totalPages })
+    console.log('[v0] getTransactions - Real data:', { totalCount: count, txReturned: transactions.length, page, totalPages })
 
-    return { transactions: transactions || [], count: count || 0, error: null, totalPages }
+    return { transactions, count: count || 0, error: null, totalPages }
   } catch (err) {
     console.error('[v0] getTransactions exception:', err)
     return { transactions: [], count: 0, error: 'Failed to fetch transactions', totalPages: 0 }

@@ -7,6 +7,8 @@ import { TransactionDetailModal } from './transaction-detail-modal'
 interface Transaction {
   id: string
   user_id: string
+  user_full_name?: string | null
+  user_email?: string | null
   amount: number
   category: string
   status: string
@@ -46,6 +48,7 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
             <thead>
               <tr>
                 <th>Reference</th>
+                <th>User</th>
                 <th>Category</th>
                 <th>Phone</th>
                 <th>Amount</th>
@@ -60,6 +63,21 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
                 <tr key={tx.id}>
                   <td className="text-mono" style={{ fontSize: 12 }}>
                     {tx.payment_reference || tx.id.slice(0, 8)}
+                  </td>
+                  <td style={{ maxWidth: 160 }}>
+                    {tx.user_full_name && (
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {tx.user_full_name}
+                      </div>
+                    )}
+                    {tx.user_email && (
+                      <div style={{ fontSize: 11, color: 'var(--admin-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {tx.user_email}
+                      </div>
+                    )}
+                    {!tx.user_full_name && !tx.user_email && (
+                      <span style={{ color: 'var(--admin-text-secondary)', fontSize: 12 }}>N/A</span>
+                    )}
                   </td>
                   <td>
                     <span className="badge badge-category">
@@ -122,6 +140,21 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
                   ₦{tx.amount.toLocaleString()}
                 </span>
               </div>
+
+              {(tx.user_full_name || tx.user_email) && (
+                <div style={{ marginBottom: 8, padding: '6px 0', borderBottom: '1px solid var(--admin-border)' }}>
+                  {tx.user_full_name && (
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-text)' }}>
+                      {tx.user_full_name}
+                    </div>
+                  )}
+                  {tx.user_email && (
+                    <div style={{ fontSize: 11, color: 'var(--admin-text-secondary)' }}>
+                      {tx.user_email}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="data-card-grid">
                 <div className="data-card-field">

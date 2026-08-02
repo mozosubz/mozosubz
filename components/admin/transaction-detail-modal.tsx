@@ -112,6 +112,12 @@ export function TransactionDetailModal({
             <h4 className="detail-section-title">Reference</h4>
             <DetailRow label="Transaction ID" value={transaction.id} mono copyable />
             <DetailRow label="User ID" value={transaction.user_id} mono copyable />
+            {transaction.user_full_name && (
+              <DetailRow label="Name" value={transaction.user_full_name} />
+            )}
+            {transaction.user_email && (
+              <DetailRow label="Email" value={transaction.user_email} />
+            )}
             <DetailRow
               label="Payment Reference"
               value={transaction.payment_reference || 'N/A'}

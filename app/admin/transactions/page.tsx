@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getTransactions } from '@/lib/actions/admin'
 import { TransactionTable } from '@/components/admin/transaction-table'
-import { CreditCard, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
+import { CreditCard, ChevronLeft, ChevronRight, ArrowUpDown, Search } from 'lucide-react'
 import {
   TRANSACTION_SORT_OPTIONS,
   DEFAULT_TRANSACTION_SORT,
@@ -24,6 +24,13 @@ export default function TransactionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [sortBy, setSortBy] = useState<TransactionSortKey>(DEFAULT_TRANSACTION_SORT)
   const [totalPages, setTotalPages] = useState(1)
+  const [userIdSearch, setUserIdSearch] = useState('')
+  const [debouncedUserId, setDebouncedUserId] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedUserId(userIdSearch), 400)
+    return () => clearTimeout(timer)
+  }, [userIdSearch])
 
   useEffect(() => {
     // Discard a stale in-flight response so rapid filter/sort switching can't
@@ -32,7 +39,7 @@ export default function TransactionsPage() {
 
     const fetchTransactions = async () => {
       setLoading(true)
-      const result = await getTransactions(page, 20, statusFilter || undefined, sortBy)
+      const result = await getTransactions(page, 20, statusFilter || undefined, sortBy, debouncedUserId || undefined)
       if (cancelled) return
       if (!result.error) {
         setTransactions(result.transactions)
@@ -45,7 +52,7 @@ export default function TransactionsPage() {
     return () => {
       cancelled = true
     }
-  }, [page, statusFilter, sortBy])
+  }, [page, statusFilter, sortBy, debouncedUserId])
 
   return (
     <div className="admin-page">
@@ -77,6 +84,19 @@ export default function TransactionsPage() {
       {/* Kept outside .filter-chips, which scrolls horizontally — a select in
           that track would slide out of view on narrow screens. */}
       <div className="admin-toolbar">
+        <div className="admin-search">
+          <Search size={18} />
+          <input
+            type="text"
+            placeholder="Filter by User ID..."
+            value={userIdSearch}
+            onChange={(e) => {
+              setUserIdSearch(e.target.value)
+              setPage(1)
+            }}
+          />
+        </div>
+
         <div className="admin-sort">
           <ArrowUpDown size={16} aria-hidden="true" />
           <label htmlFor="transaction-sort" className="sr-only">
@@ -112,7 +132,9 @@ export default function TransactionsPage() {
           </div>
           <h3>No transactions found</h3>
           <p>
-            {statusFilter
+            {debouncedUserId
+              ? 'No transactions found for that user ID'
+              : statusFilter
               ? `No ${statusFilter.toLowerCase()} transactions yet`
               : 'No transactions have been recorded'}
           </p>
