@@ -115,6 +115,8 @@ export const RATE_LIMIT_CONFIG = {
   V1_DATA_PLANS: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:data:plans" },
   V1_DATA_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:data:purchase" },
   V1_AIRTIME_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:airtime:purchase" },
+  V1_CABLE_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:cable:purchase" },
+  V1_ELECTRICITY_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:electricity:purchase" },
 }
 
 /**
