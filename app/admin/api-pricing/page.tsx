@@ -175,7 +175,9 @@ export default function ApiPricingPage() {
 
   const fetchGsubzPlans = useCallback(async (planType: string) => {
     const isDataService = planType.startsWith('mtn_') || planType.startsWith('glo_') || planType.startsWith('airtel_') || planType === 'etisalat_data'
-    if (!isDataService) {
+    const isCableService = planType === 'dstv' || planType === 'gotv' || planType === 'startimes'
+
+    if (!isDataService && !isCableService) {
       setGsubzPlans([])
       setLoadingGsubz(false)
       return
@@ -183,7 +185,8 @@ export default function ApiPricingPage() {
 
     setLoadingGsubz(true)
     try {
-      const response = await fetch(`/api/gsubz/plans?service=${planType}&type=DATA`)
+      const type = isCableService ? 'CABLE' : 'DATA'
+      const response = await fetch(`/api/gsubz/plans?service=${encodeURIComponent(planType)}&type=${type}`)
       const data = await response.json()
       setGsubzPlans(data.plans || [])
     } catch {

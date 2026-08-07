@@ -820,6 +820,50 @@ export default function DocPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Endpoint 4: Buy Cable TV */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">4. Purchase Cable TV</h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/cable/purchase</code>
+                    </div>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">cable</code> or <code className="text-primary">all</code> permission.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ provider: "dstv", package: "DStv Compact", smartcard: "4123456789", phone: "08012345678" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">Supported providers: <code className="text-primary">dstv</code>, <code className="text-primary">gotv</code>, <code className="text-primary">startimes</code>. The package must match an active cable pricing rule created in Admin API Pricing.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
+                    The amount is calculated from the active package rule: base price plus fixed or percentage markup. A timeout returns a pending transaction; do not retry it with a new request ID.
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 5: Buy Electricity */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">5. Purchase Electricity</h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/electricity/purchase</code>
+                    </div>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">electricity</code> or <code className="text-primary">all</code> permission.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ disco: "ikeja electric", meter_type: "PREPAID", meter_number: "1234567890", amount: 1000, phone: "08012345678" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">Supports PREPAID and POSTPAID meters and the 12 configured Nigerian DISCOs. The minimum amount is ₦100. Electricity currently charges the requested amount directly; no API pricing-rule markup is applied.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
+                    A provider timeout is saved as PENDING and verified for up to two minutes. Confirm the transaction status before retrying; confirmed failure or an expired verification is refunded automatically.
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Error Codes */}
