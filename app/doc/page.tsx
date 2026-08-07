@@ -26,6 +26,20 @@ const AIRTIME_NETWORKS = [
   { id: "etisalat", label: "9mobile (Etisalat)" },
 ]
 
+const CABLE_PROVIDERS = [
+  { id: "dstv", label: "DStv" },
+  { id: "gotv", label: "GOtv" },
+  { id: "startimes", label: "Startimes" },
+]
+
+const DISCO_PROVIDERS = [
+  { id: "ikeja electric", label: "Ikeja Electric" },
+  { id: "eko electric", label: "Eko Electric" },
+  { id: "abuja electric", label: "Abuja Electric" },
+  { id: "kano electric", label: "Kano Electric" },
+  { id: "port harcourt electric", label: "Port Harcourt Electric" },
+]
+
 interface ApiResponse {
   data?: unknown
   error?: string
@@ -37,7 +51,7 @@ interface ApiResponse {
 
 export default function DocPage() {
   const [apiKey, setApiKey] = useState("")
-  const [activeTab, setActiveTab] = useState<"data-plans" | "data-purchase" | "airtime">("data-plans")
+  const [activeTab, setActiveTab] = useState<"data-plans" | "data-purchase" | "airtime" | "cable" | "electricity">("data-plans")
   const [loading, setLoading] = useState(false)
   const [response, setResponse] = useState<ApiResponse | null>(null)
 
@@ -54,6 +68,17 @@ export default function DocPage() {
   const [airtimeNetwork, setAirtimeNetwork] = useState(AIRTIME_NETWORKS[0].id)
   const [airtimeAmount, setAirtimeAmount] = useState("100")
   const [airtimePhone, setAirtimePhone] = useState("")
+
+  // Cable and electricity purchase state
+  const [cableProvider, setCableProvider] = useState(CABLE_PROVIDERS[0].id)
+  const [cablePackage, setCablePackage] = useState("")
+  const [cableSmartcard, setCableSmartcard] = useState("")
+  const [cablePhone, setCablePhone] = useState("")
+  const [disco, setDisco] = useState(DISCO_PROVIDERS[0].id)
+  const [meterType, setMeterType] = useState("PREPAID")
+  const [meterNumber, setMeterNumber] = useState("")
+  const [electricityAmount, setElectricityAmount] = useState("1000")
+  const [electricityPhone, setElectricityPhone] = useState("")
 
   const handleTestDataPlans = async () => {
     if (!apiKey) {
@@ -149,6 +174,45 @@ export default function DocPage() {
     }
   }
 
+  const handleTestPurchase = async (path: string, body: Record<string, string | number>, missingMessage: string) => {
+    if (!apiKey) {
+      setResponse({ error: "Please enter your API key" })
+      return
+    }
+    if (Object.values(body).some((value) => !String(value).trim())) {
+      setResponse({ error: missingMessage })
+      return
+    }
+
+    setLoading(true)
+    const startTime = Date.now()
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: { "X-Connect-Key": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      setResponse({ data, status: res.status, duration: Date.now() - startTime, error: data.error, errorCode: data.error_code })
+    } catch (err: any) {
+      setResponse({ error: err.message, duration: Date.now() - startTime })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTestCable = () => handleTestPurchase(
+    "/cable/purchase",
+    { provider: cableProvider, package: cablePackage, smartcard: cableSmartcard, phone: cablePhone },
+    "Please fill all fields (provider, package, smartcard, phone)"
+  )
+
+  const handleTestElectricity = () => handleTestPurchase(
+    "/electricity/purchase",
+    { disco, meter_type: meterType, meter_number: meterNumber, amount: Number(electricityAmount), phone: electricityPhone },
+    "Please fill all fields (DISCO, meter type, meter number, amount, phone)"
+  )
+
   const handleTestAirtime = async () => {
     if (!apiKey) {
       setResponse({ error: "Please enter your API key" })
@@ -235,7 +299,7 @@ export default function DocPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
-          {(["data-plans", "data-purchase", "airtime"] as const).map((tab) => (
+          {(["data-plans", "data-purchase", "airtime", "cable", "electricity"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => {
@@ -251,6 +315,8 @@ export default function DocPage() {
               {tab === "data-plans" && "Data Plans"}
               {tab === "data-purchase" && "Buy Data"}
               {tab === "airtime" && "Buy Airtime"}
+              {tab === "cable" && "Buy Cable TV"}
+              {tab === "electricity" && "Buy Electricity"}
             </button>
           ))}
         </div>
@@ -414,6 +480,41 @@ export default function DocPage() {
                 </button>
               </div>
             )}
+
+            {activeTab === "cable" && (
+              <div className="space-y-3 p-4 rounded-lg bg-secondary/30 border border-border">
+                <label className="block text-sm font-medium text-foreground">Provider</label>
+                <select value={cableProvider} onChange={(e) => setCableProvider(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm">
+                  {CABLE_PROVIDERS.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
+                </select>
+                <input value={cablePackage} onChange={(e) => setCablePackage(e.target.value)} placeholder="Package name, e.g. DStv Compact" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
+                <input value={cableSmartcard} onChange={(e) => setCableSmartcard(e.target.value)} placeholder="Smartcard / IUC number" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
+                <input type="tel" value={cablePhone} onChange={(e) => setCablePhone(e.target.value)} placeholder="08012345678" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
+                <div className="p-3 rounded-lg bg-background border border-border text-xs text-text-2 font-mono">POST /api/v1/cable/purchase</div>
+                <button onClick={handleTestCable} disabled={loading} className="w-full px-4 py-2 rounded-lg bg-accent text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Purchase Cable TV
+                </button>
+              </div>
+            )}
+
+            {activeTab === "electricity" && (
+              <div className="space-y-3 p-4 rounded-lg bg-secondary/30 border border-border">
+                <label className="block text-sm font-medium text-foreground">DISCO</label>
+                <select value={disco} onChange={(e) => setDisco(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm">
+                  {DISCO_PROVIDERS.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
+                </select>
+                <select value={meterType} onChange={(e) => setMeterType(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm">
+                  <option value="PREPAID">Prepaid</option><option value="POSTPAID">Postpaid</option>
+                </select>
+                <input value={meterNumber} onChange={(e) => setMeterNumber(e.target.value)} placeholder="Meter number" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
+                <input type="number" min="100" value={electricityAmount} onChange={(e) => setElectricityAmount(e.target.value)} placeholder="Amount (₦)" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
+                <input type="tel" value={electricityPhone} onChange={(e) => setElectricityPhone(e.target.value)} placeholder="08012345678" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
+                <div className="p-3 rounded-lg bg-background border border-border text-xs text-text-2 font-mono">POST /api/v1/electricity/purchase</div>
+                <button onClick={handleTestElectricity} disabled={loading} className="w-full px-4 py-2 rounded-lg bg-accent text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Purchase Electricity
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Response Section */}
@@ -483,6 +584,13 @@ export default function DocPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-secondary/30 border border-border">
+              <h3 className="font-bold text-foreground mb-3">Cable and Electricity</h3>
+              <p className="text-sm text-text-2 leading-relaxed">
+                Cable purchases use <code className="text-primary font-mono">provider</code>, <code className="text-primary font-mono">package</code>, <code className="text-primary font-mono">smartcard</code>, and <code className="text-primary font-mono">phone</code>. Electricity purchases use <code className="text-primary font-mono">disco</code>, <code className="text-primary font-mono">meter_type</code>, <code className="text-primary font-mono">meter_number</code>, <code className="text-primary font-mono">amount</code>, and <code className="text-primary font-mono">phone</code>.
+              </p>
             </div>
           </div>
         </div>

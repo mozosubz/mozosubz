@@ -80,9 +80,35 @@ const NETWORKS = [
     name: '9mobile',
     types: [{ value: 'etisalat_data', label: '9mobile Data' }],
   },
+  {
+    name: 'Cable TV',
+    types: [
+      { value: 'dstv', label: 'DStv' },
+      { value: 'gotv', label: 'GOtv' },
+      { value: 'startimes', label: 'Startimes' },
+    ],
+  },
+  {
+    name: 'Electricity',
+    types: [
+      { value: 'ikeja-electric', label: 'Ikeja Electric' },
+      { value: 'eko-electric', label: 'Eko Electric' },
+      { value: 'abuja-electric', label: 'Abuja Electric' },
+      { value: 'kano-electric', label: 'Kano Electric' },
+      { value: 'portharcourt-electric', label: 'Port Harcourt Electric' },
+      { value: 'jos-electric', label: 'Jos Electric' },
+      { value: 'ibadan-electric', label: 'Ibadan Electric' },
+      { value: 'kaduna-electric', label: 'Kaduna Electric' },
+      { value: 'enugu-electric', label: 'Enugu Electric' },
+      { value: 'benin-electric', label: 'Benin Electric' },
+      { value: 'aba-electric', label: 'Aba Electric' },
+      { value: 'yola-electric', label: 'Yola Electric' },
+    ],
+  },
 ]
 
 // Store the full plan type as service_id so MTN SME, MTN Gifting etc.
+// are kept separate in the DB and matched correctly in the v1 API route.
 // are kept separate in the DB and matched correctly in the v1 API route.
 const SERVICE_MAP: Record<string, string> = {
   mtn_sme: 'mtn_sme',
@@ -94,6 +120,21 @@ const SERVICE_MAP: Record<string, string> = {
   airtel_sme: 'airtel_sme',
   airtel_gifting: 'airtel_gifting',
   etisalat_data: 'etisalat_data',
+  dstv: 'dstv',
+  gotv: 'gotv',
+  startimes: 'startimes',
+  'ikeja-electric': 'ikeja-electric',
+  'eko-electric': 'eko-electric',
+  'abuja-electric': 'abuja-electric',
+  'kano-electric': 'kano-electric',
+  'portharcourt-electric': 'portharcourt-electric',
+  'jos-electric': 'jos-electric',
+  'ibadan-electric': 'ibadan-electric',
+  'kaduna-electric': 'kaduna-electric',
+  'enugu-electric': 'enugu-electric',
+  'benin-electric': 'benin-electric',
+  'aba-electric': 'aba-electric',
+  'yola-electric': 'yola-electric',
 }
 
 export default function ApiPricingPage() {
@@ -133,6 +174,13 @@ export default function ApiPricingPage() {
   const serviceId = SERVICE_MAP[activePlanType] || activePlanType
 
   const fetchGsubzPlans = useCallback(async (planType: string) => {
+    const isDataService = planType.startsWith('mtn_') || planType.startsWith('glo_') || planType.startsWith('airtel_') || planType === 'etisalat_data'
+    if (!isDataService) {
+      setGsubzPlans([])
+      setLoadingGsubz(false)
+      return
+    }
+
     setLoadingGsubz(true)
     try {
       const response = await fetch(`/api/gsubz/plans?service=${planType}&type=DATA`)
@@ -622,7 +670,10 @@ export default function ApiPricingPage() {
               type="button"
               key={network.name}
               className={`filter-chip ${activeNetwork === network.name ? 'active' : ''}`}
-              onClick={() => setActiveNetwork(network.name)}
+              onClick={() => {
+                setActiveNetwork(network.name)
+                setActivePlanType(network.types[0].value)
+              }}
             >
               {network.name}
               {networkTotal > 0 && (
