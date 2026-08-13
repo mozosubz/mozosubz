@@ -2,6 +2,7 @@ import type React from 'react'
 import { createServerClient } from '@/lib/supabase/server'
 import { isHardcodedAdmin } from '@/lib/utils/hardcoded-admin'
 import { AdminSidebar } from '@/components/admin/sidebar'
+import { NotificationBell } from '@/components/notification-bell'
 import '@/styles/admin.css'
 import { notFound } from 'next/navigation'
 
@@ -31,7 +32,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="admin-container">
         <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOTSTRAP }} />
         <AdminSidebar />
-        <main className="admin-main">{children}</main>
+        <main className="admin-main">
+          <div className="flex justify-end px-6 pt-4"><NotificationBell /></div>
+          {children}
+        </main>
       </div>
     )
   }
