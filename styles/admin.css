@@ -1579,14 +1579,33 @@ button[type='submit']:not(.no-style):disabled {
 }
 
 .admin-topbar {
-  margin: 0 -14px 24px;
-  padding: 0 14px 0 64px;
+  position: fixed;
+  top: 104px;
+  right: 24px;
+  z-index: 40;
+  width: auto;
+  height: 64px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
-.admin-topbar-title { font-size: 10px; }
+.admin-topbar-title { display: none; }
 
   .admin-page {
-    max-width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  }
+
+  .admin-page > .grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .admin-card {
+  min-width: 0;
+  padding: 16px;
   }
 
   .admin-header h1 {

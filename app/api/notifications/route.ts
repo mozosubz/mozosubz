@@ -57,7 +57,16 @@ export async function POST(request: Request) {
     : audience === 'admins' ? adminIds : audience === 'users' ? userIds : [...new Set([...userIds, ...adminIds])]
   if (requestedIds.length > 0 && ids.length === 0) return NextResponse.json({ error: 'No valid recipients selected' }, { status: 400 })
   const rows = ids.map((userId) => ({ user_id: userId, title, message, image_url: imageUrl, link, audience: adminIds.includes(userId) ? 'admin' : 'user', type: 'announcement', dedupe_key: `${dedupeKey}:${userId}` }))
-  const { error } = await admin.from('notifications').upsert(rows, { onConflict: 'user_id,dedupe_key', ignoreDuplicates: true })
-  if (error) return NextResponse.json({ error: 'Unable to deliver announcement' }, { status: 500 })
-  return NextResponse.json({ ok: true, delivered: rows.length })
+  let delivered = 0
+  for (const row of rows) {
+    const { data: existing } = await admin.from('notifications').select('id').eq('user_id', row.user_id).eq('dedupe_key', row.dedupe_key).maybeSingle()
+    if (existing) continue
+    const { error } = await admin.from('notifications').insert(row)
+    if (error) {
+      console.error('[v0] notification delivery failed', { userId: row.user_id, code: error.code, message: error.message })
+      return NextResponse.json({ error: `Unable to deliver announcement: ${error.message}` }, { status: 500 })
+    }
+    delivered += 1
+  }
+  return NextResponse.json({ ok: true, delivered, requested: rows.length })
 }

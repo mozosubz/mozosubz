@@ -56,7 +56,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOTSTRAP }} />
       <AdminSidebar />
       <main className="admin-main">
-        <div className="flex h-10 items-center justify-end border-b border-[var(--admin-border)] pb-2"><NotificationBell /></div>
+        <div className="admin-topbar"><span className="admin-topbar-title">Admin workspace</span><NotificationBell /></div>
         {children}
       </main>
     </div>
