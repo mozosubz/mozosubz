@@ -51,7 +51,11 @@ export async function POST(request: Request) {
   const { data: admins } = await admin.from('profiles').select('id').eq('is_admin', true)
   const adminIds = (admins ?? []).map((item) => item.id)
   const audience = body.audience === 'admins' || body.audience === 'users' ? body.audience : 'all'
-  const ids = audience === 'admins' ? adminIds : audience === 'users' ? userIds : [...new Set([...userIds, ...adminIds])]
+  const requestedIds = Array.isArray(body.recipientIds) ? body.recipientIds.map((id: unknown) => String(id)).filter(Boolean) : []
+  const ids = requestedIds.length > 0
+    ? [...new Set(requestedIds.filter((id: string) => userIds.includes(id)))]
+    : audience === 'admins' ? adminIds : audience === 'users' ? userIds : [...new Set([...userIds, ...adminIds])]
+  if (requestedIds.length > 0 && ids.length === 0) return NextResponse.json({ error: 'No valid recipients selected' }, { status: 400 })
   const rows = ids.map((userId) => ({ user_id: userId, title, message, image_url: imageUrl, link, audience: adminIds.includes(userId) ? 'admin' : 'user', type: 'announcement', dedupe_key: `${dedupeKey}:${userId}` }))
   const { error } = await admin.from('notifications').upsert(rows, { onConflict: 'user_id,dedupe_key', ignoreDuplicates: true })
   if (error) return NextResponse.json({ error: 'Unable to deliver announcement' }, { status: 500 })
