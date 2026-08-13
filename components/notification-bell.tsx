@@ -57,6 +57,8 @@ export function NotificationBell() {
     setNotifications((current) => current.map((notification) => ({ ...notification, read_at: new Date().toISOString() })))
   }
 
+  const formatMessage = (value: string) => value.replace(/\\n/g, '\n')
+
   return (
     <div className="relative">
       <button ref={buttonRef} onClick={() => setIsOpen(!isOpen)} className="notif-btn" aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}>
@@ -74,14 +76,15 @@ export function NotificationBell() {
             <div className="flex flex-col items-center justify-center py-8 px-4"><BellOff style={{ width: 32, height: 32, color: '#cbd5e1' }} className="mb-3" /><p className="text-sm text-[var(--text-3)]">No notifications yet</p></div>
           ) : (
             <div className="max-h-[360px] overflow-y-auto">
-              {notifications.map((notification) => (
-                <a key={notification.id} href={notification.link || '#'} onClick={() => !notification.read_at && markAllRead()} className={`block px-4 py-4 border-b border-[rgba(0,0,0,0.06)] hover:bg-slate-50 ${!notification.read_at ? 'bg-blue-50/50' : ''}`}>
-                  {notification.image_url && <img src={notification.image_url} alt="" className="mb-3 h-36 w-full rounded-lg object-cover" />}
+              {notifications.map((notification) => {
+                const content = <>
+                  {notification.image_url && <a href={notification.image_url} target="_blank" rel="noreferrer" onClick={() => !notification.read_at && markAllRead()}><img src={notification.image_url} alt="Notification attachment" className="mb-3 h-36 w-full rounded-lg object-cover" /></a>}
                   <div className="flex items-start justify-between gap-2"><p className="text-sm font-semibold text-[var(--text-1)]">{notification.title}</p>{notification.link && <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />}</div>
-                  <p className="mt-1 whitespace-pre-line text-xs leading-5 text-[var(--text-3)]">{notification.message}</p>
+                  <p className="mt-1 whitespace-pre-line break-words text-xs leading-5 text-[var(--text-3)]">{formatMessage(notification.message)}</p>
                   <time className="mt-2 block text-[10px] text-slate-400">{new Date(notification.created_at).toLocaleString()}</time>
-                </a>
-              ))}
+                </>
+                return notification.link ? <a key={notification.id} href={notification.link} onClick={() => !notification.read_at && markAllRead()} className={`block px-4 py-4 border-b border-[rgba(0,0,0,0.06)] hover:bg-slate-50 ${!notification.read_at ? 'bg-blue-50/50' : ''}`}>{content}</a> : <div key={notification.id} onClick={() => !notification.read_at && markAllRead()} className={`block px-4 py-4 border-b border-[rgba(0,0,0,0.06)] ${!notification.read_at ? 'bg-blue-50/50' : ''}`}>{content}</div>
+              })}
             </div>
           )}
         </div>
