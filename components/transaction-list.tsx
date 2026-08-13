@@ -6,6 +6,7 @@ import { Smartphone, Wifi, Tv, Zap, ArrowDownLeft, ReceiptText } from "lucide-re
 interface Transaction {
   id: string
   description?: string
+  plan_details?: string
   phone: string
   amount: number
   status: string
@@ -17,7 +18,7 @@ interface TransactionListProps {
   transactions: Transaction[]
 }
 
-function getServiceIcon(category: string) {
+function getServiceIcon(category: string | undefined) {
   const cat = category?.toUpperCase() || ""
 
   if (cat === "AIRTIME") {
@@ -38,7 +39,7 @@ function getServiceIcon(category: string) {
   return ReceiptText
 }
 
-function getIconBackground(category: string, status: string): string {
+function getIconBackground(category: string | undefined, status: string | undefined): string {
   const upper = category?.toUpperCase() || '';
   const isSuccess = status?.toUpperCase() === 'SUCCESS';
   
@@ -52,7 +53,7 @@ function getIconBackground(category: string, status: string): string {
   return 'bg-gray-100';
 }
 
-function getIconColor(category: string, status: string): string {
+function getIconColor(category: string | undefined, status: string | undefined): string {
   const upper = category?.toUpperCase() || '';
   const isSuccess = status?.toUpperCase() === 'SUCCESS';
   
@@ -66,7 +67,7 @@ function getIconColor(category: string, status: string): string {
   return 'text-gray-600';
 }
 
-function getServiceName(category: string, description: string): string {
+function getServiceName(category: string | undefined, description: string | undefined): string {
   const upper = category?.toUpperCase() || '';
   
   if (upper === 'AIRTIME') {
@@ -90,11 +91,14 @@ function getServiceName(category: string, description: string): string {
   return description || 'Transaction';
 }
 
-function getSubtitle(category: string, phone: string): string {
+function getSubtitle(category: string | undefined, phone: string | undefined, planDetails?: string): string {
   const upper = category?.toUpperCase() || '';
-  
+
   if (upper === 'WALLET_FUND') {
     return 'Bank Transfer';
+  }
+  if (upper === 'DATA' && planDetails) {
+    return `${planDetails} · ${phone || 'No recipient'}`;
   }
   return phone || 'No recipient';
 }
@@ -119,7 +123,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
         const bgColor = getIconBackground(tx.category, tx.status);
         const iconColor = getIconColor(tx.category, tx.status);
         const serviceName = getServiceName(tx.category, tx.description);
-        const subtitle = getSubtitle(tx.category, tx.phone);
+        const subtitle = getSubtitle(tx.category, tx.phone, tx.plan_details);
         const isCreditTx = tx.category?.toUpperCase() === 'WALLET_FUND';
         const amountPrefix = isCreditTx ? '+' : '-';
         const amountColor = isCreditTx 

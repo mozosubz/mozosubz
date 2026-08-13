@@ -22,6 +22,7 @@ interface Transaction {
   user_id?: string;
   plan_details?: string;
   service_type?: string;
+  service_variant?: string;
 }
 
 export default function TransactionDetailPage() {
