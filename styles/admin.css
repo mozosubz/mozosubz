@@ -302,8 +302,26 @@
   flex: 1;
   min-width: 0;
   background: var(--admin-bg);
-  padding: 28px 32px;
+  padding: 0 32px 28px;
   min-height: 100vh;
+}
+
+.admin-topbar {
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--admin-border);
+  margin: 0 -32px 28px;
+  padding: 0 32px;
+}
+
+.admin-topbar-title {
+  color: var(--admin-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .admin-page {
@@ -1555,10 +1573,17 @@ button[type='submit']:not(.no-style):disabled {
     display: flex;
   }
 
-  .admin-main {
-    margin-left: 0;
-    padding: 70px 14px 90px;
-  }
+.admin-main {
+  margin-left: 0;
+  padding: 0 14px 90px;
+}
+
+.admin-topbar {
+  margin: 0 -14px 24px;
+  padding: 0 14px 0 64px;
+}
+
+.admin-topbar-title { font-size: 10px; }
 
   .admin-page {
     max-width: 100%;
