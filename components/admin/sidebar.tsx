@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Zap,
+  Megaphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,7 @@ const adminLinks = [
   { name: 'API Pricing', href: '/admin/api-pricing', icon: Zap },
   { name: 'Deposit Rules', href: '/admin/deposit-rules', icon: Banknote },
   { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
+  { name: 'Announcements', href: '/admin/announcements', icon: Megaphone },
   { name: 'User Dashboard', href: '/', icon: BarChart3 },
 ]
 

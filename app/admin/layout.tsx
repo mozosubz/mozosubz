@@ -33,7 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOTSTRAP }} />
         <AdminSidebar />
         <main className="admin-main">
-          <div className="flex justify-end px-6 pt-4"><NotificationBell /></div>
+          <div className="flex h-10 items-center justify-end border-b border-[var(--admin-border)] pb-2"><NotificationBell /></div>
           {children}
         </main>
       </div>
@@ -55,7 +55,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="admin-container">
       <script dangerouslySetInnerHTML={{ __html: PRIVACY_BOOTSTRAP }} />
       <AdminSidebar />
-      <main className="admin-main">{children}</main>
+      <main className="admin-main">
+        <div className="flex h-10 items-center justify-end border-b border-[var(--admin-border)] pb-2"><NotificationBell /></div>
+        {children}
+      </main>
     </div>
   )
 }

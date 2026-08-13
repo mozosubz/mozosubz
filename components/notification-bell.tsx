@@ -9,6 +9,7 @@ type Notification = {
   message: string
   type: string
   link: string | null
+  image_url: string | null
   read_at: string | null
   created_at: string
 }
@@ -75,8 +76,9 @@ export function NotificationBell() {
             <div className="max-h-[360px] overflow-y-auto">
               {notifications.map((notification) => (
                 <a key={notification.id} href={notification.link || '#'} onClick={() => !notification.read_at && markAllRead()} className={`block px-4 py-4 border-b border-[rgba(0,0,0,0.06)] hover:bg-slate-50 ${!notification.read_at ? 'bg-blue-50/50' : ''}`}>
+                  {notification.image_url && <img src={notification.image_url} alt="" className="mb-3 h-36 w-full rounded-lg object-cover" />}
                   <div className="flex items-start justify-between gap-2"><p className="text-sm font-semibold text-[var(--text-1)]">{notification.title}</p>{notification.link && <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />}</div>
-                  <p className="mt-1 text-xs leading-5 text-[var(--text-3)]">{notification.message}</p>
+                  <p className="mt-1 whitespace-pre-line text-xs leading-5 text-[var(--text-3)]">{notification.message}</p>
                   <time className="mt-2 block text-[10px] text-slate-400">{new Date(notification.created_at).toLocaleString()}</time>
                 </a>
               ))}
