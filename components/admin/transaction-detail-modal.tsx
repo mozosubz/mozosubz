@@ -140,6 +140,15 @@ export function TransactionDetailModal({
               label="Category"
               value={transaction.category || transaction.service_name || 'N/A'}
             />
+            {String(transaction.category || '').toUpperCase() === 'DATA' && (
+              <>
+                <DetailRow label="Network" value={transaction.service_name || 'N/A'} />
+                <DetailRow label="Data plan" value={transaction.plan_details || transaction.description || 'N/A'} />
+                {transaction.service_id && (
+                  <DetailRow label="Provider service" value={transaction.service_id} mono copyable />
+                )}
+              </>
+            )}
             {transaction.phone && (
               <DetailRow label="Phone" value={transaction.phone} mono />
             )}

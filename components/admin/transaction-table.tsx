@@ -13,6 +13,10 @@ interface Transaction {
   category: string
   status: string
   service_name: string
+  service_id?: string | null
+  plan_details?: string | null
+  description?: string | null
+  api_response?: unknown
   phone: string
   created_at: string
   payment_reference: string
