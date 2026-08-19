@@ -262,6 +262,7 @@ export async function bulkUpdateApiPricingRules(
     if (!user || authError) return { success: false, error: 'Not authenticated' }
 
     const admin = createAdminClient()
+    const uniqueRuleIds = Array.from(new Set(ruleIds.filter(Boolean)))
     const { error } = await admin
       .from('api_pricing_rules')
       .update({
@@ -269,11 +270,11 @@ export async function bulkUpdateApiPricingRules(
         markup_value: markupValue,
         updated_at: new Date().toISOString(),
       })
-      .in('id', ruleIds)
+      .in('id', uniqueRuleIds)
 
     if (error) return { success: false, error: error.message }
     revalidatePath('/admin/api-pricing')
-    return { success: true, updated: ruleIds.length }
+    return { success: true, updated: uniqueRuleIds.length }
   } catch (err) {
     return { success: false, error: String(err) }
   }
@@ -301,15 +302,16 @@ export async function bulkCreateApiPricingRules(
 
     if (fetchError) return { success: false, error: fetchError.message }
 
-    const existingNames = new Set((existing || []).map((row) => row.plan_name as string))
-    const updatedCount = plans.filter((p) => existingNames.has(p.planName)).length
+    const uniquePlans = Array.from(
+      new Map(plans.map((plan) => [plan.planName.trim().toLowerCase(), { ...plan, planName: plan.planName.trim() }])).values()
+    )
+    const existingNames = new Set((existing || []).map((row) => String(row.plan_name).trim().toLowerCase()))
+    const updatedCount = uniquePlans.filter((p) => existingNames.has(p.planName.toLowerCase())).length
 
-    // A unique constraint on (service_id, plan_name) lets this run as a single
-    // atomic upsert, so repeated bulk creates can never duplicate a plan again.
     const { error: upsertError } = await admin
       .from('api_pricing_rules')
       .upsert(
-        plans.map((plan) => ({
+        uniquePlans.map((plan) => ({
           service_id: serviceId,
           plan_name: plan.planName,
           base_price: plan.basePrice,
@@ -327,7 +329,7 @@ export async function bulkCreateApiPricingRules(
     revalidatePath('/admin/api-pricing')
     return {
       success: true,
-      created: plans.length - updatedCount,
+      created: uniquePlans.length - updatedCount,
       updated: updatedCount,
     }
   } catch (err) {
