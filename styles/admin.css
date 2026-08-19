@@ -316,13 +316,6 @@
   padding: 0 32px;
 }
 
-.admin-topbar-title {
-  color: var(--admin-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
 
 .admin-page {
   max-width: 1400px;
@@ -1580,7 +1573,7 @@ button[type='submit']:not(.no-style):disabled {
 
 .admin-topbar {
   position: fixed;
-  top: 104px;
+  top: 20px;
   right: 24px;
   z-index: 40;
   width: auto;

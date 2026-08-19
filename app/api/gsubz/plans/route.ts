@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     try {
       if (type === 'DATA') {
         plansData = await getDataPlans(service)
-      } else if (type === 'CABLE') {
+      } else if (type === 'CABLE' || type === 'ELECTRICITY') {
         plansData = await getCablePlans(service)
       }
     } catch (fetchError) {
