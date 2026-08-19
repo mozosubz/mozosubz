@@ -507,7 +507,7 @@ export default function DocPage() {
                   <option value="PREPAID">Prepaid</option><option value="POSTPAID">Postpaid</option>
                 </select>
                 <input value={meterNumber} onChange={(e) => setMeterNumber(e.target.value)} placeholder="Meter number" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
-                <input type="number" min="100" value={electricityAmount} onChange={(e) => setElectricityAmount(e.target.value)} placeholder="Amount (₦)" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
+                <input type="number" min="1000" value={electricityAmount} onChange={(e) => setElectricityAmount(e.target.value)} placeholder="Amount (₦)" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
                 <input type="tel" value={electricityPhone} onChange={(e) => setElectricityPhone(e.target.value)} placeholder="08012345678" className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-text-3 text-sm" />
                 <div className="p-3 rounded-lg bg-background border border-border text-xs text-text-2 font-mono">POST /api/v1/electricity/purchase</div>
                 <button onClick={handleTestElectricity} disabled={loading} className="w-full px-4 py-2 rounded-lg bg-accent text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2">
@@ -852,12 +852,12 @@ export default function DocPage() {
                       <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
                       <code className="text-primary font-mono text-sm">/api/v1/electricity/purchase</code>
                     </div>
-                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">electricity</code> or <code className="text-primary">all</code> permission.</p>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">electricity</code> or <code className="text-primary">all</code> permission, and the endpoint must be enabled by an administrator. If disabled, the API returns HTTP 503 with <code className="text-primary">SERVICE_DISABLED</code>.</p>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
                     <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ disco: "ikeja electric", meter_type: "PREPAID", meter_number: "1234567890", amount: 1000, phone: "08012345678" }, null, 2)}</pre>
-                    <p className="text-text-3 text-xs mt-2">Supports PREPAID and POSTPAID meters and the 12 configured Nigerian DISCOs. The minimum amount is ₦100. Electricity currently charges the requested amount directly; no API pricing-rule markup is applied.</p>
+                    <p className="text-text-3 text-xs mt-2">Supports PREPAID and POSTPAID meters and the 12 configured Nigerian DISCOs. The minimum amount is ₦1,000, matching the normal electricity dashboard. Electricity charges the requested amount directly; no API pricing-rule markup is applied.</p>
                   </div>
                   <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
                     A provider timeout is saved as PENDING and verified for up to two minutes. Confirm the transaction status before retrying; confirmed failure or an expired verification is refunded automatically.

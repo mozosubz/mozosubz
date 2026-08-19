@@ -52,22 +52,38 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
 
     // Map DISCO to service ID
     const serviceIdMap: Record<string, string> = {
-      "Ikeja Electric": "ikeja-electric",
-      "Eko Electric": "eko-electric",
-      "Abuja Electric": "abuja-electric",
-      "Kano Electric": "kano-electric",
-      "Port Harcourt Electric": "portharcourt-electric",
-      "Jos Electric": "jos-electric",
-      "Ibadan Electric": "ibadan-electric",
-      "Kaduna Electric": "kaduna-electric",
-      "Enugu Electric": "enugu-electric",
-      "Benin Electric": "benin-electric",
-      "Aba Electric": "aba-electric",
-      "Yola Electric": "yola-electric",
+      'Ikeja Electric': 'ikeja-electric',
+      'Ikeja Electricity Distribution Company': 'ikeja-electric',
+      'Eko Electric': 'eko-electric',
+      'Eko Electricity Distribution Company': 'eko-electric',
+      'Abuja Electric': 'abuja-electric',
+      'Abuja Electricity Distribution Company': 'abuja-electric',
+      'Kano Electric': 'kano-electric',
+      'Kano Electricity Distribution Company': 'kano-electric',
+      'Port Harcourt Electric': 'portharcourt-electric',
+      'Port Harcourt Electricity Distribution Company': 'portharcourt-electric',
+      'Jos Electric': 'jos-electric',
+      'Jos Electricity Distribution Company': 'jos-electric',
+      'Ibadan Electric': 'ibadan-electric',
+      'Ibadan Electricity Distribution Company': 'ibadan-electric',
+      'Kaduna Electric': 'kaduna-electric',
+      'Kaduna Electricity Distribution Company': 'kaduna-electric',
+      'Enugu Electric': 'enugu-electric',
+      'Enugu Electricity Distribution Company': 'enugu-electric',
+      'Benin Electric': 'benin-electric',
+      'Benin Electricity Distribution Company': 'benin-electric',
+      'Aba Electric': 'aba-electric',
+      'Yola Electric': 'yola-electric',
+      'Yola Electricity Distribution Company': 'yola-electric',
+      'Bauchi Electricity Distribution Company': 'bauchi-electric',
     }
 
-    const serviceID = serviceIdMap[disco] || "ikeja-electric"
+    const serviceID = serviceIdMap[disco] || 'ikeja-electric'
     const purchaseAmount = Number(amount)
+    if (!Number.isFinite(purchaseAmount) || purchaseAmount < 1000) {
+      return { success: false, message: 'Electricity amount must be at least ₦1,000' }
+    }
+    const providerMeterType = meterType.toUpperCase()
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance
@@ -81,7 +97,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       phone,
       customerID: meterNumber,
       amount,
-      variation_code: meterType,
+      variation_code: providerMeterType,
       requestID,
     })
 

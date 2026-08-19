@@ -18,7 +18,7 @@ import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
  *               Jos Electric, Ibadan Electric, Kaduna Electric, Enugu Electric, Benin Electric,
  *               Aba Electric, Yola Electric
  * meter_type values: PREPAID | POSTPAID
- * amount: minimum ₦100
+   * amount: minimum ₦1,000
  *
  * Deducts electricity payment from user's wallet and processes via Gsubz.
  * Rate limited: 50 requests per minute per API key
@@ -41,6 +41,21 @@ export async function POST(request: NextRequest) {
 
   const userId = auth.context!.userId
   const permissions = auth.context!.permissions ?? []
+
+  // Electricity has no API markup. Access is controlled independently by admin.
+  const admin = createAdminClient()
+  const { data: electricityAccess, error: electricityAccessError } = await admin
+    .from('api_service_settings')
+    .select('enabled')
+    .eq('service_id', 'api_electricity_enabled')
+    .maybeSingle()
+
+  if (electricityAccessError || !electricityAccess?.enabled) {
+    return NextResponse.json(
+      { success: false, error: 'Electricity API access is currently disabled', error_code: 'SERVICE_DISABLED' },
+      { status: 503 }
+    )
+  }
 
   // Check rate limit per API key
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_ELECTRICITY_PURCHASE)
@@ -107,10 +122,10 @@ export async function POST(request: NextRequest) {
 
   // Validate amount
   const parsedAmount = Number(amount)
-  if (isNaN(parsedAmount) || parsedAmount < 100) {
+  if (isNaN(parsedAmount) || parsedAmount < 1000) {
     console.log(`[Electricity Purchase API] ✗ Invalid amount: ${amount}`)
     return NextResponse.json(
-      { success: false, error: 'Amount must be at least ₦100', error_code: 'INVALID_AMOUNT' },
+      { success: false, error: 'Amount must be at least ₦1,000', error_code: 'INVALID_AMOUNT' },
       { status: 400 }
     )
   }
@@ -123,8 +138,6 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-
-  const admin = createAdminClient()
 
   try {
     // Map DISCO to service ID

@@ -12,6 +12,7 @@ import {
   bulkUpdateApiPricingRules,
   bulkCreateApiPricingRules,
 } from '@/lib/actions/api-pricing'
+import { getApiElectricityAccess, setApiElectricityAccess } from '@/lib/actions/api-pricing-access'
 import { useConfirm, useToast } from '@/components/app-dialog'
 import {
   Plus,
@@ -163,6 +164,8 @@ export default function ApiPricingPage() {
   >({})
   const [ruleSearch, setRuleSearch] = useState('')
   const [dedupeBusy, setDedupeBusy] = useState(false)
+  const [electricityEnabled, setElectricityEnabled] = useState(false)
+  const [electricityToggleBusy, setElectricityToggleBusy] = useState(false)
   const [formData, setFormData] = useState({
     planName: '',
     basePrice: '',
@@ -236,7 +239,22 @@ export default function ApiPricingPage() {
 
   useEffect(() => {
     fetchOverview()
+    getApiElectricityAccess().then((result) => {
+      if (result.success) setElectricityEnabled(Boolean(result.enabled))
+    })
   }, [fetchOverview])
+
+  const handleElectricityToggle = async () => {
+    setElectricityToggleBusy(true)
+    const result = await setApiElectricityAccess(!electricityEnabled)
+    setElectricityToggleBusy(false)
+    if (result.success) {
+      setElectricityEnabled(result.enabled)
+      toast(result.enabled ? 'Electricity API enabled' : 'Electricity API disabled', 'success')
+    } else {
+      toast(result.error || 'Could not update electricity API access', 'error')
+    }
+  }
 
   const handleDedupe = async () => {
     const ok = await confirm({
@@ -566,6 +584,18 @@ export default function ApiPricingPage() {
             <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
+      </div>
+
+      <div className="admin-card" style={{ marginBottom: 16, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div>
+          <strong>Electricity API access</strong>
+          <p style={{ margin: '4px 0 0', color: 'var(--admin-text-secondary)', fontSize: 12 }}>
+            Independent from pricing rules. Electricity API purchases use the provider price with no markup.
+          </p>
+        </div>
+        <button type="button" className={`btn ${electricityEnabled ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={handleElectricityToggle} disabled={electricityToggleBusy}>
+          {electricityToggleBusy ? 'Saving...' : electricityEnabled ? 'Enabled · Disable' : 'Disabled · Enable'}
+        </button>
       </div>
 
       {/* Account-wide overview */}
