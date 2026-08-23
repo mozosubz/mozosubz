@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   const service = searchParams.get('service')
 
   const VALID_SERVICES = [
-    'mtn_sme', 'mtn_gifting', 'mtn_datashare', 'mtn_awoof',
+    'mtn_sme', 'mtn_gifting', 'mtn_datashare', 'mtn_awoof', 'mtn_awoof2',
     'glo_sme', 'glo_data',
     'airtel_sme', 'airtel_gifting',
     'etisalat_data',

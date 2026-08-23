@@ -58,6 +58,7 @@ const GSUBZ_SERVICES: Array<{ service: string; type: 'DATA' | 'CABLE' }> = [
   { service: 'mtn_datashare', type: 'DATA' },
   { service: 'mtn_gifting', type: 'DATA' },
   { service: 'mtn_awoof', type: 'DATA' },
+  { service: 'mtn_awoof2', type: 'DATA' },
   { service: 'glo_data', type: 'DATA' },
   { service: 'glo_sme', type: 'DATA' },
   { service: 'airtel_sme', type: 'DATA' },

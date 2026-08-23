@@ -317,6 +317,7 @@ export async function fetchDataPlans(serviceID: string) {
       mtn_datashare: "mtn",
       mtn_gifting: "mtn",
       mtn_awoof: "mtn",
+  mtn_awoof2: "mtn",
       glo_data: "glo",
       glo_sme: "glo",
       airtel_sme: "airtel",

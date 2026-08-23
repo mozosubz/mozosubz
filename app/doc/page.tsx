@@ -12,6 +12,7 @@ const DATA_SERVICES = [
   { id: "mtn_datashare", network: "MTN", type: "Data Share", plans: 5, note: "MTN data share plans" },
   { id: "mtn_gifting", network: "MTN", type: "Gifting", plans: 30, note: "MTN gifting bundles" },
   { id: "mtn_awoof", network: "MTN", type: "AWOOF", plans: 3, note: "MTN AWOOF special offers" },
+  { id: "mtn_awoof2", network: "MTN", type: "AWOOF 2", plans: null, note: "MTN AWOOF 2 plans" },
   { id: "glo_data", network: "Glo", type: "Data", plans: 13, note: "Standard Glo data plans" },
   { id: "glo_sme", network: "Glo", type: "SME", plans: 4, note: "Glo SME reseller plans" },
   { id: "airtel_sme", network: "Airtel", type: "SME", plans: 5, note: "Airtel SME plans" },

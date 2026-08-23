@@ -14,7 +14,7 @@ import { NetworkLogo } from "@/lib/utils/network-logo"
 import { useContactPicker } from "@/lib/hooks/use-contact-picker"
 
 const networks = [
-  { name: "MTN", types: [{ value: "mtn_sme", label: "SME Data" }, { value: "mtn_datashare", label: "Data Share" }, { value: "mtn_gifting", label: "Gifting" }, { value: "mtn_awoof", label: "AWOOF" }] },
+  { name: "MTN", types: [{ value: "mtn_sme", label: "SME Data" }, { value: "mtn_datashare", label: "Data Share" }, { value: "mtn_gifting", label: "Gifting" }, { value: "mtn_awoof", label: "AWOOF" }, { value: "mtn_awoof2", label: "AWOOF 2" }] },
   { name: "Glo", types: [{ value: "glo_data", label: "Glo Data" }, { value: "glo_sme", label: "SME Data" }] },
   { name: "Airtel", types: [{ value: "airtel_sme", label: "SME Data" }, { value: "airtel_gifting", label: "Gifting" }] },
   { name: "9mobile", types: [{ value: "etisalat_data", label: "9mobile Data" }] },

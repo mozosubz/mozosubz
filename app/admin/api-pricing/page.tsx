@@ -61,6 +61,7 @@ const NETWORKS = [
       { value: 'mtn_datashare', label: 'Share' },
       { value: 'mtn_gifting', label: 'Gifting' },
       { value: 'mtn_awoof', label: 'AWOOF' },
+      { value: 'mtn_awoof2', label: 'AWOOF 2' },
     ],
   },
   {
@@ -116,6 +117,7 @@ const SERVICE_MAP: Record<string, string> = {
   mtn_datashare: 'mtn_datashare',
   mtn_gifting: 'mtn_gifting',
   mtn_awoof: 'mtn_awoof',
+  mtn_awoof2: 'mtn_awoof2',
   glo_data: 'glo_data',
   glo_sme: 'glo_sme',
   airtel_sme: 'airtel_sme',
