@@ -30,5 +30,3 @@ export async function setApiElectricityAccess(enabled: boolean) {
   revalidatePath('/admin/api-pricing')
   return { success: true, enabled }
 }
-
-export { SETTING_KEY }

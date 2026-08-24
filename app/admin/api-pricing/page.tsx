@@ -251,8 +251,9 @@ export default function ApiPricingPage() {
     const result = await setApiElectricityAccess(!electricityEnabled)
     setElectricityToggleBusy(false)
     if (result.success) {
-      setElectricityEnabled(result.enabled)
-      toast(result.enabled ? 'Electricity API enabled' : 'Electricity API disabled', 'success')
+      const enabled = Boolean(result.enabled)
+      setElectricityEnabled(enabled)
+      toast(enabled ? 'Electricity API enabled' : 'Electricity API disabled', 'success')
     } else {
       toast(result.error || 'Could not update electricity API access', 'error')
     }
