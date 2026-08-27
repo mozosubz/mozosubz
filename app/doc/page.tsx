@@ -836,10 +836,14 @@ export default function DocPage() {
                   <div>
                     <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
                     <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ provider: "dstv", package: "DStv Compact", smartcard: "4123456789", phone: "08012345678" }, null, 2)}</pre>
-                    <p className="text-text-3 text-xs mt-2">Supported providers: <code className="text-primary">dstv</code>, <code className="text-primary">gotv</code>, <code className="text-primary">startimes</code>. The package must match an active cable pricing rule created in Admin API Pricing.</p>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">All fields are required. Supported provider IDs are <code className="text-primary">dstv</code>, <code className="text-primary">gotv</code>, and <code className="text-primary">startimes</code>. The <code className="text-primary">package</code> value must exactly match an active cable rule in Admin API Pricing; otherwise the endpoint returns <code className="text-primary">PACKAGE_NOT_ENABLED</code>.</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
-                    The amount is calculated from the active package rule: base price plus fixed or percentage markup. A timeout returns a pending transaction; do not retry it with a new request ID.
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Success response:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ success: true, transaction_id: "V1-CAB-7B2E4F9A1C3D", amount: 15700, balance_after: 24300, status: "SUCCESS", message: "DStv Compact subscription successful" }, null, 2)}</pre>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs leading-relaxed">
+                    The wallet charge is the active rule&apos;s base price plus its fixed or percentage API markup. Provider failure is refunded automatically. A provider timeout returns <code className="text-success">TIMEOUT_PENDING_VERIFICATION</code> with <code className="text-success">pending: true</code>; check the transaction before retrying.
                   </div>
                 </div>
               </div>
@@ -858,10 +862,16 @@ export default function DocPage() {
                   <div>
                     <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
                     <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ disco: "ikeja electric", meter_type: "PREPAID", meter_number: "1234567890", amount: 1000, phone: "08012345678" }, null, 2)}</pre>
-                    <p className="text-text-3 text-xs mt-2">Supports PREPAID and POSTPAID meters and the 12 configured Nigerian DISCOs. The minimum amount is ₦1,000, matching the normal electricity dashboard. Electricity charges the requested amount directly; no API pricing-rule markup is applied.</p>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">All fields are required. <code className="text-primary">meter_type</code> accepts <code className="text-primary">PREPAID</code> or <code className="text-primary">POSTPAID</code>. Accepted DISCO values are Ikeja Electric, Eko Electric, Abuja Electric (or AEDC), Kano Electric, Port Harcourt Electric (or PHED), Jos Electric, Ibadan Electric, Kaduna Electric, Enugu Electric, and Benin Electric. Names are case-insensitive.</p>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">The minimum amount is ₦1,000. Electricity charges the requested amount directly with no API pricing-rule markup.</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs">
-                    A provider timeout is saved as PENDING and verified for up to two minutes. Confirm the transaction status before retrying; confirmed failure or an expired verification is refunded automatically.
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Success response:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ success: true, transaction_id: "V1-ELEC-7B2E4F9A1C3D", amount: 5000, token: "1234-5678-9012-3456", balance_after: 19500, status: "SUCCESS", message: "Electricity payment successful" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">For postpaid payments, or when the provider does not return a token, <code className="text-primary">token</code> is <code className="text-primary">null</code>.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs leading-relaxed">
+                    A provider timeout returns <code className="text-success">TIMEOUT_PENDING_VERIFICATION</code>, saves the transaction as pending, and verifies it for up to two minutes. Confirm its status before retrying; confirmed failure or expired verification is refunded automatically.
                   </div>
                 </div>
               </div>
