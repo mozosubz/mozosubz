@@ -63,7 +63,7 @@ export default function ElectricityPage() {
     meterNumber &&
     phone &&
     amount &&
-    parseInt(amount) >= 1000 &&
+    parseInt(amount) >= 1100 &&
     balance &&
     balance >= parseInt(amount);
 
@@ -186,7 +186,7 @@ export default function ElectricityPage() {
 
         {/* Amount */}
         <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Amount (min ₦1,000)</label>
+          <label className="block text-sm font-medium mb-2">Amount (min ₦1,100)</label>
           <Input
             value={amount}
             onChange={(e) => setAmount(e.target.value)}

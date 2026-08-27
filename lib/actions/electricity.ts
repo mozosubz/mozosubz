@@ -56,8 +56,8 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       return { success: false, message: "Unsupported electricity provider" }
     }
     const purchaseAmount = Number(amount)
-    if (!Number.isFinite(purchaseAmount) || purchaseAmount < 1000) {
-      return { success: false, message: 'Electricity amount must be at least ₦1,000' }
+    if (!Number.isFinite(purchaseAmount) || purchaseAmount < 1100) {
+      return { success: false, message: 'Electricity amount must be at least ₦1,100' }
     }
     const providerMeterType = meterType.toLowerCase() as "prepaid" | "postpaid"
     const balanceBefore = Number(profile.wallet_balance)

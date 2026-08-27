@@ -18,7 +18,7 @@ import { isGsubzSuccess, resolveElectricityServiceId } from '@/lib/api/gsubz-ser
  * disco values: ikeja-electric, eko-electric, kano-electric, phed, jos-electric,
  *               ibadan-electric, kaduna-electric, abuja-electric, enugu-electric, benin-electric
  * meter_type values: PREPAID | POSTPAID
- * amount: minimum ₦1,000
+ * amount: minimum ₦1,100
  *
  * Deducts electricity payment from user's wallet and processes via Gsubz.
  * Rate limited: 50 requests per minute per API key
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
   if (isNaN(parsedAmount) || parsedAmount < 1000) {
     console.log(`[Electricity Purchase API] ✗ Invalid amount: ${amount}`)
     return NextResponse.json(
-      { success: false, error: 'Amount must be at least ₦1,000', error_code: 'INVALID_AMOUNT' },
+      { success: false, error: 'Amount must be at least ₦1,100', error_code: 'INVALID_AMOUNT' },
       { status: 400 }
     )
   }
