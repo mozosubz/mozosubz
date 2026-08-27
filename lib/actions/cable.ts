@@ -28,6 +28,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
 
   // Hoisted so the catch block references the exact ID sent to the provider.
   const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
+  let pendingChargeAmount = 0
 
   try {
     const supabase = await createClient()
@@ -74,6 +75,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
         : (providerAmount * Number(rule.markup_value)) / 100
       : 0
     const purchaseAmount = providerAmount + markup
+    pendingChargeAmount = purchaseAmount
     const balanceBefore = Number(profile.wallet_balance)
 
     if (!Number.isFinite(providerAmount) || providerAmount <= 0) {
@@ -207,7 +209,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
         const adminClient = createAdminClient()
         const { data: profile } = await adminClient.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
         const bal = Number(profile?.wallet_balance ?? 0)
-        const clientAmount2 = parseFloat(formData.get("amount") as string || "0")
+        const pendingAmount = pendingChargeAmount
 
         await saveTransaction({
           userId: pendingUserId,
@@ -216,7 +218,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
           serviceId: provider,
           serviceName: `${provider?.toUpperCase()} Cable`,
           serviceType: "Cable",
-          amount: clientAmount2,
+          amount: pendingAmount,
           phone: smartcard,
           status: "PENDING",
           description: packageDisplayName
@@ -230,7 +232,7 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
         scheduleVerifyPending({
           requestID,
           userId: pendingUserId,
-          amount: clientAmount2,
+          amount: pendingAmount,
           balanceBefore: bal,
           category: "CABLE",
         })

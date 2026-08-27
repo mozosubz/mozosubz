@@ -7,7 +7,7 @@ import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/u
 import { scheduleVerifyPending } from '@/lib/utils/schedule-verify'
 import { logRequest } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
-import { resolveElectricityServiceId } from '@/lib/api/gsubz-services'
+import { isGsubzSuccess, resolveElectricityServiceId } from '@/lib/api/gsubz-services'
 
 /**
  * POST /api/v1/electricity/purchase
@@ -266,12 +266,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine success
-    const isSuccess =
-      (gsubzResult.code === 200 || gsubzResult.code === '200' || gsubzResult.code === '000') &&
-      (gsubzResult.status === 'TRANSACTION_SUCCESSFUL' ||
-        gsubzResult.status === 'success' ||
-        gsubzResult.status === 'successful' ||
-        gsubzResult.description === 'TRANSACTION_SUCCESSFUL')
+    const isSuccess = isGsubzSuccess(gsubzResult)
 
     if (isSuccess) {
       // Transaction successful — save and return
@@ -284,11 +279,12 @@ export async function POST(request: NextRequest) {
         serviceId: serviceID,
         serviceName: 'Electricity',
         amount: parsedAmount,
-        phone: phoneClean,
+        phone: meter_number,
         status: 'SUCCESS',
         description: `${disco} electricity payment via API`,
         balanceBefore: walletBalance,
         balanceAfter: balanceAfter,
+        apiResponse: gsubzResult,
       })
 
       const duration = Date.now() - startTime
@@ -301,9 +297,10 @@ export async function POST(request: NextRequest) {
           success: true,
           transaction_id: finalTransactionId,
           amount: parsedAmount,
+          token: gsubzResult.token ?? null,
           balance_after: balanceAfter,
           status: 'SUCCESS',
-          message: `Electricity payment successful`,
+          message: 'Electricity payment successful',
         },
         { status: 200 }
       )

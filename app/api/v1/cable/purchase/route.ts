@@ -7,7 +7,7 @@ import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/u
 import { scheduleVerifyPending } from '@/lib/utils/schedule-verify'
 import { logRequest } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
-import { resolveCableServiceId } from '@/lib/api/gsubz-services'
+import { isGsubzSuccess, resolveCableServiceId } from '@/lib/api/gsubz-services'
 
 /**
  * POST /api/v1/cable/purchase
@@ -246,12 +246,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine success
-    const isSuccess =
-      (gsubzResult.code === 200 || gsubzResult.code === '200' || gsubzResult.code === '000') &&
-      (gsubzResult.status === 'TRANSACTION_SUCCESSFUL' ||
-        gsubzResult.status === 'success' ||
-        gsubzResult.status === 'successful' ||
-        gsubzResult.description === 'TRANSACTION_SUCCESSFUL')
+    const isSuccess = isGsubzSuccess(gsubzResult)
 
     if (isSuccess) {
       // Transaction successful — save and return
@@ -264,11 +259,12 @@ export async function POST(request: NextRequest) {
         serviceId: serviceID,
         serviceName: `${provider.toUpperCase()} Cable`,
         amount: apiPrice,
-        phone: phoneClean,
+        phone: smartcard,
         status: 'SUCCESS',
         description: `${packageName} subscription via API`,
         balanceBefore: walletBalance,
         balanceAfter: balanceAfter,
+        apiResponse: gsubzResult,
         planDetails: packageName,
       })
 
