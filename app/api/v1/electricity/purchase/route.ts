@@ -201,12 +201,10 @@ export async function POST(request: NextRequest) {
       console.log(`[Electricity Purchase API] → Calling Gsubz | Service: ${serviceID} | Amount: ₦${parsedAmount}`)
     gsubzResult = await buyElectricityToken({
       serviceID,
-      plan: meter_type.toUpperCase(),
       phone: phoneClean,
-      email: profile.email || 'customer@subsum.com',
       customerID: meter_number,
       amount: String(parsedAmount),
-      requestID: transactionId,
+      variationCode: meter_type.toLowerCase() as 'prepaid' | 'postpaid',
     })
       console.log(`[Electricity Purchase API] → Gsubz response | Code: ${gsubzResult.code} | Status: ${gsubzResult.status}`)
     } catch (err) {

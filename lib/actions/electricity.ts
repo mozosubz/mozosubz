@@ -59,7 +59,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     if (!Number.isFinite(purchaseAmount) || purchaseAmount < 1000) {
       return { success: false, message: 'Electricity amount must be at least ₦1,000' }
     }
-    const providerMeterType = meterType.toUpperCase()
+    const providerMeterType = meterType.toLowerCase() as "prepaid" | "postpaid"
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance
@@ -70,12 +70,10 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     // Call GSUBZ API
     const response = await buyElectricityToken({
       serviceID,
-      plan: providerMeterType,
       phone,
-      email: profile.email || "customer@subsum.com",
       customerID: meterNumber,
       amount,
-      requestID,
+      variationCode: providerMeterType,
     })
 
     const isSuccess = isGsubzSuccess(response)

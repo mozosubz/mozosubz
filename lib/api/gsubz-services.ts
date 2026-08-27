@@ -14,7 +14,9 @@ export const ELECTRICITY_PROVIDERS = [
   { id: 'jos-electric', name: 'Jos Electricity' },
   { id: 'kaduna-electric', name: 'Kaduna Electricity' },
   { id: 'kano-electric', name: 'Kano Electricity' },
-  { id: 'phed', name: 'Port Harcourt Electricity (PHED)' },
+  { id: 'portharcourt-electric', name: 'Port Harcourt Electricity (PHED)' },
+  { id: 'aba-electric', name: 'Aba Electricity' },
+  { id: 'yola-electric', name: 'Yola Electricity' },
 ] as const
 
 const ELECTRICITY_SERVICE_IDS: Record<string, string> = {
@@ -25,9 +27,14 @@ const ELECTRICITY_SERVICE_IDS: Record<string, string> = {
   'eko electricity distribution company': 'eko-electric',
   'kano electric': 'kano-electric',
   'kano electricity distribution company': 'kano-electric',
-  'port harcourt electric': 'phed',
-  'port harcourt electricity distribution company': 'phed',
-  phed: 'phed',
+  'port harcourt electric': 'portharcourt-electric',
+  'port harcourt electricity distribution company': 'portharcourt-electric',
+  phed: 'portharcourt-electric',
+  'portharcourt-electric': 'portharcourt-electric',
+  'aba electric': 'aba-electric',
+  'aba electricity distribution company': 'aba-electric',
+  'yola electric': 'yola-electric',
+  'yola electricity distribution company': 'yola-electric',
   'jos electric': 'jos-electric',
   'jos electricity distribution company': 'jos-electric',
   'ibadan electric': 'ibadan-electric',

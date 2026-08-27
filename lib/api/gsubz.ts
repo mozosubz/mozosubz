@@ -276,23 +276,20 @@ export async function buyCableSubscription(data: {
 
 export async function buyElectricityToken(data: {
   serviceID: string
-  plan: string
   phone: string
-  email: string
   customerID: string
   amount: string
-  requestID: string
+  variationCode: "prepaid" | "postpaid"
 }): Promise<ApiResponse> {
   const formData = new FormData()
   formData.append("serviceID", data.serviceID)
-  formData.append("plan", data.plan)
+  formData.append("api", API_KEY)
   formData.append("phone", data.phone)
-  formData.append("email", data.email)
-  formData.append("amount", data.amount)
   formData.append("customerID", data.customerID)
-  formData.append("requestID", data.requestID)
+  formData.append("amount", data.amount)
+  formData.append("variation_code", data.variationCode)
 
-  return makeApiRequest("/pay", "POST", formData)
+  return makeApiRequest("/api/pay/", "POST", formData)
 }
 
 export async function getWalletBalance(): Promise<{ balance: string }> {
