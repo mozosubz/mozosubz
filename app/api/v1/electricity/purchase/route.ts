@@ -7,6 +7,7 @@ import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/u
 import { scheduleVerifyPending } from '@/lib/utils/schedule-verify'
 import { logRequest } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
+import { resolveElectricityServiceId } from '@/lib/api/gsubz-services'
 
 /**
  * POST /api/v1/electricity/purchase
@@ -140,23 +141,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Map DISCO to service ID
-    const serviceIdMap: Record<string, string> = {
-      'ikeja electric': 'ikeja-electric',
-      'eko electric': 'eko-electric',
-      'abuja electric': 'abuja-electric',
-      'kano electric': 'kano-electric',
-      'port harcourt electric': 'portharcourt-electric',
-      'jos electric': 'jos-electric',
-      'ibadan electric': 'ibadan-electric',
-      'kaduna electric': 'kaduna-electric',
-      'enugu electric': 'enugu-electric',
-      'benin electric': 'benin-electric',
-      'aba electric': 'aba-electric',
-      'yola electric': 'yola-electric',
+    const serviceID = resolveElectricityServiceId(disco)
+    if (!serviceID) {
+      return NextResponse.json(
+        { success: false, error: 'Unsupported electricity provider', error_code: 'INVALID_PROVIDER' },
+        { status: 400 }
+      )
     }
-
-    const serviceID = serviceIdMap[disco.toLowerCase()] || 'ikeja-electric'
 
     // Get user's wallet balance — electricity has no markup (charged at provider's rate)
     const { data: profile } = await admin
@@ -209,14 +200,15 @@ export async function POST(request: NextRequest) {
     let gsubzResult: Awaited<ReturnType<typeof buyElectricityToken>>
     try {
       console.log(`[Electricity Purchase API] → Calling Gsubz | Service: ${serviceID} | Amount: ₦${parsedAmount}`)
-      gsubzResult = await buyElectricityToken({
-        serviceID,
-        phone: phoneClean,
-        customerID: meter_number,
-        amount: String(parsedAmount),
-        variation_code: meter_type.toUpperCase(),
-        requestID: transactionId,
-      })
+    gsubzResult = await buyElectricityToken({
+      serviceID,
+      plan: meter_type.toUpperCase(),
+      phone: phoneClean,
+      email: profile.email || 'customer@subsum.com',
+      customerID: meter_number,
+      amount: String(parsedAmount),
+      requestID: transactionId,
+    })
       console.log(`[Electricity Purchase API] → Gsubz response | Code: ${gsubzResult.code} | Status: ${gsubzResult.status}`)
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === 'AbortError'

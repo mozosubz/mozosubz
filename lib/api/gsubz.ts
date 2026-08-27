@@ -1,32 +1,9 @@
 "use server"
 
 import { unstable_cache } from "next/cache"
-import https from "https"
-import http from "http"
-
 const API_BASE_URL = "https://gsubz.com"
 const API_PLANS_URL = "https://gsubz.com"
 const API_KEY = process.env.GSUBZ_API_KEY || ""
-
-// Connection pooling agents - reuse connections instead of creating new ones each time
-// These keep connections alive to avoid TCP handshake overhead
-const httpsAgent = new https.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 60000, // Extend keep-alive to 60 seconds for sustained connections
-  maxSockets: 100, // Increase max concurrent connections
-  maxFreeSockets: 50, // Keep more idle connections ready
-  timeout: 30000, // Extend timeout to 30 seconds for slow gsubz responses
-  freeSocketTimeout: 60000, // Keep idle sockets for 60 seconds
-})
-
-const httpAgent = new http.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 60000,
-  maxSockets: 100,
-  maxFreeSockets: 50,
-  timeout: 30000,
-  freeSocketTimeout: 60000,
-})
 
 /**
  * Gsubz responses come back in two shapes and the previous type only described
@@ -38,24 +15,38 @@ const httpAgent = new http.Agent({
  * Hard failure / success — code as number OR string, ALL_CAPS `description`:
  *   { code: "402", status: "TRANSACTION_FAILED", description: "INSUFFICIENT_BALANCE" }
  */
-interface ApiResponse {
-  /** Numeric on soft failures, string ("200"/"000"/"402") on hard ones. */
+export interface ApiResponseContent {
+  transactionID?: number | string
+  requestID?: number | string
+  amount?: number | string
+  phone?: string
+  serviceID?: string
+  email?: string
+  customerID?: string
+  plan?: string
+  status?: string
+  code?: number | string
+  description?: string
+  token?: string
+  [key: string]: unknown
+}
+
+export interface ApiResponse {
   code: number | string
   status: string
-  /** Absent on soft failures — check `api_response` too. */
   description?: string
-  /** Human-readable reason on soft failures. */
   api_response?: string
   transactionID?: number | string
+  requestID?: number | string
   amount?: number | string
   amountPaid?: number | string
   phone?: string
   serviceID?: string
-  /** Electricity purchases only. */
   token?: string
   date?: string
-  content?: any
-  gateway?: any
+  balance?: string | number
+  content?: ApiResponseContent
+  gateway?: Record<string, unknown>
 }
 
 interface PlanResponse {
@@ -83,9 +74,6 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
   const options: RequestInit = {
     method,
     headers,
-    agent: API_BASE_URL.startsWith("https") ? httpsAgent : httpAgent,
-    // Use faster compression
-    compress: true,
   }
 
   if (body && method === "POST") {
@@ -108,9 +96,21 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`)
     }
-    
-    const data = await response.json()
-    return data
+
+    const data = (await response.json()) as ApiResponse
+    const content = data.content && typeof data.content === "object" ? data.content : undefined
+
+    return {
+      ...data,
+      transactionID: data.transactionID ?? content?.transactionID,
+      requestID: data.requestID ?? content?.requestID,
+      amount: data.amount ?? content?.amount,
+      phone: data.phone ?? content?.phone,
+      serviceID: data.serviceID ?? content?.serviceID,
+      token: data.token ?? content?.token,
+      status: content?.status ?? data.status,
+      description: content?.description ?? data.description,
+    }
   } catch (error) {
     clearTimeout(timeoutId)
     throw error
@@ -134,7 +134,6 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
         "Connection": "keep-alive",
         "Accept-Encoding": "gzip",
       },
-      agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
       signal: controller.signal,
     })
 
@@ -178,7 +177,6 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
         "User-Agent": BROWSER_USER_AGENT,
         Accept: "application/json, text/plain, */*",
       },
-      agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
 
     if (!response.ok) {
@@ -258,58 +256,57 @@ export async function buyAirtime(data: {
 export async function buyCableSubscription(data: {
   serviceID: string
   plan: string
+  amount: string
   phone: string
+  email: string
   customerID: string
-  requestID?: string
+  requestID: string
 }): Promise<ApiResponse> {
   const formData = new FormData()
   formData.append("serviceID", data.serviceID)
-  formData.append("api", API_KEY)
   formData.append("plan", data.plan)
+  formData.append("amount", data.amount)
   formData.append("phone", data.phone)
-  formData.append("amount", "")
+  formData.append("email", data.email)
   formData.append("customerID", data.customerID)
-  if (data.requestID) {
-    formData.append("requestID", data.requestID)
-  }
+  formData.append("requestID", data.requestID)
 
-  return makeApiRequest("/api/pay/", "POST", formData)
+  return makeApiRequest("/pay", "POST", formData)
 }
 
 export async function buyElectricityToken(data: {
   serviceID: string
+  plan: string
   phone: string
+  email: string
   customerID: string
   amount: string
-  variation_code: string
-  requestID?: string
+  requestID: string
 }): Promise<ApiResponse> {
   const formData = new FormData()
   formData.append("serviceID", data.serviceID)
-  formData.append("api", API_KEY)
+  formData.append("plan", data.plan)
   formData.append("phone", data.phone)
+  formData.append("email", data.email)
   formData.append("amount", data.amount)
   formData.append("customerID", data.customerID)
-  formData.append("variation_code", data.variation_code)
-  if (data.requestID) {
-    formData.append("requestID", data.requestID)
-  }
+  formData.append("requestID", data.requestID)
 
-  return makeApiRequest("/api/pay/", "POST", formData)
+  return makeApiRequest("/pay", "POST", formData)
 }
 
 export async function getWalletBalance(): Promise<{ balance: string }> {
   const formData = new FormData()
   formData.append("api", API_KEY)
-
-  return makeApiRequest("/api/balance/", "POST", formData)
+  const response = await makeApiRequest("/api/balance/", "POST", formData)
+  return { balance: String(response.balance ?? "0") }
 }
 
 export async function getProviderBalance(): Promise<{ balance: string }> {
   const formData = new FormData()
   formData.append("api", API_KEY)
-
-  return makeApiRequest("/api/balance/", "POST", formData)
+  const response = await makeApiRequest("/api/balance/", "POST", formData)
+  return { balance: String(response.balance ?? "0") }
 }
 
 export async function verifyTransaction(requestID: string): Promise<ApiResponse> {

@@ -1,6 +1,7 @@
 "use server"
 
 import { buyElectricityToken } from "@/lib/api/gsubz"
+import { isGsubzSuccess, resolveElectricityServiceId } from "@/lib/api/gsubz-services"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
@@ -44,41 +45,16 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     // Use admin client for the profile read so this works for both UI users
     // and trusted v1 callers without a Supabase session cookie.
     const admin = createAdminClient()
-    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance, email").eq("id", userId).single()
 
     if (!profile) {
       return { success: false, message: "Profile not found. Please contact support." }
     }
 
-    // Map DISCO to service ID
-    const serviceIdMap: Record<string, string> = {
-      'Ikeja Electric': 'ikeja-electric',
-      'Ikeja Electricity Distribution Company': 'ikeja-electric',
-      'Eko Electric': 'eko-electric',
-      'Eko Electricity Distribution Company': 'eko-electric',
-      'Abuja Electric': 'abuja-electric',
-      'Abuja Electricity Distribution Company': 'abuja-electric',
-      'Kano Electric': 'kano-electric',
-      'Kano Electricity Distribution Company': 'kano-electric',
-      'Port Harcourt Electric': 'portharcourt-electric',
-      'Port Harcourt Electricity Distribution Company': 'portharcourt-electric',
-      'Jos Electric': 'jos-electric',
-      'Jos Electricity Distribution Company': 'jos-electric',
-      'Ibadan Electric': 'ibadan-electric',
-      'Ibadan Electricity Distribution Company': 'ibadan-electric',
-      'Kaduna Electric': 'kaduna-electric',
-      'Kaduna Electricity Distribution Company': 'kaduna-electric',
-      'Enugu Electric': 'enugu-electric',
-      'Enugu Electricity Distribution Company': 'enugu-electric',
-      'Benin Electric': 'benin-electric',
-      'Benin Electricity Distribution Company': 'benin-electric',
-      'Aba Electric': 'aba-electric',
-      'Yola Electric': 'yola-electric',
-      'Yola Electricity Distribution Company': 'yola-electric',
-      'Bauchi Electricity Distribution Company': 'bauchi-electric',
+    const serviceID = resolveElectricityServiceId(disco)
+    if (!serviceID) {
+      return { success: false, message: "Unsupported electricity provider" }
     }
-
-    const serviceID = serviceIdMap[disco] || 'ikeja-electric'
     const purchaseAmount = Number(amount)
     if (!Number.isFinite(purchaseAmount) || purchaseAmount < 1000) {
       return { success: false, message: 'Electricity amount must be at least ₦1,000' }
@@ -94,20 +70,15 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     // Call GSUBZ API
     const response = await buyElectricityToken({
       serviceID,
+      plan: providerMeterType,
       phone,
+      email: profile.email || "customer@subsum.com",
       customerID: meterNumber,
       amount,
-      variation_code: providerMeterType,
       requestID,
     })
 
-    // Determine success
-    const isSuccess =
-      (response.code === 200 || response.code === "200" || response.code === "000") &&
-      (response.status === "TRANSACTION_SUCCESSFUL" ||
-        response.status === "success" ||
-        response.status === "successful" ||
-        response.description === "TRANSACTION_SUCCESSFUL")
+    const isSuccess = isGsubzSuccess(response)
 
     if (isSuccess) {
       const transactionId = String(response.transactionID || requestID)
@@ -221,20 +192,16 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
         const { data: profile } = await adminClient.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
         const bal = Number(profile?.wallet_balance ?? 0)
         const numAmount = parseFloat(amount)
-        const serviceIdMap2: Record<string, string> = {
-          "Ikeja Electric": "ikeja-electric", "Eko Electric": "eko-electric",
-          "Abuja Electric": "abuja-electric", "Kano Electric": "kano-electric",
-          "Port Harcourt Electric": "portharcourt-electric", "Jos Electric": "jos-electric",
-          "Ibadan Electric": "ibadan-electric", "Kaduna Electric": "kaduna-electric",
-          "Enugu Electric": "enugu-electric", "Benin Electric": "benin-electric",
-          "Aba Electric": "aba-electric", "Yola Electric": "yola-electric",
-        }
+      const pendingServiceId = resolveElectricityServiceId(disco)
+      if (!pendingServiceId) {
+        return { success: false, message: "Unsupported electricity provider" }
+      }
 
-        await saveTransaction({
+      await saveTransaction({
           userId: pendingUserId,
           transactionId: requestID,
           category: "ELECTRICITY",
-          serviceId: serviceIdMap2[disco] || "ikeja-electric",
+          serviceId: pendingServiceId,
           serviceName: "Electricity",
           amount: numAmount,
           phone: meterNumber,

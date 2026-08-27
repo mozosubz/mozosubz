@@ -1,6 +1,7 @@
 "use server"
 
 import { buyCableSubscription, getCablePlans } from "@/lib/api/gsubz"
+import { isGsubzSuccess, resolveCableServiceId } from "@/lib/api/gsubz-services"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
@@ -45,45 +46,54 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
     // Use admin client for the profile read so this works for both UI users
     // and trusted v1 callers without a Supabase session cookie.
     const admin = createAdminClient()
-    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance, email").eq("id", userId).single()
 
     if (!profile) {
       return { success: false, message: "Profile not found. Please contact support." }
     }
 
-    // Map provider to service ID
-    const serviceIdMap: Record<string, string> = {
-      dstv: "dstv",
-      gotv: "gotv",
-      startimes: "startimes",
+    const serviceID = resolveCableServiceId(provider)
+    if (!serviceID) {
+      return { success: false, message: "Unsupported cable provider" }
     }
 
-    const serviceID = serviceIdMap[provider.toLowerCase()] || "dstv"
+    const [providerPlans, pricingRules] = await Promise.all([
+      getCablePlans(serviceID),
+      getCablePricingRulesForService(serviceID),
+    ])
+    const providerPlan = providerPlans.plans.find((plan) => plan.value === package_name)
+    if (!providerPlan) {
+      return { success: false, message: "Selected cable package is unavailable" }
+    }
 
-    // Call GSUBZ API
-    const response = await buyCableSubscription({
-      serviceID,
-      plan: package_name,
-      phone,
-      customerID: smartcard,
-      requestID,
-    })
-
-    const purchaseAmount = Number(response.amount || 0)
+    const providerAmount = Number(providerPlan.price)
+    const rule = pricingRules.find((item) => item.plan_name.toLowerCase() === providerPlan.displayName.toLowerCase())
+    const markup = rule
+      ? rule.markup_type === "fixed"
+        ? Number(rule.markup_value)
+        : (providerAmount * Number(rule.markup_value)) / 100
+      : 0
+    const purchaseAmount = providerAmount + markup
     const balanceBefore = Number(profile.wallet_balance)
 
-    // Check sufficient balance
+    if (!Number.isFinite(providerAmount) || providerAmount <= 0) {
+      return { success: false, message: "Invalid cable package price" }
+    }
     if (balanceBefore < purchaseAmount) {
       return { success: false, message: "Insufficient wallet balance" }
     }
 
-    // Determine success
-    const isSuccess =
-      (response.code === 200 || response.code === "200" || response.code === "000") &&
-      (response.status === "TRANSACTION_SUCCESSFUL" ||
-        response.status === "success" ||
-        response.status === "successful" ||
-        response.description === "TRANSACTION_SUCCESSFUL")
+    const response = await buyCableSubscription({
+      serviceID,
+      plan: package_name,
+      amount: String(providerAmount),
+      phone,
+      email: profile.email || "customer@subsum.com",
+      customerID: smartcard,
+      requestID,
+    })
+
+    const isSuccess = isGsubzSuccess(response)
 
     if (isSuccess) {
       const transactionId = String(response.transactionID || requestID)

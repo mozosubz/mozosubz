@@ -7,6 +7,7 @@ import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/u
 import { scheduleVerifyPending } from '@/lib/utils/schedule-verify'
 import { logRequest } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
+import { resolveCableServiceId } from '@/lib/api/gsubz-services'
 
 /**
  * POST /api/v1/cable/purchase
@@ -94,14 +95,13 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
 
   try {
-    // Map provider to service ID
-    const serviceIdMap: Record<string, string> = {
-      dstv: 'dstv',
-      gotv: 'gotv',
-      startimes: 'startimes',
-    }
-
-    const serviceID = serviceIdMap[provider.toLowerCase()] || 'dstv'
+  const serviceID = resolveCableServiceId(provider)
+  if (!serviceID) {
+    return NextResponse.json(
+      { success: false, error: 'Unsupported cable provider', error_code: 'INVALID_PROVIDER' },
+      { status: 400 }
+    )
+  }
 
     // Look up cable package pricing from api_pricing_rules
     const { data: ruleRows } = await admin
@@ -179,13 +179,15 @@ export async function POST(request: NextRequest) {
     let gsubzResult: Awaited<ReturnType<typeof buyCableSubscription>>
     try {
       console.log(`[Cable Purchase API] → Calling Gsubz | Service: ${serviceID} | Package: ${packageName}`)
-      gsubzResult = await buyCableSubscription({
-        serviceID,
-        plan: packageName,
-        phone: phoneClean,
-        customerID: smartcard,
-        requestID: transactionId,
-      })
+    gsubzResult = await buyCableSubscription({
+      serviceID,
+      plan: packageName,
+      amount: String(rule.base_price),
+      phone: phoneClean,
+      email: profile.email || 'customer@subsum.com',
+      customerID: smartcard,
+      requestID: transactionId,
+    })
       console.log(`[Cable Purchase API] → Gsubz response | Code: ${gsubzResult.code} | Status: ${gsubzResult.status}`)
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === 'AbortError'
