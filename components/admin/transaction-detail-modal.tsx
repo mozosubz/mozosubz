@@ -1,6 +1,7 @@
 'use client'
 
 import { X, Receipt } from 'lucide-react'
+import { extractElectricityToken } from '@/lib/utils/transaction-helpers'
 import { ModalPortal } from './modal-portal'
 import { CopyButton, RawResponseBlock } from './raw-response-block'
 
@@ -46,6 +47,10 @@ export function TransactionDetailModal({
   onClose,
 }: TransactionDetailModalProps) {
   const status = transaction.status?.toLowerCase() || 'pending'
+  const isElectricity = String(transaction.category || '').toUpperCase() === 'ELECTRICITY'
+  const electricityToken = isElectricity && status === 'success'
+    ? extractElectricityToken(transaction.api_response)
+    : null
 
   return (
     <ModalPortal onClose={onClose}>
@@ -148,6 +153,9 @@ export function TransactionDetailModal({
                   <DetailRow label="Provider service" value={transaction.service_id} mono copyable />
                 )}
               </>
+            )}
+            {electricityToken && (
+              <DetailRow label="Electricity Token" value={electricityToken} mono copyable highlight />
             )}
             {transaction.phone && (
               <DetailRow label="Phone" value={transaction.phone} mono />

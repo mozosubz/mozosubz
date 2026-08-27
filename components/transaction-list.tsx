@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { Smartphone, Wifi, Tv, Zap, ArrowDownLeft, ReceiptText } from "lucide-react"
+import { extractElectricityToken } from "@/lib/utils/transaction-helpers"
 
 interface Transaction {
   id: string
@@ -12,6 +13,7 @@ interface Transaction {
   status: string
   created_at: string
   category?: string
+  api_response?: unknown
 }
 
 interface TransactionListProps {
@@ -91,11 +93,15 @@ function getServiceName(category: string | undefined, description: string | unde
   return description || 'Transaction';
 }
 
-function getSubtitle(category: string | undefined, phone: string | undefined, planDetails?: string): string {
-  const upper = category?.toUpperCase() || '';
+function getSubtitle(category: string | undefined, phone: string | undefined, planDetails?: string, apiResponse?: unknown): string {
+  const upper = category?.toUpperCase() || ''
 
   if (upper === 'WALLET_FUND') {
     return 'Bank Transfer';
+  }
+  if (upper === 'ELECTRICITY') {
+    const token = extractElectricityToken(apiResponse)
+    return token ? `Token: ${token}` : phone || 'No recipient'
   }
   if (upper === 'DATA' && planDetails) {
     return `${planDetails} · ${phone || 'No recipient'}`;
@@ -123,7 +129,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
         const bgColor = getIconBackground(tx.category, tx.status);
         const iconColor = getIconColor(tx.category, tx.status);
         const serviceName = getServiceName(tx.category, tx.description);
-        const subtitle = getSubtitle(tx.category, tx.phone, tx.plan_details);
+        const subtitle = getSubtitle(tx.category, tx.phone, tx.plan_details, tx.api_response);
         const isCreditTx = tx.category?.toUpperCase() === 'WALLET_FUND';
         const amountPrefix = isCreditTx ? '+' : '-';
         const amountColor = isCreditTx 

@@ -564,7 +564,7 @@ export default function TransactionDetailPage() {
               {isElectricity && (
                 <>
                   <div className="text-center mb-4">
-                    <h3 className="text-sm font-bold text-foreground">{electricityProvider}</h3>
+                    <h3 className="text-sm font-bold text-foreground">{discoName || transaction.service_variant || transaction.description || 'Electricity'}</h3>
                   </div>
 
                   {electricityToken && (
@@ -583,7 +583,7 @@ export default function TransactionDetailPage() {
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">DISCO</span>
-                        <span className="font-semibold text-foreground">{electricityProvider}</span>
+                        <span className="font-semibold text-foreground">{discoName || transaction.service_variant || transaction.description || 'Electricity'}</span>
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Meter Number</span>
@@ -638,7 +638,7 @@ export default function TransactionDetailPage() {
                       </div>
                       <div className="flex items-center justify-between p-3 px-4">
                         <span className="text-xs text-muted-foreground font-medium">DISCO</span>
-                        <span className="text-sm font-semibold text-foreground">{electricityProvider}</span>
+                        <span className="text-sm font-semibold text-foreground">{discoName || transaction.service_variant || transaction.description || 'Electricity'}</span>
                       </div>
                       <div className="flex items-center justify-between p-3 px-4">
                         <span className="text-xs text-muted-foreground font-medium">Meter Number</span>

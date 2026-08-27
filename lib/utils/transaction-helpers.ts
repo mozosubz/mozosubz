@@ -75,7 +75,8 @@ export function extractElectricityToken(apiResponse: any): string | null {
     }
   }
   
-  // Try multiple field names
+  // GSUBZ may return the token as `Token : 123...` inside api_response,
+  // including when api_response itself is JSON-encoded or nested.
   const tokenPaths = [
     apiResponse.token,
     apiResponse.Token,
@@ -84,14 +85,20 @@ export function extractElectricityToken(apiResponse: any): string | null {
     apiResponse.purchasedToken,
     apiResponse.data?.token,
     apiResponse.api_response?.token,
+    apiResponse.api_response?.Token,
   ]
-  
+
   for (const token of tokenPaths) {
-    if (token && typeof token === 'string') {
-      return token
-    }
+    if (token && typeof token === 'string') return token.trim()
   }
-  
+
+  const rawValues = [apiResponse.api_response, apiResponse.message, apiResponse.response]
+  for (const raw of rawValues) {
+    if (typeof raw !== 'string') continue
+    const match = raw.match(/\btoken\s*:\s*([A-Za-z0-9-]+)/i)
+    if (match?.[1]) return match[1]
+  }
+
   return null
 }
 

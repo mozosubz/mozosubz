@@ -30,6 +30,21 @@ export interface SaveTransactionPayload {
  * This is the ONLY place where transactions are saved to database
  * All services (airtime, data, cable, electricity, wallet) must use this
  */
+function extractReceiptToken(apiResponse?: Record<string, any>): string | null {
+  if (!apiResponse) return null
+  const direct = [apiResponse.token, apiResponse.Token, apiResponse.data?.token]
+  for (const value of direct) {
+    if (typeof value === "string" && value.trim()) return value.trim()
+  }
+  const raw = [apiResponse.api_response, apiResponse.message, apiResponse.response]
+  for (const value of raw) {
+    if (typeof value !== "string") continue
+    const match = value.match(/\btoken\s*:\s*([A-Za-z0-9-]+)/i)
+    if (match?.[1]) return match[1]
+  }
+  return null
+}
+
 export async function saveTransaction(payload: SaveTransactionPayload) {
   try {
     // Use admin client so this works for both authenticated UI users (RLS would
@@ -96,7 +111,15 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       const planLabel = payload.category === 'CABLE' ? 'Package' : 'Plan'
       extras.push({ label: planLabel, value: payload.planDetails })
     }
-    
+
+    // GSUBZ returns electricity tokens in `api_response` as `Token : ...`.
+    const receiptToken = payload.category === 'ELECTRICITY' && payload.status === 'SUCCESS'
+      ? extractReceiptToken(payload.apiResponse)
+      : null
+    if (receiptToken) {
+      extras.push({ label: 'Electricity Token', value: receiptToken })
+    }
+
     // Add balance info
     extras.push({ label: 'Balance Before', value: `₦${Number(payload.balanceBefore).toLocaleString()}` })
     extras.push({ label: 'Balance After', value: `₦${Number(payload.balanceAfter).toLocaleString()}` })
