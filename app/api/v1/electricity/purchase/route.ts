@@ -15,11 +15,10 @@ import { isGsubzSuccess, resolveElectricityServiceId } from '@/lib/api/gsubz-ser
  * Body: { disco: string, meter_type: string, meter_number: string, amount: number, phone: string }
  * Requires X-Connect-Key header.
  *
- * disco values: Ikeja Electric, Eko Electric, Abuja Electric, Kano Electric, Port Harcourt Electric,
- *               Jos Electric, Ibadan Electric, Kaduna Electric, Enugu Electric, Benin Electric,
- *               Aba Electric, Yola Electric
+ * disco values: ikeja-electric, eko-electric, kano-electric, phed, jos-electric,
+ *               ibadan-electric, kaduna-electric, abuja-electric, enugu-electric, benin-electric
  * meter_type values: PREPAID | POSTPAID
-   * amount: minimum ₦1,000
+ * amount: minimum ₦1,000
  *
  * Deducts electricity payment from user's wallet and processes via Gsubz.
  * Rate limited: 50 requests per minute per API key

@@ -103,7 +103,7 @@ export default function CablePage() {
     try {
       const formData = new FormData();
       formData.append('provider', selectedProvider);
-      formData.append('package', packagePlan);
+      formData.append('package', packagePlan!);
       formData.append('packageDisplayName', selectedPlanData?.displayName || '');
       formData.append('smartcard', smartcard);
       formData.append('phone', phone);

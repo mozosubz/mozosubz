@@ -12,21 +12,7 @@ import { PurchaseError } from '@/components/purchase-error';
 import { ArrowLeft } from 'lucide-react';
 import { payElectricity } from '@/lib/actions/electricity';
 import { getWalletBalance } from '@/lib/actions/wallet';
-
-const DISCOS = [
-  'Abuja Electricity Distribution Company',
-  'Benin Electricity Distribution Company',
-  'Eko Electricity Distribution Company',
-  'Enugu Electricity Distribution Company',
-  'Ibadan Electricity Distribution Company',
-  'Ikeja Electricity Distribution Company',
-  'Jos Electricity Distribution Company',
-  'Kaduna Electricity Distribution Company',
-  'Kano Electricity Distribution Company',
-  'Port Harcourt Electricity Distribution Company',
-  'Yola Electricity Distribution Company',
-  'Bauchi Electricity Distribution Company',
-];
+import { ELECTRICITY_PROVIDERS } from '@/lib/api/gsubz-services';
 
 export default function ElectricityPage() {
   const router = useRouter();
@@ -69,6 +55,8 @@ export default function ElectricityPage() {
     };
     loadBalance();
   }, []);
+
+  const selectedProvider = ELECTRICITY_PROVIDERS.find((provider) => provider.id === disco);
 
   const canSubmit =
     disco &&
@@ -126,7 +114,7 @@ export default function ElectricityPage() {
     return (
       <SuccessOverlay
         show={showSuccess}
-        title="Electricity token generated"
+        title={meterType === 'prepaid' ? 'Electricity token generated' : 'Electricity payment successful'}
         subtitle={successToken ? `Token: ${successToken}` : 'Payment successful'}
         onDone={() => {
           setShowSuccess(false);
@@ -159,9 +147,9 @@ export default function ElectricityPage() {
               <SelectValue placeholder="Select DISCO" />
             </SelectTrigger>
             <SelectContent>
-              {DISCOS.map((d) => (
-                <SelectItem key={d} value={d}>
-                  {d}
+              {ELECTRICITY_PROVIDERS.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -234,7 +222,7 @@ export default function ElectricityPage() {
           title="Confirm Electricity Payment"
           page="electricity"
           details={[
-            { label: 'DISCO', value: disco.split(' ')[0] },
+            { label: 'DISCO', value: selectedProvider?.name || disco },
             { label: 'Amount', value: `₦${parseInt(amount).toLocaleString()}` },
             { label: 'Meter Type', value: meterType },
             { label: 'Balance After', value: `₦${(balance! - parseInt(amount)).toLocaleString()}` },

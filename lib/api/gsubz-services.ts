@@ -4,7 +4,21 @@ export const CABLE_SERVICE_IDS = {
   startimes: 'startimes',
 } as const
 
+export const ELECTRICITY_PROVIDERS = [
+  { id: 'abuja-electric', name: 'Abuja Electricity (AEDC)' },
+  { id: 'benin-electric', name: 'Benin Electricity' },
+  { id: 'eko-electric', name: 'Eko Electricity' },
+  { id: 'enugu-electric', name: 'Enugu Electricity' },
+  { id: 'ibadan-electric', name: 'Ibadan Electricity' },
+  { id: 'ikeja-electric', name: 'Ikeja Electricity' },
+  { id: 'jos-electric', name: 'Jos Electricity' },
+  { id: 'kaduna-electric', name: 'Kaduna Electricity' },
+  { id: 'kano-electric', name: 'Kano Electricity' },
+  { id: 'phed', name: 'Port Harcourt Electricity (PHED)' },
+] as const
+
 const ELECTRICITY_SERVICE_IDS: Record<string, string> = {
+  ...Object.fromEntries(ELECTRICITY_PROVIDERS.map(({ id }) => [id, id])),
   'ikeja electric': 'ikeja-electric',
   'ikeja electricity distribution company': 'ikeja-electric',
   'eko electric': 'eko-electric',
