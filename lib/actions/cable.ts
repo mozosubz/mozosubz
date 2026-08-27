@@ -10,6 +10,8 @@ import { resolveProviderError } from "@/lib/utils/provider-error"
 import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
 import { revalidatePath } from "next/cache"
 
+const MIN_CABLE_AMOUNT = 1100
+
 /**
  * Subscribe to a cable plan.
  *
@@ -80,6 +82,9 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
 
     if (!Number.isFinite(providerAmount) || providerAmount <= 0) {
       return { success: false, message: "Invalid cable package price" }
+    }
+    if (providerAmount < MIN_CABLE_AMOUNT) {
+      return { success: false, message: "Cable subscription amount must be at least ₦1,100" }
     }
     if (balanceBefore < purchaseAmount) {
       return { success: false, message: "Insufficient wallet balance" }
