@@ -22,7 +22,6 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
   const serviceID = formData.get("serviceID") as string
   const plan = formData.get("plan") as string
   const phone = formData.get("phone") as string
-  const clientAmount = formData.get("amount") as string
   const planDisplayName = formData.get("planDisplayName") as string
 
   // Hoisted above try so the catch block can use the real requestID that was
@@ -31,14 +30,12 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
 
   try {
     // SECURITY: Validate all inputs before processing
-    const amount = parseFloat(clientAmount)
-    
-    if (!isValidAmount(amount) || amount <= 0) {
-      return { success: false, message: "Invalid amount" }
-    }
-
     if (!isValidPhone(phone)) {
       return { success: false, message: "Invalid phone number" }
+    }
+
+    if (!serviceID || !plan) {
+      return { success: false, message: "Invalid service or plan" }
     }
 
     const supabase = await createClient()
@@ -65,6 +62,41 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
 
     const balanceBefore = Number(profile.wallet_balance)
 
+    // SECURITY: Never trust a client-submitted price. Look up the real plan
+    // price from the provider (server-side) and apply our own markup rules —
+    // the exact pattern subscribeCable() already uses. This is what stops a
+    // caller from paying ₦10-11 for a real ₦1,000+ data plan by tampering
+    // with the "amount" form field.
+    const providerServiceKey = serviceID.split("_")[0]?.toLowerCase() || serviceID
+    const [providerPlans, pricingRules] = await Promise.all([
+      getDataPlans(serviceID),
+      getPricingRulesForService(providerServiceKey),
+    ])
+
+    const providerPlan = providerPlans.plans?.find((p: any) => p.value === plan)
+    if (!providerPlan) {
+      return { success: false, message: "Selected data plan is unavailable" }
+    }
+
+    const providerAmount = Number(providerPlan.price)
+    if (!Number.isFinite(providerAmount) || providerAmount <= 0) {
+      return { success: false, message: "Invalid data plan price" }
+    }
+
+    const rule = pricingRules?.find(
+      (r: any) => r.plan_name.toLowerCase() === providerPlan.displayName.toLowerCase()
+    )
+    const markup = rule
+      ? rule.markup_type === "fixed"
+        ? Number(rule.markup_value)
+        : (providerAmount * Number(rule.markup_value)) / 100
+      : 0
+    const amount = providerAmount + markup
+
+    if (!isValidAmount(amount) || amount <= 0) {
+      return { success: false, message: "Invalid amount" }
+    }
+
     // Check sufficient balance BEFORE calling Gsubz API
     if (balanceBefore < amount) {
       return { success: false, message: "Insufficient wallet balance" }
@@ -78,8 +110,8 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
       requestID,
     })
 
-    // Use the client-provided amount (which includes markup) instead of API response amount
-    const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)
+    // Server-computed amount is the source of truth — never trust the client here.
+    const userAmount = amount
 
     // Map network name - extract network from serviceID (e.g., "glo_sme" -> "glo")
     const networkNameMap: Record<string, string> = {
@@ -209,7 +241,31 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
     if (isTimeout) {
       console.log(`[v0] Data purchase timed out — saving PENDING | requestID=${requestID}`)
 
-      const amount = parseFloat(clientAmount)
+      // The server-computed amount lives inside the try block's scope and may
+      // not have been reached yet if the timeout happened during the plan/price
+      // lookup itself. Re-derive it the same way (never from client input) so a
+      // PENDING record still reflects the real provider price if we can.
+      let amount = 0
+      try {
+        const [providerPlans, pricingRules] = await Promise.all([
+          getDataPlans(serviceID),
+          getPricingRulesForService(serviceID?.split("_")[0]?.toLowerCase() || serviceID),
+        ])
+        const providerPlan = providerPlans.plans?.find((p: any) => p.value === plan)
+        if (providerPlan) {
+          const providerAmount = Number(providerPlan.price)
+          const rule = pricingRules?.find(
+            (r: any) => r.plan_name.toLowerCase() === providerPlan.displayName.toLowerCase()
+          )
+          const markup = rule
+            ? rule.markup_type === "fixed"
+              ? Number(rule.markup_value)
+              : (providerAmount * Number(rule.markup_value)) / 100
+            : 0
+          amount = providerAmount + markup
+        }
+      } catch {}
+
       const networkNameMap: Record<string, string> = { mtn: "MTN", glo: "Glo", airtel: "Airtel", etisalat: "9mobile" }
       const networkKey = serviceID?.split("_")[0]?.toLowerCase() ?? ""
       const networkName = networkNameMap[networkKey] || "Data"
