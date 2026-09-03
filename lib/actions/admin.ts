@@ -12,6 +12,37 @@ import {
   DEFAULT_TRANSACTION_SORT,
 } from '@/lib/utils/admin-sort'
 
+// SECURITY: every function below reads or writes through the service-role
+// client, which bypasses RLS entirely. Next.js Server Actions are exposed as
+// directly callable POST endpoints regardless of which page imports them, so
+// without this check any authenticated (non-admin) user could invoke these
+// actions straight from a crafted request and read every user's PII/wallet
+// balance/transaction history, or mutate wallets and admin roles. Every
+// exported function in this file MUST call requireAdmin() first.
+async function requireAdmin(): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { ok: false, error: 'Not authenticated' }
+  }
+
+  const adminSupabase = createAdminClient()
+  const { data: profile } = await adminSupabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.is_admin) {
+    return { ok: false, error: 'Admin access required' }
+  }
+
+  return { ok: true, userId: user.id }
+}
+
 // Get all users with pagination, search and sorting - uses admin client to bypass RLS
 export async function getUsers(
   page: number = 1,
@@ -19,6 +50,11 @@ export async function getUsers(
   searchTerm?: string,
   sortBy?: string
 ) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { users: [], count: 0, error: guard.error, totalPages: 0 }
+  }
+
   try {
     const supabase = createAdminClient()
 
