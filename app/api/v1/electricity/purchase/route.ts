@@ -122,10 +122,10 @@ export async function POST(request: NextRequest) {
 
   // Validate amount
   const parsedAmount = Number(amount)
-  if (isNaN(parsedAmount) || parsedAmount < 1000) {
+  if (isNaN(parsedAmount) || parsedAmount < 1100 || parsedAmount > 500000) {
     console.log(`[Electricity Purchase API] ✗ Invalid amount: ${amount}`)
     return NextResponse.json(
-      { success: false, error: 'Amount must be at least ₦1,100', error_code: 'INVALID_AMOUNT' },
+      { success: false, error: 'Amount must be between ₦1,100 and ₦500,000', error_code: 'INVALID_AMOUNT' },
       { status: 400 }
     )
   }

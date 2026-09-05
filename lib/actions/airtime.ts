@@ -30,8 +30,13 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
   try {
     // SECURITY: Validate inputs
     const numAmount = parseFloat(amount)
-    if (!isValidAmount(numAmount) || numAmount <= 0) {
-      return { success: false, message: "Invalid amount" }
+    if (!isValidAmount(numAmount) || numAmount < 50 || numAmount > 50000) {
+      return { success: false, message: "Airtime amount must be between ₦50 and ₦50,000" }
+    }
+
+    const ALLOWED_NETWORKS = ["mtn", "airtel", "glo", "9mobile", "etisalat"]
+    if (!network || !ALLOWED_NETWORKS.includes(network.toLowerCase())) {
+      return { success: false, message: "Invalid network selected" }
     }
 
     if (!isValidPhone(phone)) {

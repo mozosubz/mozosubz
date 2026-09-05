@@ -56,10 +56,16 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       return { success: false, message: "Unsupported electricity provider" }
     }
     const purchaseAmount = Number(amount)
-    if (!Number.isFinite(purchaseAmount) || purchaseAmount < 1100) {
-      return { success: false, message: 'Electricity amount must be at least ₦1,100' }
+    if (!Number.isFinite(purchaseAmount) || purchaseAmount < 1100 || purchaseAmount > 500000) {
+      return { success: false, message: 'Electricity amount must be between ₦1,100 and ₦500,000' }
     }
-    const providerMeterType = meterType.toLowerCase() as "prepaid" | "postpaid"
+    const providerMeterType = meterType?.toLowerCase() as "prepaid" | "postpaid"
+    if (!["prepaid", "postpaid"].includes(providerMeterType)) {
+      return { success: false, message: "Invalid meter type" }
+    }
+    if (!meterNumber || meterNumber.trim().length < 6) {
+      return { success: false, message: "Invalid meter number" }
+    }
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance

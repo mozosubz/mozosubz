@@ -5,7 +5,7 @@ import { isGsubzSuccess, resolveCableServiceId } from "@/lib/api/gsubz-services"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
-import { isValidAmount } from "@/lib/utils/input-validation"
+import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { resolveProviderError } from "@/lib/utils/provider-error"
 import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
 import { revalidatePath } from "next/cache"
@@ -33,6 +33,20 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
   let pendingChargeAmount = 0
 
   try {
+    // SECURITY: Validate inputs
+    if (!provider || !["dstv", "gotv", "startimes", "showmax"].includes(provider.toLowerCase())) {
+      return { success: false, message: "Invalid cable provider selected" }
+    }
+    if (!package_name) {
+      return { success: false, message: "Invalid cable package selected" }
+    }
+    if (!smartcard || smartcard.trim().length < 6) {
+      return { success: false, message: "Invalid smartcard/IUC number" }
+    }
+    if (!isValidPhone(phone)) {
+      return { success: false, message: "Invalid phone number" }
+    }
+
     const supabase = await createClient()
 
     let userId = trustedUserId
