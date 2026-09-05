@@ -84,16 +84,12 @@ export async function getUsers(
     // input, so `sortBy` can't be used to probe unexposed columns.
     const sort = resolveSort(USER_SORT_OPTIONS, sortBy, DEFAULT_USER_SORT)
 
-    const { data: users, error: usersError } = await query
+    const dataPromise = query
       .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
-      // Stable tiebreaker. full_name and wallet_balance are non-unique, and
-      // without a deterministic second key Postgres may order ties differently
-      // between page requests — which silently duplicates rows on one page and
-      // drops them from another.
       .order('id', { ascending: true })
       .range(offset, offset + limit - 1)
 
-    // Get total count for pagination
+    // Get total count for pagination concurrently with the page query
     let countQuery = supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true })
@@ -110,7 +106,10 @@ export async function getUsers(
       }
     }
 
-    const { count, error: countError } = await countQuery
+    const [{ data: users, error: usersError }, { count, error: countError }] = await Promise.all([
+      dataPromise,
+      countQuery,
+    ])
 
     if (usersError) {
       console.error('[v0] Error fetching users:', usersError)
@@ -118,8 +117,6 @@ export async function getUsers(
     }
 
     const totalPages = Math.ceil((count || 0) / limit)
-
-    console.log('[v0] getUsers - Real data:', { totalCount: count, usersReturned: users?.length, page, totalPages, searchTerm: trimmedSearch })
 
     return { users: users || [], count: count || 0, error: null, totalPages }
   } catch (err) {

@@ -333,17 +333,23 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       return { success: true, credited: true, alreadyProcessed: true }
     }
 
-    // CRITICAL: Immediately mark as SUCCESS to prevent duplicate processing from polling
-    // This MUST happen before updating wallet to ensure idempotency
-    const { error: markSuccessError } = await supabase
+    // CRITICAL: Immediately mark as SUCCESS with atomic optimistic locking to prevent duplicate processing from concurrent webhook/polling races.
+    // .select() returns the updated row. If another concurrent request claimed it first, updatedRow will be null/empty.
+    const { data: updatedRows, error: markSuccessError } = await supabase
       .from('monnify_transactions')
       .update({ status: 'SUCCESS', paid_at: new Date().toISOString() })
       .eq('payment_reference', paymentReference)
-      .eq('status', transaction.status) // Only update if status hasn't changed (prevent race conditions)
+      .eq('status', transaction.status) // Atomically ensure status hasn't changed
+      .select('id')
 
     if (markSuccessError) {
       console.error('[TRANSACTION] Error marking payment as success:', markSuccessError)
       return { success: false, error: 'Error marking payment as success' }
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      console.log('[TRANSACTION] Race condition detected - transaction was claimed by another process:', paymentReference)
+      return { success: true, credited: true, alreadyProcessed: true }
     }
 
     // Get current wallet balance from profiles.wallet_balance
