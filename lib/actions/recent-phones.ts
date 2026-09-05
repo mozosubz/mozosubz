@@ -126,3 +126,33 @@ export async function saveRecentPhone(phoneNumber: string) {
     return { success: false }
   }
 }
+
+export async function deleteRecentPhone(phoneNumber: string) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: "Not authenticated" }
+    }
+
+    const { error } = await supabase
+      .from("recent_phones")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("phone_number", phoneNumber)
+
+    if (error) {
+      console.log("[v0] Error deleting recent phone:", error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.log("[v0] Error in deleteRecentPhone:", error)
+    return { success: false, error: "Failed to delete number" }
+  }
+}
+

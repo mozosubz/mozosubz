@@ -137,23 +137,23 @@ export async function getUserDetails(userId: string) {
 
   const supabase = createAdminClient()
 
-  const { data: user, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
+  const [{ data: user, error: userError }, { data: transactions, error: txError }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single(),
+    supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ])
 
-  if (error) {
-    return { user: null, transactions: [], error: error.message }
+  if (userError || !user) {
+    return { user: null, transactions: [], error: userError?.message || 'User not found' }
   }
-
-  // Get user transactions
-  const { data: transactions } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(10)
 
   return { user, transactions: transactions || [], error: null }
 }

@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, ContactRound } from "lucide-react"
+import { ArrowLeft, Loader2, ContactRound, X } from "lucide-react"
 import Link from "next/link"
 import { getWalletBalance } from "@/lib/actions/wallet"
-import { getRecentPhones, saveRecentPhone } from "@/lib/actions/recent-phones"
+import { getRecentPhones, saveRecentPhone, deleteRecentPhone } from "@/lib/actions/recent-phones"
 import { ConfirmSheet } from "@/components/confirm-sheet"
 import { SuccessOverlay } from "@/components/success-overlay"
 import { ProcessingOverlay } from "@/components/processing-overlay"
@@ -216,17 +216,35 @@ export default function AirtimePage() {
               <label className="text-[12px] text-[var(--text-3)] font-medium mb-2 block">Recent</label>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {recentPhones.map((num) => (
-                  <button
+                  <div
                     key={num}
-                    onClick={() => setPhone(num)}
-                    className="px-[14px] py-[8px] rounded-full text-[13px] font-semibold text-[#475569] cursor-pointer whitespace-nowrap flex-shrink-0"
+                    className="inline-flex items-center rounded-full text-[13px] font-semibold text-[#475569] whitespace-nowrap flex-shrink-0 transition-all"
                     style={{
                       backgroundColor: "#f4f6fb",
                       border: "1.5px solid #e2e8f0"
                     }}
                   >
-                    {num}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhone(num)}
+                      className="px-[12px] py-[7px] cursor-pointer bg-transparent border-none text-inherit font-inherit text-left"
+                    >
+                      {num}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        setRecentPhones((prev) => prev.filter((p) => p !== num))
+                        deleteRecentPhone(num).catch(() => {})
+                      }}
+                      className="pr-[10px] pl-[2px] py-[7px] cursor-pointer bg-transparent border-none text-[#94a3b8] hover:text-[#ef4444] transition-colors flex items-center justify-center"
+                      title="Delete number"
+                      aria-label={`Delete ${num}`}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

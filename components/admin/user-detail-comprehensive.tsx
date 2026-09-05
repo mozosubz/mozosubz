@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { X, User, Wallet, Activity } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { getUserDetails } from '@/lib/actions/admin'
 import { ModalPortal } from './modal-portal'
 import { TransactionDetailModal } from './transaction-detail-modal'
 
@@ -19,61 +19,57 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
 
   useEffect(() => {
+    let active = true
+
     const loadUserData = async () => {
-      const supabase = createClient()
-
       try {
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single()
+        setLoading(true)
+        const res = await getUserDetails(userId)
 
-        if (userError) {
-          console.error('[v0] Error fetching user:', userError)
+        if (!active) return
+
+        if (res.error || !res.user) {
+          console.error('[v0] Error fetching user:', res.error)
           setLoading(false)
           return
         }
 
-        setUser(userData)
+        setUser(res.user)
+        const txData = res.transactions || []
+        setTransactions(txData)
 
-        // Select every column so rows can feed the shared transaction detail
-        // modal (balances, raw payloads, bank fields) without a second fetch.
-        const { data: txData } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(20)
+        const walletFundTransactions = txData.filter((t: any) => {
+          const isWalletFund = t.category === 'WALLET_FUND'
+          const isSuccess = t.status === 'SUCCESS' || t.status === 'success'
+          return isWalletFund && isSuccess
+        })
 
-        setTransactions(txData || [])
-
-        const walletFundTransactions =
-          txData?.filter((t) => {
-            const isWalletFund = t.category === 'WALLET_FUND'
-            const isSuccess = t.status === 'SUCCESS' || t.status === 'success'
-            return isWalletFund && isSuccess
-          }) || []
-
-        const totalAmount = walletFundTransactions.reduce((sum, t) => {
+        const totalAmount = walletFundTransactions.reduce((sum: number, t: any) => {
           const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : t.amount || 0
           return sum + amount
         }, 0)
 
         setStats({
           totalDeposits: walletFundTransactions.length,
-          totalTransactions: txData?.length || 0,
+          totalTransactions: txData.length,
           totalAmount,
         })
-
-        setLoading(false)
       } catch (error) {
-        console.error('[v0] Unexpected error loading user data:', error)
-        setLoading(false)
+        if (active) {
+          console.error('[v0] Unexpected error loading user data:', error)
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 
     loadUserData()
+
+    return () => {
+      active = false
+    }
   }, [userId])
 
   if (loading) {
