@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { checkRateLimit, RATE_LIMIT_CONFIG, getRateLimitIdentifier } from "@/lib/utils/rate-limit"
 import { isValidEmail, isValidUUID } from "@/lib/utils/input-validation"
@@ -43,8 +44,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if requester is admin
-    const { data: requesterProfile } = await supabase
+    const adminSupabase = createAdminClient()
+
+    // Check if requester is admin using admin client (authoritative lookup)
+    const { data: requesterProfile } = await adminSupabase
       .from("profiles")
       .select("is_admin, admin_role")
       .eq("id", user.id)
@@ -82,8 +85,8 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.toLowerCase().trim()
 
-    // Promote the user
-    const { error: updateError, data: updatedData } = await supabase
+    // Promote the user using admin client (bypasses RLS for updating another profile)
+    const { error: updateError, data: updatedData } = await adminSupabase
       .from("profiles")
       .update({
         is_admin: true,

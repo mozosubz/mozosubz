@@ -133,3 +133,31 @@ export function getRateLimitIdentifier(request: Request): string {
 
   return ip
 }
+
+/**
+ * Get the current rate limit count for an identifier and prefix
+ */
+export async function getRateLimitCount(identifier: string, keyPrefix: string): Promise<number> {
+  try {
+    const key = `${keyPrefix}:${identifier}`
+    const count = await redis.get<number>(key)
+    return count ? Number(count) : 0
+  } catch (error) {
+    console.error("[v0] getRateLimitCount error:", error)
+    return 0
+  }
+}
+
+/**
+ * Clear rate limit for an identifier and prefix
+ */
+export async function clearRateLimit(identifier: string, keyPrefix: string): Promise<boolean> {
+  try {
+    const key = `${keyPrefix}:${identifier}`
+    await redis.del(key)
+    return true
+  } catch (error) {
+    console.error("[v0] clearRateLimit error:", error)
+    return false
+  }
+}

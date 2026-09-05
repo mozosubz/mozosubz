@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendBotOtpEmail } from '@/lib/utils/bot-auth'
 import { logRequest } from '@/lib/api-logger'
 import { generateConnectKey, hashConnectKey, getKeyPreview } from '@/lib/utils/connect-key'
+import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 
 /**
  * POST /api/v1/bot-auth/verify-otp
@@ -24,6 +25,21 @@ export async function POST(request: NextRequest) {
   console.log(`[Bot Auth Verify OTP] → POST | From: ${requestLog.ip}`)
 
   try {
+    // SECURITY: Rate limit OTP verification attempts to prevent brute force (5 attempts/min per IP)
+    const ip = getRateLimitIdentifier(request)
+    const { allowed } = await checkRateLimit(ip, {
+      interval: 60000,
+      maxRequests: 5,
+      keyPrefix: 'rl:bot-auth:verify',
+    })
+
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many verification attempts. Please wait a minute.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      )
+    }
+
     const body = await request.json()
     const { email, otp_code, platform, identifier } = body
 

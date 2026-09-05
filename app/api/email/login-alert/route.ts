@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
+import { createServerClient } from "@/lib/supabase/server"
 import { sendEmail } from "@/lib/email/client"
 import { buildUnsubscribeUrl } from "@/lib/email/unsubscribe"
 import { loginAlertEmail } from "@/lib/email/templates/login-alert"
@@ -57,11 +58,19 @@ function getClientIp(h: Headers): string {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as { email?: string }
-    const email = body.email?.trim()
-    if (!email || !email.includes("@")) {
-      return NextResponse.json({ ok: false, error: "invalid_email" }, { status: 400 })
+    // SECURITY: Authenticate the requesting user. Users may only trigger login
+    // alerts for their own verified session email.
+    const userClient = await createServerClient()
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await userClient.auth.getUser()
+
+    if (authError || !authUser?.email) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
     }
+
+    const email = authUser.email.toLowerCase().trim()
 
     const hdrs = await headers()
     const ip = getClientIp(hdrs)

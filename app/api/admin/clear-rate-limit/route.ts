@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server"
 import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
-import { checkRateLimit, RATE_LIMIT_CONFIG } from "@/lib/utils/rate-limit"
+import { checkRateLimit, RATE_LIMIT_CONFIG, getRateLimitCount, clearRateLimit } from "@/lib/utils/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createServerClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
-    // Admin check
-    const user = await isHardcodedAdmin(request)
-    if (!user) {
+    // Admin check - authenticate caller via Supabase session
+    const supabase = await createServerClient()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (!isHardcodedAdmin(user.email)) {
+      return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 })
     }
 
     const { identifier, type = "ip" } = await request.json()

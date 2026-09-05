@@ -3,7 +3,7 @@
 import { generateRechargePins as generatePinsAPI } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { atomicDeductWallet } from "@/lib/utils/save-transaction"
+import { atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
 import { sendEmail } from "@/lib/email/client"
 import { renderShell, escapeHtml, formatNaira, formatDateTime } from "@/lib/email/templates/shell"
 import { revalidatePath } from "next/cache"
@@ -50,9 +50,25 @@ export async function generateRechargePins(
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
 
-    const totalCost = Number(data.value) * Number(data.number)
+    const pinVal = Number(data.value)
+    const pinQty = Number(data.number)
 
-    if (!profile || profile.wallet_balance < totalCost) {
+    // SECURITY: Validate network, pin value, and quantity against allowed bounds
+    const ALLOWED_VALUES = [100, 200, 400, 500]
+    const ALLOWED_NETWORKS = ["mtn", "glo", "airtel", "9mobile", "etisalat"]
+    if (!ALLOWED_NETWORKS.includes(data.network.toLowerCase())) {
+      return { success: false, error: "Invalid network selected" }
+    }
+    if (!ALLOWED_VALUES.includes(pinVal)) {
+      return { success: false, error: "Invalid pin denomination" }
+    }
+    if (!Number.isInteger(pinQty) || pinQty < 1 || pinQty > 50) {
+      return { success: false, error: "Invalid quantity (must be between 1 and 50)" }
+    }
+
+    const totalCost = pinVal * pinQty
+
+    if (!profile || Number(profile.wallet_balance) < totalCost) {
       return {
         success: false,
         error: `Insufficient wallet balance. You need ₦${totalCost.toLocaleString()} but your balance is ₦${(profile?.wallet_balance || 0).toLocaleString()}`,
@@ -62,8 +78,8 @@ export async function generateRechargePins(
     // Call Gsubz API to generate pins
     const response = await generatePinsAPI({
       network: data.network.toLowerCase(),
-      value: data.value,
-      number: data.number,
+      value: String(pinVal),
+      number: String(pinQty),
     })
 
     // Handle Gsubz API response - can be status "success" or "error"
@@ -82,13 +98,13 @@ export async function generateRechargePins(
     }
 
     if (response.status === "success" && response.pins && Array.isArray(response.pins)) {
-      // Deduct from wallet atomically
-      try {
-        await atomicDeductWallet(userId, totalCost)
-      } catch (walletError) {
+      // SECURITY: Deduct atomically and verify success BEFORE returning pins to client
+      const deductResult = await atomicDeductWallet(userId, totalCost)
+      if (!deductResult.success) {
+        console.error("[v0] Atomic deduction failed for recharge pins:", deductResult.error)
         return {
           success: false,
-          error: "Failed to deduct from wallet. Please try again.",
+          error: "Failed to deduct from wallet. Please contact support.",
         }
       }
 

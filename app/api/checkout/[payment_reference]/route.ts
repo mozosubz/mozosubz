@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTransaction, verifyAndCreditPayment } from '@/lib/actions/transactions'
+import { getTransaction, verifyAndCreditPayment, queryMonnifyTransaction } from '@/lib/actions/transactions'
 import { initializePayment } from '@/lib/actions/monnify'
+import { createServerClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
@@ -46,6 +47,43 @@ export async function POST(
     console.log('[CHECKOUT API] Action:', action, 'Payment Reference:', payment_reference)
 
     if (action === 'verify') {
+      // SECURITY: Require user authentication and ownership check
+      const supabase = await createServerClient()
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user?.id) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      }
+
+      const { data: tx, error: txError } = await supabase
+        .from('monnify_transactions')
+        .select('user_id, status')
+        .eq('payment_reference', payment_reference)
+        .maybeSingle()
+
+      if (txError || !tx) {
+        return NextResponse.json({ success: false, error: 'Transaction not found' }, { status: 404 })
+      }
+
+      if (tx.user_id !== user.id) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+      }
+
+      // Query Monnify directly to confirm paymentStatus is actually PAID
+      const queryResult = await queryMonnifyTransaction(payment_reference)
+      if (!queryResult.success || queryResult.paymentStatus !== 'PAID') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Payment not yet confirmed by Monnify (status: ${queryResult.paymentStatus || 'UNKNOWN'})`,
+          },
+          { status: 400 }
+        )
+      }
+
       // Verify payment with Monnify and credit wallet
       const result = await verifyAndCreditPayment(payment_reference)
 

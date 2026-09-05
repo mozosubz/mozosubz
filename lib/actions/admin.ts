@@ -130,6 +130,11 @@ export async function getUsers(
 
 // Get user details
 export async function getUserDetails(userId: string) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { user: null, transactions: [], error: guard.error }
+  }
+
   const supabase = createAdminClient()
 
   const { data: user, error } = await supabase
@@ -139,7 +144,7 @@ export async function getUserDetails(userId: string) {
     .single()
 
   if (error) {
-    return { user: null, error: error.message }
+    return { user: null, transactions: [], error: error.message }
   }
 
   // Get user transactions
@@ -150,11 +155,16 @@ export async function getUserDetails(userId: string) {
     .order('created_at', { ascending: false })
     .limit(10)
 
-  return { user, transactions, error: null }
+  return { user, transactions: transactions || [], error: null }
 }
 
 // Credit user wallet
 export async function creditUserWallet(userId: string, amount: number, reason: string) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { error: guard.error }
+  }
+
   // SECURITY: Validate all inputs to prevent injection
   if (!isValidUUID(userId)) {
     return { error: 'Invalid user ID format' }
@@ -165,15 +175,7 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
     return { error: 'Invalid amount' }
   }
 
-  const supabase = await createServerClient()
-
-  const {
-    data: { user: adminUser },
-  } = await supabase.auth.getUser()
-
-  if (!adminUser) {
-    return { error: 'Not authenticated' }
-  }
+  const adminUserId = guard.userId
 
   // Get current wallet balance - use admin client for profile read
   const adminSupabase = createAdminClient()
@@ -221,7 +223,7 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
     description: reason || 'Wallet funded via admin credit',
     balance_before: balanceBefore,
     balance_after: newBalance,
-    api_response: JSON.stringify({ admin_id: adminUser.id }),
+    api_response: JSON.stringify({ admin_id: adminUserId }),
     created_at: new Date().toISOString(),
     payment_method: 'ADMIN',
   })
@@ -234,6 +236,11 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
 
 // Debit user wallet - only updates balance and logs, does NOT create transaction receipt
 export async function debitUserWallet(userId: string, amount: number, reason: string) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { error: guard.error }
+  }
+
   // SECURITY: Validate all inputs to prevent injection
   if (!isValidUUID(userId)) {
     return { error: 'Invalid user ID format' }
@@ -242,16 +249,6 @@ export async function debitUserWallet(userId: string, amount: number, reason: st
   // Amount must be positive (not zero) for transactions
   if (typeof amount !== 'number' || amount <= 0 || isNaN(amount)) {
     return { error: 'Invalid amount' }
-  }
-
-  const supabase = await createServerClient()
-
-  const {
-    data: { user: adminUser },
-  } = await supabase.auth.getUser()
-
-  if (!adminUser) {
-    return { error: 'Not authenticated' }
   }
 
   // Get current wallet balance - use admin client for profile read
@@ -294,20 +291,17 @@ export async function debitUserWallet(userId: string, amount: number, reason: st
 
 // Toggle admin role
 export async function toggleAdminRole(userId: string, isAdmin: boolean) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { error: guard.error }
+  }
+
   // SECURITY: Validate user ID format to prevent injection
   if (!isValidUUID(userId)) {
     return { error: 'Invalid user ID format' }
   }
 
-  const supabase = await createServerClient()
-
-  const {
-    data: { user: adminUser },
-  } = await supabase.auth.getUser()
-
-  if (!adminUser) {
-    return { error: 'Not authenticated' }
-  }
+  const adminUserId = guard.userId
 
   // Use admin client for profile update to bypass RLS
   const adminSupabase = createAdminClient()
@@ -318,8 +312,8 @@ export async function toggleAdminRole(userId: string, isAdmin: boolean) {
   }
 
   // Log action
-  await supabase.from('admin_logs').insert({
-    admin_id: adminUser.id,
+  await adminSupabase.from('admin_logs').insert({
+    admin_id: adminUserId,
     action: 'TOGGLE_ADMIN',
     target_user: userId,
     details: { isAdmin },
@@ -337,6 +331,11 @@ export async function getTransactions(
   sortBy?: string,
   userId?: string
 ) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { transactions: [], count: 0, error: guard.error, totalPages: 0 }
+  }
+
   try {
     const supabase = createAdminClient()
 
@@ -426,7 +425,12 @@ export async function getTransactions(
 
 // Get transaction details
 export async function getTransactionDetails(transactionId: string) {
-  const supabase = await createServerClient()
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { transaction: null, error: guard.error }
+  }
+
+  const supabase = createAdminClient()
 
   const { data: transaction, error } = await supabase
     .from('transactions')
@@ -450,15 +454,13 @@ export async function createPricingRule(
   minAmount?: number,
   maxAmount?: number
 ) {
-  const supabase = await createServerClient()
-
-  const {
-    data: { user: adminUser },
-  } = await supabase.auth.getUser()
-
-  if (!adminUser) {
-    return { error: 'Not authenticated' }
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { error: guard.error }
   }
+
+  const adminUserId = guard.userId
+  const supabase = createAdminClient()
 
   const { data, error } = await supabase.from('pricing_rules').insert({
     network,
@@ -476,7 +478,7 @@ export async function createPricingRule(
 
   // Log action
   await supabase.from('admin_logs').insert({
-    admin_id: adminUser.id,
+    admin_id: adminUserId,
     action: 'CREATE_PRICING_RULE',
     details: { network, serviceType, ruleType, value },
   })
@@ -490,15 +492,13 @@ export async function updatePricingRule(
   ruleId: string,
   updates: Record<string, any>
 ) {
-  const supabase = await createServerClient()
-
-  const {
-    data: { user: adminUser },
-  } = await supabase.auth.getUser()
-
-  if (!adminUser) {
-    return { error: 'Not authenticated' }
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { error: guard.error }
   }
+
+  const adminUserId = guard.userId
+  const supabase = createAdminClient()
 
   const { error } = await supabase.from('pricing_rules').update(updates).eq('id', ruleId)
 
@@ -508,7 +508,7 @@ export async function updatePricingRule(
 
   // Log action
   await supabase.from('admin_logs').insert({
-    admin_id: adminUser.id,
+    admin_id: adminUserId,
     action: 'UPDATE_PRICING_RULE',
     details: { ruleId, updates },
   })
@@ -519,7 +519,12 @@ export async function updatePricingRule(
 
 // Get all admin logs
 export async function getAdminLogs(page: number = 1, limit: number = 50) {
-  const supabase = await createServerClient()
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { logs: [], count: 0, error: guard.error, totalPages: 0 }
+  }
+
+  const supabase = createAdminClient()
 
   const offset = (page - 1) * limit
 

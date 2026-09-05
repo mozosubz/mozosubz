@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateOTP, sendBotOtpEmail, isValidPhoneNumber, isValidTelegramUserId } from '@/lib/utils/bot-auth'
 import { logRequest } from '@/lib/api-logger'
+import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 
 /**
  * POST /api/v1/bot-auth/request-otp
@@ -19,6 +20,21 @@ export async function POST(request: NextRequest) {
   console.log(`[Bot Auth Request OTP] → POST | From: ${requestLog.ip}`)
 
   try {
+    // SECURITY: Enforce rate limit (5 requests per minute per IP)
+    const ip = getRateLimitIdentifier(request)
+    const { allowed } = await checkRateLimit(ip, {
+      interval: 60000,
+      maxRequests: 5,
+      keyPrefix: 'rl:bot-auth:otp',
+    })
+
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many OTP requests. Please wait a minute before trying again.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      )
+    }
+
     const body = await request.json()
     const { email, platform, identifier } = body
 

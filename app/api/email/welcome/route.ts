@@ -12,6 +12,7 @@ import { createClient } from "@supabase/supabase-js"
 import { sendEmail } from "@/lib/email/client"
 import { welcomeEmail } from "@/lib/email/templates/welcome"
 import { buildUnsubscribeUrl } from "@/lib/email/unsubscribe"
+import { checkRateLimit, getRateLimitIdentifier } from "@/lib/utils/rate-limit"
 
 export const runtime = "nodejs"
 
@@ -21,6 +22,17 @@ function getAppUrl(): string {
 
 export async function POST(req: Request) {
   try {
+    // SECURITY: Rate limit welcome emails per IP to prevent email spam abuse
+    const ip = getRateLimitIdentifier(req)
+    const { allowed } = await checkRateLimit(ip, {
+      interval: 60000,
+      maxRequests: 3,
+      keyPrefix: "rl:email:welcome",
+    })
+    if (!allowed) {
+      return NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429 })
+    }
+
     const body = (await req.json().catch(() => ({}))) as {
       email?: string
       fullName?: string
