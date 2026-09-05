@@ -9,16 +9,32 @@ import { createTransaction, updateTransactionWithMonnifyData } from '@/lib/actio
 import { generatePaymentReference } from '@/lib/utils/payment-reference'
 import { getDepositRules } from '@/lib/actions/deposit-rules'
 import { calculateDepositFee } from '@/lib/utils/deposit-fee'
+import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Rate limit deposit initiation to prevent transaction spam / resource exhaustion
+    const ip = getRateLimitIdentifier(request)
+    const { allowed } = await checkRateLimit(ip, {
+      interval: 60000,
+      maxRequests: 10,
+      keyPrefix: 'rl:deposit:start',
+    })
+
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many deposit requests. Please wait a minute.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      )
+    }
+
     const body = await request.json()
     const { amount, description } = body
 
     const numAmount = parseFloat(String(amount))
-    if (!Number.isFinite(numAmount) || numAmount <= 0) {
+    if (!Number.isFinite(numAmount) || numAmount < 100 || numAmount > 1000000) {
       return NextResponse.json(
-        { success: false, error: 'Valid amount is required' },
+        { success: false, error: 'Amount must be between ₦100 and ₦1,000,000' },
         { status: 400 }
       )
     }
