@@ -255,13 +255,26 @@ export function DashboardClient({
   const accountNumber = profile?.monnify_account_number
   const bankName = profile?.monnify_bank_name
 
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
+  const firstName = (profile?.full_name || "").trim().split(/\s+/)[0] || ""
+
   return (
     <div className="bg-slate-50 w-full min-h-full">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <Logo />
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3.5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Logo />
+            <div className="hidden sm:block h-8 w-px bg-slate-200" aria-hidden="true" />
+            <p className="hidden sm:block text-sm text-slate-500 truncate">
+              <span className="font-semibold text-slate-900">
+                {greeting}
+                {firstName ? `, ${firstName}` : ""}
+              </span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5">
             {isAdmin && (
               <Link
                 href="/admin"
@@ -272,6 +285,13 @@ export function DashboardClient({
                 Admin
               </Link>
             )}
+            <Link
+              href="/dashboard/profile"
+              aria-label="Open profile"
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 text-white text-sm font-bold flex items-center justify-center flex-shrink-0 ring-2 ring-white shadow-sm hover:ring-blue-100 transition"
+            >
+              {(firstName || userEmail?.[0] || "U").toUpperCase()}
+            </Link>
           </div>
         </div>
       </header>
@@ -318,8 +338,15 @@ export function DashboardClient({
 
         {/* Recent Transactions — real list on first paint */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-bold text-slate-900">Recent Transactions</h2>
+          <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 bg-gradient-to-b from-slate-50/80 to-white">
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recent Transactions</h2>
+              {transactions.length > 0 && (
+                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">
+                  {transactions.length}
+                </span>
+              )}
+            </div>
             <Link
               href="/dashboard/transactions"
               className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition"
@@ -327,7 +354,7 @@ export function DashboardClient({
               See all <ChevronRight size={16} />
             </Link>
           </div>
-          <div className="divide-y divide-slate-200 p-4">
+          <div className="divide-y divide-slate-100 p-3 sm:p-4">
             <TransactionList transactions={transactions} />
           </div>
         </div>
