@@ -87,7 +87,7 @@ export function Footer() {
                 <IconInstagram className="w-4 h-4" />
               </a>
               <a
-                href="https://wa.me/2349056458312?text=Hello%20mozosubz%2C%20I%20need%20help%20with"
+                href="https://wa.me/2349056458312?text=Hello%20mozosubz%2C%20I%20need%20help%20with%20my%20account.%0A%0AMy%20issue%3A%20"
                 target="_blank"
                 rel="noopener noreferrer nofollow"
                 aria-label="Message mozosubz on WhatsApp"
@@ -98,7 +98,7 @@ export function Footer() {
             </div>
             <div className="flex flex-col gap-2.5">
               <a
-                href="https://wa.me/2349056458312?text=Hello%20mozosubz%2C%20I%20need%20help%20with"
+                href="https://wa.me/2349056458312?text=Hello%20mozosubz%2C%20I%20need%20help%20with%20my%20account.%0A%0AMy%20issue%3A%20"
                 target="_blank"
                 rel="noopener noreferrer nofollow"
                 className="inline-flex items-center gap-2 text-sm font-semibold text-[#25D366] hover:text-[#2ee06f] transition"

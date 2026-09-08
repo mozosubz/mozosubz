@@ -582,7 +582,7 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
 
             {/* Support — WhatsApp */}
             <a
-              href="https://wa.me/2349056458312?text=Hello%20mozosubz%2C%20I%20need%20help%20with"
+              href="https://wa.me/2349056458312?text=Hello%20mozosubz%2C%20I%20need%20help%20with%20my%20account.%0A%0AMy%20issue%3A%20"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full px-4 py-4 flex items-center gap-3 hover:bg-[#f0fdf4] transition-colors border-b border-gray-100"
