@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Home, LayoutGrid, History, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DesktopSidebar } from "./desktop-sidebar"
+import { WhatsAppSupport } from "./whatsapp-support"
 
 interface AppShellProps {
   children: React.ReactNode
@@ -34,6 +35,8 @@ export function AppShell({ children }: AppShellProps) {
       <div className="app-content">
         {children}
       </div>
+
+      <WhatsAppSupport />
 
       <nav className="bottom-nav" style={{ contain: "layout style paint" }}>
         {tabs.map((tab) => {

@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/client"
 import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 import { ServiceGrid } from "@/components/service-grid"
 import { TransactionList } from "@/components/transaction-list"
-import { NotificationBell } from "@/components/notification-bell"
 import { Logo } from "@/components/logo"
 import { WalletCard } from "@/components/wallet-card"
 import { setupSessionManager } from "@/lib/utils/session-check"
@@ -273,7 +272,6 @@ export function DashboardClient({
                 Admin
               </Link>
             )}
-            <NotificationBell />
           </div>
         </div>
       </header>
