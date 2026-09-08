@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Copy, Check, ArrowDownToLine, Landmark } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface WalletCardProps {
   balance: number
@@ -12,19 +13,21 @@ interface WalletCardProps {
   bvn?: string
 }
 
-// Receives the live `balance` from the dashboard's server render + realtime
-// channel, so render is instant and 100% reactive. The Moznify funding
-// account (when provisioned) is surfaced inline with one-tap copy.
+// The dashboard now fetches the wallet balance once on mount and keeps it
+// in sync via a Supabase Realtime channel. This card receives the live
+// `balance` as a prop, so we no longer run our own auth + profile fetch
+// (the duplicate that was producing the "Loading..." flash AFTER the
+// dashboard had already painted). Render is instant and 100% reactive.
 export function WalletCard({
   balance,
   userId: _userId,
-  accountNumber,
-  bankName,
+  accountNumber: _accountNumber,
+  bankName: _bankName,
   bvn: _bvn,
 }: WalletCardProps) {
   const [isHidden, setIsHidden] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const { toast: _toast } = useToast()
 
   // Restore the user's "hide balance" preference on mount.
   useEffect(() => {
@@ -41,17 +44,6 @@ export function WalletCard({
     }
   }
 
-  const handleCopyAccount = async () => {
-    if (!accountNumber) return
-    try {
-      await navigator.clipboard.writeText(accountNumber)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard unavailable (permissions / insecure context) — no-op.
-    }
-  }
-
   const formattedBalance = balance.toLocaleString("en-NG", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -59,77 +51,36 @@ export function WalletCard({
 
   return (
     <div className="wallet-card">
-      {/* Fine grid texture — depth without noise */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 z-0 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
-        }}
-      />
-
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-2">
-          <span className="balance-label uppercase tracking-[0.14em] text-[11px] font-semibold">
-            Wallet Balance
-          </span>
+        <div className="flex items-center justify-between mb-1">
+          <span className="balance-label">Wallet Balance</span>
           <button
             onClick={() => handleToggleBalance(!isHidden)}
             className="eye-btn"
             aria-label={isHidden ? "Show balance" : "Hide balance"}
           >
             {mounted && isHidden ? (
-              <EyeOff style={{ width: 16, height: 16 }} />
+              <EyeOff style={{ width: 15, height: 15 }} />
             ) : (
-              <Eye style={{ width: 16, height: 16 }} />
+              <Eye style={{ width: 15, height: 15 }} />
             )}
           </button>
         </div>
 
-        <div className="balance-amount mb-5 tabular-nums">
-          {mounted && isHidden ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : `\u20A6${formattedBalance}`}
+        <div className="balance-amount mb-4">
+          {mounted && isHidden ? "********" : `\u20A6${formattedBalance}`}
         </div>
 
-        {/* Funding account — one-tap copy when provisioned */}
-        {mounted && accountNumber && (
-          <button
-            onClick={handleCopyAccount}
-            className="mb-5 w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 bg-white/10 hover:bg-white/[0.16] border border-white/15 transition-colors text-left"
-            aria-label={`Copy account number ${accountNumber}`}
-          >
-            <Landmark className="w-4.5 h-4.5 w-[18px] h-[18px] text-white/70 flex-shrink-0" />
-            <span className="flex-1 min-w-0">
-              <span className="block text-[10px] uppercase tracking-wider text-white/50 font-semibold">
-                {bankName || "Funding Account"}
-              </span>
-              <span className="block text-sm font-bold text-white tracking-[0.08em] tabular-nums">
-                {isHidden ? "\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022" : accountNumber}
-              </span>
-            </span>
-            {copied ? (
-              <Check className="w-4 h-4 text-emerald-300 flex-shrink-0" />
-            ) : (
-              <Copy className="w-4 h-4 text-white/60 flex-shrink-0" />
-            )}
-          </button>
-        )}
-
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/dashboard/deposit"
-            className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] rounded-xl text-sm text-white font-bold transition-all shadow-[0_6px_20px_rgba(16,185,129,0.4)]"
-          >
-            <ArrowDownToLine size={16} strokeWidth={2.5} />
-            Deposit Funds
-          </Link>
-          <Link
-            href="/dashboard/transactions"
-            className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/10 hover:bg-white/[0.16] active:scale-[0.98] rounded-xl text-sm text-white font-bold border border-white/15 transition-all"
-          >
-            History
-          </Link>
+        <div className="flex items-end justify-between">
+          <div className="flex-1">
+            <p className="account-label">Quick Actions</p>
+            <Link
+              href="/dashboard/deposit"
+              className="w-full py-2 px-3 mt-3 bg-[#10b981] hover:bg-[#059669] rounded-lg text-xs text-white font-semibold transition-colors block text-center"
+            >
+              Deposit Funds
+            </Link>
+          </div>
         </div>
       </div>
     </div>
