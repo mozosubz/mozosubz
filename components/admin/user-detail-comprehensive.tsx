@@ -38,11 +38,18 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
         const txData = res.transactions || []
         setTransactions(txData)
 
+        // Admin credits/bonuses are ledger entries, not customer deposits.
+        // Count only successful wallet funds that came through a payment method.
         const walletFundTransactions = txData.filter((t: any) => {
           const isWalletFund = t.category === 'WALLET_FUND'
           const isSuccess = t.status === 'SUCCESS' || t.status === 'success'
-          return isWalletFund && isSuccess
+          const isAdminAdjustment = t.payment_method === 'ADMIN'
+          return isWalletFund && isSuccess && !isAdminAdjustment
         })
+
+        // `amount` is the amount actually credited to the wallet after the
+        // provider fee; the original Monnify charge is stored separately.
+        // This keeps the KPI aligned with the wallet balance and ledger.
 
         const totalAmount = walletFundTransactions.reduce((sum: number, t: any) => {
           const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : t.amount || 0
