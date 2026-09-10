@@ -125,6 +125,27 @@ export async function getUsers(
   }
 }
 
+/**
+ * Flip PENDING deposits whose expires_at has passed to EXPIRED.
+ *
+ * Deposit initiation writes a PENDING row to monnify_transactions, but nothing
+ * previously closed it out when the user never paid — so the admin dashboard
+ * showed day-old (or week-old) deposits as "PENDING" for every user. Called
+ * inline before admin reads so the data self-heals without a cron job.
+ */
+async function expireStalePendingDeposits(supabase: ReturnType<typeof createAdminClient>) {
+  const { error } = await supabase
+    .from('monnify_transactions')
+    .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
+    .eq('status', 'PENDING')
+    .lt('expires_at', new Date().toISOString())
+
+  if (error) {
+    // Non-fatal: the reads below still work, just with stale statuses.
+    console.error('[v0] Error expiring stale pending deposits:', error)
+  }
+}
+
 // Get user details
 export async function getUserDetails(userId: string) {
   const guard = await requireAdmin()
@@ -134,18 +155,24 @@ export async function getUserDetails(userId: string) {
 
   const supabase = createAdminClient()
 
+  // Self-heal: flip PENDING deposits whose expiry has passed to EXPIRED so the
+  // dashboard never shows a day-old (or week-old) deposit as still "PENDING".
+  await expireStalePendingDeposits(supabase)
+
   const [{ data: user, error: userError }, { data: transactions, error: txError }] = await Promise.all([
     supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single(),
+    // No limit — admins must see the user's FULL transaction history, and the
+    // modal's deposit stats are computed from this list, so truncating it also
+    // made "Total Deposits / Amount Deposited" wrong for active users.
     supabase
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(20),
+      .order('created_at', { ascending: false }),
   ])
 
   if (userError || !user) {
@@ -335,6 +362,10 @@ export async function getTransactions(
 
   try {
     const supabase = createAdminClient()
+
+    // Self-heal stale PENDING deposits before reading, so filters and counts
+    // reflect reality (a deposit past its expiry is EXPIRED, not PENDING).
+    await expireStalePendingDeposits(supabase)
 
     const offset = (page - 1) * limit
 

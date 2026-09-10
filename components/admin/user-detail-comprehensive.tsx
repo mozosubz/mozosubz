@@ -251,7 +251,7 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
           <div className="detail-section">
             <h3 className="detail-section-title">
               <Activity size={16} />
-              Recent Transactions ({transactions.length})
+              All Transactions ({transactions.length})
             </h3>
             {transactions.length === 0 ? (
               <div className="empty-state">
