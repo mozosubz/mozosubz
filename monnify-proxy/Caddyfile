@@ -1,0 +1,17 @@
+# Reverse proxy for api.monnify.com.
+#
+# Monnify's Cloudflare blocks Vercel's serverless egress IPs, so Monnify API
+# calls are routed through this proxy instead; requests egress from this
+# server's IP. Deploy on Fly.io, Render, or any VPS.
+#
+# The PROXY_SECRET env var (set at runtime) requires every request to carry a
+# matching x-proxy-secret header, so this can't be used as an open relay.
+
+:8080 {
+	@unauthorized not header X-Proxy-Secret {$PROXY_SECRET}
+	respond @unauthorized "Forbidden" 403
+
+	reverse_proxy https://api.monnify.com {
+		header_up Host api.monnify.com
+	}
+}

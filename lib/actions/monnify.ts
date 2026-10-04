@@ -58,11 +58,21 @@ export async function monnifyFetch(
   url: string,
   init: { method: string; headers: Record<string, string>; body?: string }
 ): Promise<Response> {
+  const usingProxy = Boolean(process.env.MONNIFY_PROXY_URL)
   const targetUrl = resolveMonnifyUrl(url)
+  const headers: Record<string, string> = { ...MONNIFY_HEADERS, ...init.headers }
+
+  // The Caddy proxy requires this header (matched against its PROXY_SECRET) so
+  // it can't be used as an open relay by strangers.
+  const proxySecret = process.env.MONNIFY_PROXY_SECRET
+  if (usingProxy && proxySecret) {
+    headers['x-proxy-secret'] = proxySecret
+  }
+
   const doFetch = () =>
     fetch(targetUrl, {
       method: init.method,
-      headers: { ...MONNIFY_HEADERS, ...init.headers },
+      headers,
       body: init.body,
     })
 
