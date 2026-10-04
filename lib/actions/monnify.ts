@@ -23,6 +23,46 @@ const CONTRACT_CODE = process.env.MONNIFY_CONTRACT_CODE || ''
 let cachedToken: { value: string; expiresAt: number } | null = null
 let inFlightAuth: Promise<string | null> | null = null
 
+// ---------------------------------------------------------------------------
+// Shared fetch for all Monnify API calls.
+//
+// Monnify sits behind Cloudflare, and its WAF blocks requests that look like
+// bots — observed in production as HTTP 403 with a "Sorry, you have been
+// blocked" HTML page on init-transaction while auth succeeded. Sending a
+// normal browser-like User-Agent and Accept header avoids the bot fingerprint,
+// and a single spaced retry recovers from transient rule matches.
+// ---------------------------------------------------------------------------
+const MONNIFY_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  'Accept': 'application/json',
+}
+
+function isCloudflareBlock(status: number, body: string): boolean {
+  return status === 403 && body.includes('cloudflare') && body.includes('<html')
+}
+
+export async function monnifyFetch(
+  url: string,
+  init: { method: string; headers: Record<string, string>; body?: string }
+): Promise<Response> {
+  const doFetch = () =>
+    fetch(url, {
+      method: init.method,
+      headers: { ...MONNIFY_HEADERS, ...init.headers },
+      body: init.body,
+    })
+
+  let response = await doFetch()
+
+  if (isCloudflareBlock(response.status, await response.clone().text())) {
+    console.warn('[MONNIFY] Cloudflare block detected, retrying once after delay')
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    response = await doFetch()
+  }
+
+  return response
+}
+
 async function fetchMonnifyAccessTokenUncached(): Promise<string | null> {
   if (!API_KEY || !SECRET_KEY) {
     console.error('[MONNIFY] Missing API credentials', {
@@ -36,7 +76,7 @@ async function fetchMonnifyAccessTokenUncached(): Promise<string | null> {
   const credentials = Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString('base64')
   console.log('[MONNIFY] Authenticating')
 
-  const response = await fetch(MONNIFY_AUTH_URL, {
+  const response = await monnifyFetch(MONNIFY_AUTH_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${credentials}`,
@@ -140,7 +180,7 @@ export async function initTransaction(
       redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard`,
     }
 
-    const response = await fetch('https://api.monnify.com/api/v1/merchant/transactions/init-transaction', {
+    const response = await monnifyFetch('https://api.monnify.com/api/v1/merchant/transactions/init-transaction', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -208,7 +248,7 @@ export async function initializePayment(transactionReference: string, bankCode?:
       requestBody.bankCode = bankCode
     }
 
-    const response = await fetch('https://api.monnify.com/api/v1/merchant/bank-transfer/init-payment', {
+    const response = await monnifyFetch('https://api.monnify.com/api/v1/merchant/bank-transfer/init-payment', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

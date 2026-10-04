@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAndCreditPayment } from '@/lib/actions/transactions'
+import { verifyAndCreditPayment, queryMonnifyTransaction } from '@/lib/actions/transactions'
 
 const SECRET_KEY = process.env.MONNIFY_SECRET_KEY || ''
 
@@ -39,14 +39,24 @@ export async function POST(request: NextRequest) {
     console.log('[WEBHOOK] Received webhook from Monnify')
     console.log('[WEBHOOK] Signature header present:', !!signature)
 
-    // SECURITY 1: Validate signature before processing
-    if (!signature || !verifyWebhookSignature(body, signature)) {
+    // SECURITY 1: Validate signature before processing.
+    // Monnify signs production webhooks in the `monnify-signature` header but
+    // OMITS the header entirely for sandbox/test-mode notifications (per their
+    // docs). So: present-but-invalid = forgery attempt, reject. Absent = could
+    // be sandbox or a probe — never trust the payload, but don't lose the
+    // deposit either: verify out-of-band with Monnify's own transaction-status
+    // API and only credit if Monnify itself confirms PAID.
+    if (signature && !verifyWebhookSignature(body, signature)) {
       console.error('[WEBHOOK] ❌ Invalid signature - rejecting webhook')
       // Return 200 anyway to prevent Monnify from retrying
       return NextResponse.json({ status: 'success' })
     }
 
-    console.log('[WEBHOOK] ✅ Signature verified')
+    if (!signature) {
+      console.warn('[WEBHOOK] No signature header (sandbox or probe) - falling back to out-of-band verification')
+    } else {
+      console.log('[WEBHOOK] ✅ Signature verified')
+    }
 
     // Parse the webhook payload
     const data = JSON.parse(body)
@@ -67,6 +77,24 @@ export async function POST(request: NextRequest) {
 
     if (!paymentReference) {
       console.error('[WEBHOOK] No payment reference in webhook')
+      return NextResponse.json({ status: 'success' })
+    }
+
+    // Unsigned webhooks never get credited from their own payload — the
+    // out-of-band query below is the only path to a credit.
+    if (!signature) {
+      const referenceparts = paymentReference.split('|')
+      const cleanPaymentReference = referenceparts[0]
+      console.log('[WEBHOOK] Out-of-band verification for:', cleanPaymentReference)
+      const verification = await queryMonnifyTransaction(cleanPaymentReference, true)
+      if (verification.success && verification.paymentStatus === 'PAID') {
+        console.log('[WEBHOOK] ✅ Out-of-band verification confirmed PAID - wallet credited:', cleanPaymentReference)
+      } else {
+        console.log('[WEBHOOK] ⏭️  Out-of-band verification did not confirm PAID:', {
+          paymentReference: cleanPaymentReference,
+          status: verification.paymentStatus || verification.error,
+        })
+      }
       return NextResponse.json({ status: 'success' })
     }
 

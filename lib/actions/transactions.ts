@@ -2,7 +2,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getMonnifyAccessToken } from './monnify'
+import { getMonnifyAccessToken, monnifyFetch } from './monnify'
 import { sendTransactionEmail } from '@/lib/email/send-transaction-email'
 import { isValidTransactionReference, isValidAmount } from '@/lib/utils/input-validation'
 import { getDepositRules } from './deposit-rules'
@@ -477,10 +477,12 @@ export async function verifyAndCreditPayment(paymentReference: string) {
  * Query Monnify for real-time transaction status using transactionReference
  * This is the Monnify reference, not our internal paymentReference
  */
-export async function queryMonnifyTransaction(paymentReference: string) {
+export async function queryMonnifyTransaction(paymentReference: string, useAdminClient = false) {
   try {
-    // First, get the transaction from our DB to get the transactionReference
-    const supabase = await createServerClient()
+    // First, get the transaction from our DB to get the transactionReference.
+    // The admin client is used by the webhook fallback, which runs without a
+    // user session and would otherwise be blocked by RLS.
+    const supabase = useAdminClient ? createAdminClient() : await createServerClient()
     const { data: dbTransaction, error: dbError } = await supabase
       .from('monnify_transactions')
       .select('transaction_reference, user_id, amount, bank_name')
@@ -499,7 +501,7 @@ export async function queryMonnifyTransaction(paymentReference: string) {
 
     // Query Monnify using their transactionReference (not our paymentReference)
     const encodedRef = encodeURIComponent(dbTransaction.transaction_reference)
-    const response = await fetch(
+    const response = await monnifyFetch(
       `https://api.monnify.com/api/v2/merchant/transactions/query?transactionReference=${encodedRef}`,
       {
         method: 'GET',
