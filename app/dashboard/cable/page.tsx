@@ -55,7 +55,7 @@ export default function CablePage() {
     const loadData = async () => {
       try {
         // Fetch cable plans from API route with rate limiting
-        const plansRes = await fetch('/api/gsubz/cable/plans', {
+        const plansRes = await fetch('/api/provider/cable/plans', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ provider: selectedProvider })
@@ -108,7 +108,7 @@ export default function CablePage() {
       formData.append('smartcard', smartcard);
       formData.append('phone', phone);
 
-      const res = await fetch('/api/gsubz/cable/subscribe', {
+      const res = await fetch('/api/provider/cable/subscribe', {
         method: 'POST',
         body: formData
       })

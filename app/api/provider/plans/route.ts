@@ -24,24 +24,26 @@ export async function GET(request: NextRequest) {
       }
     } catch (fetchError) {
       return NextResponse.json(
-        { error: 'Failed to fetch from Gsubz', plans: [] },
+        { error: 'Failed to fetch plans', plans: [] },
         { status: 200 }
       )
     }
 
-    // Handle error responses from Gsubz API
+    // Handle error responses from the provider API
     if (!plansData || plansData.error || plansData.status === 'error') {
       return NextResponse.json({
-        error: plansData?.message || plansData?.error || 'No plans available',
+        error: 'Plans unavailable right now',
         plans: []
       })
     }
-    
-    // Ensure we return an array of plans
+
+    // Ensure we return an array of plans. Only expose the plan fields the UI
+    // needs — never forward the raw provider payload to the browser.
     const plans = plansData?.plans || []
 
     return NextResponse.json({
-      ...plansData,
+      service: plansData?.service,
+      fixedPrice: plansData?.fixedPrice,
       plans: plans,
       error: plans.length === 0 ? 'No plans available' : null
     })

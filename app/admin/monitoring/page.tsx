@@ -87,7 +87,7 @@ export default function MonitoringPage() {
         GSUBZ_SERVICES.map(async ({ service, type }) => {
           const start = performance.now()
           try {
-            const response = await fetch(`/api/gsubz/plans?service=${service}&type=${type}`, {
+            const response = await fetch(`/api/provider/plans?service=${service}&type=${type}`, {
               headers: { 'Content-Type': 'application/json' },
             })
             const responseTime = performance.now() - start

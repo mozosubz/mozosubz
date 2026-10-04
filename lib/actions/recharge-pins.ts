@@ -93,7 +93,7 @@ export async function generateRechargePins(
     if (response.status === "error" || response.status !== "success") {
       return {
         success: false,
-        error: response?.message || response?.title || "Failed to generate pins from Gsubz API. Please try again.",
+        error: response?.message || response?.title || "Failed to generate pins. Please try again.",
       }
     }
 

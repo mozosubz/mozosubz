@@ -123,7 +123,7 @@ export default function PricingPage() {
       setLoadingGsubz(true)
       try {
         const type = activeService === 'data' ? 'DATA' : 'CABLE'
-        const response = await fetch(`/api/gsubz/plans?service=${planTypeOrService}&type=${type}`)
+        const response = await fetch(`/api/provider/plans?service=${planTypeOrService}&type=${type}`)
         const data = await response.json()
         setGsubzPlans(data.plans || [])
       } catch (error) {

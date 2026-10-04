@@ -108,7 +108,7 @@ export default function AirtimePage() {
     formData.append("amount", amount)
 
     try {
-      const res = await fetch('/api/gsubz/airtime/purchase', {
+      const res = await fetch('/api/provider/airtime/purchase', {
         method: 'POST',
         body: formData
       })

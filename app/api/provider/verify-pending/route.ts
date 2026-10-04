@@ -1,5 +1,5 @@
 /**
- * POST /api/gsubz/verify-pending
+ * POST /api/provider/verify-pending
  *
  * Internal-only endpoint. Called fire-and-forget from every service action
  * whenever the provider API call times out.

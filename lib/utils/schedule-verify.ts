@@ -1,7 +1,7 @@
 /**
  * scheduleVerifyPending
  *
- * Fires a fire-and-forget POST to /api/gsubz/verify-pending after a provider
+ * Fires a fire-and-forget POST to /api/provider/verify-pending after a provider
  * API call times out. The route retries verifyTransaction() up to three times
  * over ~2 minutes, and if it resolves as SUCCESS it deducts the wallet and
  * updates the transaction row. If it resolves as FAILED (or retries are
@@ -32,7 +32,7 @@ export function scheduleVerifyPending(payload: {
   }
 
   // Fire and forget — no await, no error propagation to caller
-  fetch(`${baseUrl}/api/gsubz/verify-pending`, {
+  fetch(`${baseUrl}/api/provider/verify-pending`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

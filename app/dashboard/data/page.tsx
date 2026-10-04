@@ -93,7 +93,7 @@ export default function DataPage() {
       setSelectedPlan(null)
       
       // Call API route with rate limiting
-      fetch('/api/gsubz/data/plans', {
+      fetch('/api/provider/data/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ serviceID: planType })
@@ -165,7 +165,7 @@ export default function DataPage() {
     formData.append("planDisplayName", selectedPlan.displayName || '')
 
     try {
-      const res = await fetch('/api/gsubz/data/purchase', {
+      const res = await fetch('/api/provider/data/purchase', {
         method: 'POST',
         body: formData
       })

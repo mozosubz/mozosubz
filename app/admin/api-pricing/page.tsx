@@ -192,7 +192,7 @@ export default function ApiPricingPage() {
     setLoadingGsubz(true)
     try {
       const type = isCableService ? 'CABLE' : isElectricityService ? 'ELECTRICITY' : 'DATA'
-      const response = await fetch(`/api/gsubz/plans?service=${encodeURIComponent(planType)}&type=${type}`)
+      const response = await fetch(`/api/provider/plans?service=${encodeURIComponent(planType)}&type=${type}`)
       const data = await response.json()
       setGsubzPlans(data.plans || [])
     } catch {
