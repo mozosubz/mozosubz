@@ -26,11 +26,15 @@ let inFlightAuth: Promise<string | null> | null = null
 // ---------------------------------------------------------------------------
 // Shared fetch for all Monnify API calls.
 //
-// Monnify sits behind Cloudflare, and its WAF blocks requests that look like
-// bots — observed in production as HTTP 403 with a "Sorry, you have been
-// blocked" HTML page on init-transaction while auth succeeded. Sending a
-// normal browser-like User-Agent and Accept header avoids the bot fingerprint,
-// and a single spaced retry recovers from transient rule matches.
+// Monnify sits behind Cloudflare. Confirmed in production (2026-10): Cloudflare
+// blocks Vercel's serverless egress IP ranges on api.monnify.com with 403
+// "Sorry, you have been blocked" — auth/login passes but init-transaction is
+// blocked, and the same request from a non-Vercel IP succeeds with or without
+// a browser User-Agent. This is IP-reputation blocking, so headers cannot fix
+// it. When MONNIFY_PROXY_URL is set, all calls are routed through that proxy
+// (e.g. a Cloudflare Worker that forwards to api.monnify.com) so requests
+// egress from the proxy's IP instead. Without a proxy we still send a
+// browser-like User-Agent and retry once, which covers transient rule matches.
 // ---------------------------------------------------------------------------
 const MONNIFY_HEADERS: Record<string, string> = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
@@ -41,12 +45,22 @@ function isCloudflareBlock(status: number, body: string): boolean {
   return status === 403 && body.includes('cloudflare') && body.includes('<html')
 }
 
+function resolveMonnifyUrl(url: string): string {
+  const proxyBase = process.env.MONNIFY_PROXY_URL
+  if (!proxyBase) return url
+  const target = new URL(url)
+  const base = new URL(proxyBase)
+  // The proxy receives the Monnify path and forwards it to api.monnify.com.
+  return `${base.origin}${target.pathname}${target.search}`
+}
+
 export async function monnifyFetch(
   url: string,
   init: { method: string; headers: Record<string, string>; body?: string }
 ): Promise<Response> {
+  const targetUrl = resolveMonnifyUrl(url)
   const doFetch = () =>
-    fetch(url, {
+    fetch(targetUrl, {
       method: init.method,
       headers: { ...MONNIFY_HEADERS, ...init.headers },
       body: init.body,
@@ -205,6 +219,21 @@ export async function initTransaction(
     try {
       const data = JSON.parse(responseText) as any
       const responseBody = data.responseBody
+
+      // Per Monnify's docs: always confirm the returned values match what was
+      // sent — bad actors can intercept and alter values such as the amount.
+      const returnedAmount = Number(responseBody.amount)
+      if (Number.isFinite(returnedAmount) && returnedAmount !== amount) {
+        console.error('[MONNIFY] Init-transaction amount mismatch:', { requested: amount, returned: returnedAmount })
+        return { success: false, error: 'Transaction amount verification failed' }
+      }
+      if (responseBody.paymentReference && responseBody.paymentReference !== `${paymentReference}|${userId}`) {
+        console.error('[MONNIFY] Init-transaction paymentReference mismatch:', {
+          sent: `${paymentReference}|${userId}`,
+          returned: responseBody.paymentReference,
+        })
+        return { success: false, error: 'Transaction reference verification failed' }
+      }
 
       console.log('[MONNIFY] Transaction initialized successfully')
 
