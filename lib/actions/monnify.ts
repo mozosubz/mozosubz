@@ -26,15 +26,10 @@ let inFlightAuth: Promise<string | null> | null = null
 // ---------------------------------------------------------------------------
 // Shared fetch for all Monnify API calls.
 //
-// Monnify sits behind Cloudflare. Confirmed in production (2026-10): Cloudflare
-// blocks Vercel's serverless egress IP ranges on api.monnify.com with 403
-// "Sorry, you have been blocked" — auth/login passes but init-transaction is
-// blocked, and the same request from a non-Vercel IP succeeds with or without
-// a browser User-Agent. This is IP-reputation blocking, so headers cannot fix
-// it. When MONNIFY_PROXY_URL is set, all calls are routed through that proxy
-// (e.g. a Cloudflare Worker that forwards to api.monnify.com) so requests
-// egress from the proxy's IP instead. Without a proxy we still send a
-// browser-like User-Agent and retry once, which covers transient rule matches.
+// Monnify sits behind Cloudflare, which blocks Vercel's serverless egress IP
+// ranges on api.monnify.com with 403 "Sorry, you have been blocked" (observed
+// in production, 2026-10). We send a browser-like User-Agent and retry once
+// after a delay, which covers transient rule matches.
 // ---------------------------------------------------------------------------
 const MONNIFY_HEADERS: Record<string, string> = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
@@ -45,34 +40,14 @@ function isCloudflareBlock(status: number, body: string): boolean {
   return status === 403 && body.includes('cloudflare') && body.includes('<html')
 }
 
-function resolveMonnifyUrl(url: string): string {
-  const proxyBase = process.env.MONNIFY_PROXY_URL
-  if (!proxyBase) return url
-  const target = new URL(url)
-  const base = new URL(proxyBase)
-  // The proxy receives the Monnify path and forwards it to api.monnify.com.
-  return `${base.origin}${target.pathname}${target.search}`
-}
-
 export async function monnifyFetch(
   url: string,
   init: { method: string; headers: Record<string, string>; body?: string }
 ): Promise<Response> {
-  const usingProxy = Boolean(process.env.MONNIFY_PROXY_URL)
-  const targetUrl = resolveMonnifyUrl(url)
-  const headers: Record<string, string> = { ...MONNIFY_HEADERS, ...init.headers }
-
-  // The Caddy proxy requires this header (matched against its PROXY_SECRET) so
-  // it can't be used as an open relay by strangers.
-  const proxySecret = process.env.MONNIFY_PROXY_SECRET
-  if (usingProxy && proxySecret) {
-    headers['x-proxy-secret'] = proxySecret
-  }
-
   const doFetch = () =>
-    fetch(targetUrl, {
+    fetch(url, {
       method: init.method,
-      headers,
+      headers: { ...MONNIFY_HEADERS, ...init.headers },
       body: init.body,
     })
 
