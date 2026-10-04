@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getMonnifyAccessToken } from './monnify'
 import { sendTransactionEmail } from '@/lib/email/send-transaction-email'
 import { isValidTransactionReference, isValidAmount } from '@/lib/utils/input-validation'
+import { getDepositRules } from './deposit-rules'
+import { calculateDepositFee } from '@/lib/utils/deposit-fee'
 
 /**
  * Get a transaction by payment_reference
@@ -92,7 +94,7 @@ export async function createTransaction(
       throw new Error('Invalid payment reference format')
     }
 
-    if (!isValidAmount(amount) || amount <= 0) {
+    if (!isValidAmount(amount) || amount < 100 || amount > 1000000) {
       throw new Error('Invalid amount')
     }
 
@@ -100,13 +102,6 @@ export async function createTransaction(
       throw new Error('Invalid transaction reference format')
     }
 
-    if (processingFee && !isValidAmount(processingFee)) {
-      throw new Error('Invalid processing fee')
-    }
-
-    if (netAmount && !isValidAmount(netAmount)) {
-      throw new Error('Invalid net amount')
-    }
     const supabase = await createServerClient()
     
     // Get authenticated user
@@ -115,7 +110,22 @@ export async function createTransaction(
       return { success: false, error: 'User not authenticated' }
     }
 
-    const { data, error } = await supabase
+    // SECURITY: This is a server action, so its arguments are attacker-controlled.
+    // The credited net_amount must come from server-side fee rules, never the caller.
+    void processingFee
+    void netAmount
+    const depositRules = await getDepositRules()
+    const fee = depositRules
+      ? calculateDepositFee(amount, depositRules)
+      : { processingFee: 50, netAmount: Math.round((amount - 50) * 100) / 100 }
+    processingFee = fee.processingFee
+    netAmount = fee.netAmount
+
+    if (!(netAmount > 0) || netAmount > amount) {
+      return { success: false, error: 'Invalid deposit amount after fees' }
+    }
+
+    const { data, error } = await createAdminClient()
       .from('monnify_transactions')
       .insert({
         user_id: user.id,
@@ -352,22 +362,28 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       return { success: true, credited: true, alreadyProcessed: true }
     }
 
-    // Get current wallet balance from profiles.wallet_balance
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('wallet_balance')
-      .eq('id', transaction.user_id)
-      .maybeSingle()
+    // Use net_amount if available (new calculation), fallback to full amount for legacy transactions
+    const creditAmount = Number(transaction.net_amount || transaction.amount)
 
-    if (profileError) {
-      console.error('[TRANSACTION] Error fetching profile:', profileError)
-      return { success: false, error: 'Error fetching wallet' }
+    // Atomic credit: the RPC row-locks the profile and adds in one statement, so a
+    // concurrent purchase deduction can't be overwritten by a stale read here.
+    const { data: newBalance, error: creditError } = await supabase.rpc('refund_wallet_balance', {
+      user_id: transaction.user_id,
+      refund_amount: creditAmount,
+    })
+
+    if (creditError || newBalance === null || newBalance === undefined) {
+      console.error('[TRANSACTION] Error crediting wallet:', creditError)
+      // Release the claim so the webhook/polling can retry instead of losing the deposit.
+      await supabase
+        .from('monnify_transactions')
+        .update({ status: transaction.status })
+        .eq('payment_reference', paymentReference)
+      return { success: false, error: 'Error crediting wallet' }
     }
 
-    const balanceBefore = profile?.wallet_balance || 0
-    // Use net_amount if available (new calculation), fallback to full amount for legacy transactions
-    const creditAmount = transaction.net_amount || transaction.amount
-    const balanceAfter = balanceBefore + creditAmount
+    const balanceAfter = Number(newBalance)
+    const balanceBefore = Number((balanceAfter - creditAmount).toFixed(2))
 
     console.log('[TRANSACTION] Crediting wallet:', {
       paymentReference,
@@ -377,17 +393,6 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       balanceBefore,
       balanceAfter,
     })
-
-    // Update wallet balance in profiles.wallet_balance
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ wallet_balance: balanceAfter, updated_at: new Date().toISOString() })
-      .eq('id', transaction.user_id)
-
-    if (updateError) {
-      console.error('[TRANSACTION] Error updating wallet:', updateError)
-      // Continue to log transaction even if wallet update fails
-    }
 
     // Log transaction to transactions table with full schema
     // Check if profile exists (if they have a wallet balance, they're a valid user)
