@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { consumeLoginAttempt } from "@/lib/actions/login-throttle"
 import { Loader2, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -37,6 +38,13 @@ function LoginForm() {
     setNotice(null)
 
     try {
+      // Bounty fix: server-side brute-force throttle — must pass before the
+      // auth attempt. 10 attempts per 5 min per IP+email pair.
+      const throttle = await consumeLoginAttempt(email)
+      if (!throttle.allowed) {
+        throw new Error("Too many login attempts. Please wait a few minutes and try again.")
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
