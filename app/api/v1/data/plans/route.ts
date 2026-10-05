@@ -54,11 +54,12 @@ export async function GET(request: NextRequest) {
   if (!service || !VALID_SERVICES.includes(service)) {
     const duration = Date.now() - startTime
     console.log(`[Data Plans API] ✗ Invalid service: ${service} | ${duration}ms`)
+    // Bounty fix: don't enumerate the internal service catalog in the error.
     return NextResponse.json(
       {
         success: false,
         error: service
-          ? `Invalid service. Valid values: ${VALID_SERVICES.join(', ')}`
+          ? 'Invalid service'
           : 'Missing required query param: service',
       },
       { status: 400 }

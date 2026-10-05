@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIG } from "@/lib/utils/rate-limit"
 
 // Run at the edge for low-latency availability checks.
 export const runtime = "edge"
@@ -8,6 +9,18 @@ const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(request: Request) {
   try {
+    // Bounty fix: this endpoint is a user-enumeration oracle — throttle it.
+    const { allowed } = await checkRateLimit(
+      getRateLimitIdentifier(request),
+      RATE_LIMIT_CONFIG.AUTH_CHECK
+    )
+    if (!allowed) {
+      return Response.json(
+        { available: false, error: "Too many requests" },
+        { status: 429, headers: { "Retry-After": "60" } }
+      )
+    }
+
     const { email } = await request.json()
 
     if (!email || typeof email !== "string") {

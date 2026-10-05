@@ -11,15 +11,25 @@ export async function POST() {
   }
 
   const admin = createAdminClient()
-  const { error } = await admin
+  const { data, error } = await admin
     .from('connect_keys')
     .update({ is_active: false, revoked_at: new Date().toISOString() })
     .eq('user_id', user.id)
     .is('revoked_at', null)
+    .select('id')
 
   if (error) {
     return NextResponse.json({ success: false, error: 'Failed to revoke key' }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  // Bounty fix: never report success when nothing was revoked — a zero-row
+  // update must surface as an error so clients don't trust a stale key.
+  if (!data || data.length === 0) {
+    return NextResponse.json(
+      { success: false, error: 'No active keys to revoke' },
+      { status: 404 }
+    )
+  }
+
+  return NextResponse.json({ success: true, revoked: data.length })
 }

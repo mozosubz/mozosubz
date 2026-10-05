@@ -131,9 +131,8 @@ export default function RootLayout({
         <meta name="viewport" content="viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        {/* Preconnect to Supabase so the very first auth/data request is faster. */}
-        <link rel="preconnect" href="https://qiwjopejiggjcagstgqu.supabase.co" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://qiwjopejiggjcagstgqu.supabase.co" />
+        {/* Bounty fix (INFO-2): removed stale preconnect to the unused second
+            Supabase project (qiwjopejiggjcagstgqu) — it leaked infra topology. */}
         {/* Site-wide Organization + WebSite schema (helps Google understand the brand). */}
         <Script
           id="schema-organization"

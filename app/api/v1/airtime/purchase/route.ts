@@ -92,10 +92,12 @@ export async function POST(request: NextRequest) {
   }
 
   const parsedAmount = parseFloat(String(amount))
-  if (isNaN(parsedAmount) || parsedAmount < 50) {
+  // Bounty fix: no upper bound previously — ₦1,000,001 passed validation.
+  // Cap per-transaction to bound the blast radius of a compromised key.
+  if (isNaN(parsedAmount) || parsedAmount < 50 || parsedAmount > 100000) {
     console.log(`[Airtime API] ✗ Invalid amount: ${amount}`)
     return NextResponse.json(
-      { success: false, error: 'Amount must be at least ₦50', error_code: 'INVALID_AMOUNT' },
+      { success: false, error: 'Amount must be between ₦50 and ₦100,000', error_code: 'INVALID_AMOUNT' },
       { status: 400 }
     )
   }

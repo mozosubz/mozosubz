@@ -23,6 +23,20 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient()
 
+  // Bounty fix: cap total keys per user. Every create revokes the previous
+  // key but still accumulates rows — without a cap the table grows without
+  // bound (the bounty minted 13 keys in quick succession).
+  const { count } = await admin
+    .from('connect_keys')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+  if ((count ?? 0) >= 20) {
+    return NextResponse.json(
+      { success: false, error: 'Key limit reached. Contact support to reset your keys.' },
+      { status: 429 }
+    )
+  }
+
   // Revoke any existing active keys for this user
   await admin
     .from('connect_keys')

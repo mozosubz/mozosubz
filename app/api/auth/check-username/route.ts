@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { checkRateLimit, getRateLimitIdentifier, RATE_LIMIT_CONFIG } from "@/lib/utils/rate-limit"
 
 // Edge runtime keeps cold starts and round-trips fast.
 export const runtime = "edge"
@@ -8,6 +9,18 @@ const USERNAME_RX = /^[a-z0-9_-]+$/
 
 export async function POST(request: Request) {
   try {
+    // Bounty fix: this endpoint is a user-enumeration oracle — throttle it.
+    const { allowed } = await checkRateLimit(
+      getRateLimitIdentifier(request),
+      RATE_LIMIT_CONFIG.AUTH_CHECK
+    )
+    if (!allowed) {
+      return Response.json(
+        { available: false, error: "Too many requests" },
+        { status: 429, headers: { "Retry-After": "60" } }
+      )
+    }
+
     const { username } = await request.json()
 
     if (!username || typeof username !== "string") {
@@ -18,6 +31,11 @@ export async function POST(request: Request) {
 
     if (trimmedUsername.length < 3) {
       return Response.json({ available: false, error: "Username too short" })
+    }
+
+    // Bounty fix: 500-char usernames were accepted as "available" — enforce a max.
+    if (trimmedUsername.length > 30) {
+      return Response.json({ available: false, error: "Username too long" })
     }
 
     if (!USERNAME_RX.test(trimmedUsername)) {

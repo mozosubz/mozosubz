@@ -19,13 +19,12 @@ const PUBLIC_ALLOW = [
 ]
 
 const PRIVATE_DISALLOW = [
-  '/admin',
-  '/admin/',
+  // Bounty fix (INFO-3): /admin and /integrations removed from this list —
+  // robots.txt is public and was advertising internal route structure.
+  // Those routes hard-404 for anonymous visitors anyway.
   '/api/',
   '/dashboard',
   '/dashboard/',
-  '/integrations',
-  '/integrations/',
   '/checkout',
   '/checkout/',
   '/confirm-email',

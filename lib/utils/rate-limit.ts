@@ -101,6 +101,10 @@ export const RATE_LIMIT_CONFIG = {
   // Public endpoints
   PUBLIC_PLANS: { interval: 60000, maxRequests: 1000, keyPrefix: "rl:public:plans" },
 
+  // Bounty fix: availability checks are a user-enumeration oracle —
+  // 5/min per IP is enough for a signup form, useless for mapping users.
+  AUTH_CHECK: { interval: 60000, maxRequests: 5, keyPrefix: "rl:auth:check" },
+
   // Gsubz API protection (all 8 per minute)
   GSUBZ_DATA_PURCHASE: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:data:purchase" },
   GSUBZ_DATA_FETCH: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:data:fetch" },
