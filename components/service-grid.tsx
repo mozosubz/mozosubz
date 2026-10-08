@@ -1,31 +1,43 @@
 "use client"
 
 import Link from "next/link"
-import { Smartphone, Wifi, Tv, Zap } from "lucide-react"
-
-const services = [
-  { name: "Airtime", href: "/dashboard/airtime", icon: Smartphone },
-  { name: "Data", href: "/dashboard/data", icon: Wifi },
-  { name: "Cable", href: "/dashboard/cable", icon: Tv },
-  { name: "Electricity", href: "/dashboard/electricity", icon: Zap },
-]
+import { ArrowRight } from "lucide-react"
+import { SERVICES, SERVICE_TONES } from "@/lib/service-catalog"
 
 export function ServiceGrid() {
   return (
-    <div className="services-card">
-      <div className="services-grid">
-        {services.map((service) => {
+    <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-[var(--text-1)]">Services</h2>
+        <Link
+          href="/dashboard/services"
+          className="text-xs font-semibold text-[var(--primary)] flex items-center gap-1 hover:gap-1.5 transition-all"
+        >
+          See all <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2">
+        {SERVICES.map((service) => {
           const Icon = service.icon
           return (
-            <Link key={service.name} href={service.href} className="service-btn">
-              <div className="service-icon">
-                <Icon style={{ width: 28, height: 28, strokeWidth: 1.5 }} />
-              </div>
-              <span className="service-label">{service.name}</span>
+            <Link
+              key={service.name}
+              href={service.href}
+              className="group flex flex-col items-center gap-2 rounded-2xl p-2.5 transition hover:bg-[var(--bg)] active:scale-95"
+            >
+              <span
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 ${SERVICE_TONES[service.tone]}`}
+              >
+                <Icon className="w-5 h-5" strokeWidth={1.9} />
+              </span>
+              <span className="text-[11px] font-semibold text-[var(--text-2)] text-center leading-tight">
+                {service.name}
+              </span>
             </Link>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }

@@ -4,7 +4,17 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { processReferralEarning } from "@/lib/referral"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
-export type TransactionCategory = "AIRTIME" | "DATA" | "CABLE" | "ELECTRICITY" | "WALLET_FUND" | "RECHARGE_PINS"
+export type TransactionCategory =
+  | "AIRTIME"
+  | "DATA"
+  | "CABLE"
+  | "ELECTRICITY"
+  | "WALLET_FUND"
+  | "RECHARGE_PINS"
+  | "EXAM_PINS"
+  | "ESIM"
+  | "BULK_SMS"
+  | "SOCIAL"
 export type TransactionStatus = "SUCCESS" | "FAILED" | "PENDING"
 
 export interface SaveTransactionPayload {

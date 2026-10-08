@@ -9,7 +9,7 @@ interface ConfirmSheetProps {
   title: string
   network?: string
   /** Only affects logo styling, and only when `network` is provided. */
-  page?: 'data' | 'airtime' | 'cable' | 'electricity'
+  page?: 'data' | 'airtime' | 'cable' | 'electricity' | 'recharge-pins'
   details: { label: string; value: string }[]
   onConfirm: () => void
   onCancel: () => void

@@ -254,30 +254,29 @@ export function DashboardClient({
   const bvn = profile?.bvn
   const accountNumber = profile?.monnify_account_number
   const bankName = profile?.monnify_bank_name
+  const firstName = String(profile?.full_name || "").trim().split(/\s+/)[0] || "there"
 
   return (
-    <div className="bg-slate-50 w-full min-h-full">
+    <div className="bg-[var(--bg)] w-full min-h-full">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)] px-4 sm:px-6 lg:px-8 py-3.5">
+        <div className="flex items-center justify-between gap-3">
           <Logo />
-          <div className="flex items-center gap-3">
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className="text-xs font-semibold text-blue-600 flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition"
-                title="Admin Panel"
-              >
-                <Settings size={14} />
-                Admin
-              </Link>
-            )}
-          </div>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="text-xs font-semibold text-[var(--primary)] flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--primary)]/25 hover:bg-[var(--primary-light)] transition"
+              title="Admin Panel"
+            >
+              <Settings size={14} />
+              Admin
+            </Link>
+          )}
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <main className="px-4 sm:px-6 lg:px-8 py-6 w-full max-w-5xl mx-auto">
         {banner && (
           <div
             role="status"
@@ -300,8 +299,13 @@ export function DashboardClient({
           </div>
         )}
 
+        <div className="mb-4">
+          <p className="text-xs text-[var(--text-3)]">Welcome back</p>
+          <h1 className="text-xl font-bold text-[var(--text-1)] capitalize">{firstName}</h1>
+        </div>
+
         {/* Wallet Card — real balance on first paint, no skeleton */}
-        <div className="mb-8 md:mb-12">
+        <div className="mb-6">
           <WalletCard
             balance={walletBalance}
             userId={userId}
@@ -312,25 +316,25 @@ export function DashboardClient({
         </div>
 
         {/* Services Grid */}
-        <div className="mb-8 md:mb-12">
+        <div className="mb-6">
           <ServiceGrid />
         </div>
 
         {/* Recent Transactions — real list on first paint */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-bold text-slate-900">Recent Transactions</h2>
+        <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+            <h2 className="text-sm font-bold text-[var(--text-1)]">Recent Transactions</h2>
             <Link
               href="/dashboard/transactions"
-              className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition"
+              className="text-xs font-semibold text-[var(--primary)] flex items-center gap-1 hover:gap-1.5 transition-all"
             >
-              See all <ChevronRight size={16} />
+              See all <ChevronRight size={14} />
             </Link>
           </div>
-          <div className="divide-y divide-slate-200 p-4">
+          <div className="p-2">
             <TransactionList transactions={transactions} />
           </div>
-        </div>
+        </section>
       </main>
     </div>
   )

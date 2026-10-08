@@ -9,9 +9,10 @@ import { SuccessOverlay } from '@/components/success-overlay';
 import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
 import { PurchaseError } from '@/components/purchase-error';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { payElectricity } from '@/lib/actions/electricity';
 import { getWalletBalance } from '@/lib/actions/wallet';
+import { verifyCustomer } from '@/lib/actions/verify-customer';
 import { ELECTRICITY_PROVIDERS } from '@/lib/api/gsubz-services';
 
 export default function ElectricityPage() {
@@ -29,6 +30,8 @@ export default function ElectricityPage() {
   const [successToken, setSuccessToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
 
   // Handle modal-open class for body when confirm sheet is open
   useEffect(() => {
@@ -70,6 +73,27 @@ export default function ElectricityPage() {
   const handleContinue = () => {
     if (!canSubmit) return;
     setShowConfirm(true);
+  };
+
+  // Confirm the meter belongs to a real customer before charging. A wrong
+  // meter number is the most common cause of a failed electricity payment.
+  const handleVerify = async () => {
+    if (!disco || !meterNumber) return;
+    setVerifying(true);
+    setVerifiedName(null);
+    setError(null);
+    try {
+      const res = await verifyCustomer({ serviceID: disco, billersCode: meterNumber, type: meterType });
+      if (res.success) {
+        setVerifiedName(res.customer.customerName);
+      } else {
+        setError(res.message);
+      }
+    } catch {
+      setError('Verification is temporarily unavailable. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleConfirm = async () => {
@@ -142,7 +166,13 @@ export default function ElectricityPage() {
         {/* DISCO Selector */}
         <div className="mb-6">
           <label className="block text-sm font-medium mb-2">Distribution Company</label>
-          <Select value={disco} onValueChange={setDisco}>
+          <Select
+            value={disco}
+            onValueChange={(value) => {
+              setDisco(value);
+              setVerifiedName(null);
+            }}
+          >
             <SelectTrigger className="h-12 rounded-2xl">
               <SelectValue placeholder="Select DISCO" />
             </SelectTrigger>
@@ -161,7 +191,10 @@ export default function ElectricityPage() {
           {(['prepaid', 'postpaid'] as const).map((type) => (
             <button
               key={type}
-              onClick={() => setMeterType(type)}
+              onClick={() => {
+                setMeterType(type);
+                setVerifiedName(null);
+              }}
               className={`flex-1 px-4 py-2 rounded-full text-sm font-medium transition-colors capitalize ${
                 meterType === type
                   ? 'bg-primary text-white'
@@ -176,12 +209,31 @@ export default function ElectricityPage() {
         {/* Meter Number */}
         <div className="mb-6">
           <label className="block text-sm font-medium mb-2">Meter Number</label>
-          <Input
-            value={meterNumber}
-            onChange={(e) => setMeterNumber(e.target.value)}
-            placeholder="Enter meter number"
-            className="h-12 rounded-2xl"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={meterNumber}
+              onChange={(e) => {
+                setMeterNumber(e.target.value);
+                setVerifiedName(null);
+              }}
+              placeholder="Enter meter number"
+              className="h-12 rounded-2xl flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleVerify}
+              disabled={!disco || !meterNumber || verifying}
+              className="h-12 rounded-2xl px-4"
+            >
+              {verifying ? 'Checking...' : 'Verify'}
+            </Button>
+          </div>
+          {verifiedName && (
+            <p className="mt-2 text-sm text-green-600 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4" /> {verifiedName}
+            </p>
+          )}
         </div>
 
         {/* Amount */}

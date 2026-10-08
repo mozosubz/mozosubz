@@ -8,7 +8,17 @@
 
 import { renderShell, escapeHtml, formatNaira, formatDateTime } from "./shell"
 
-export type TxCategory = "AIRTIME" | "DATA" | "CABLE" | "ELECTRICITY" | "WALLET_FUND" | "RECHARGE_PINS"
+export type TxCategory =
+  | "AIRTIME"
+  | "DATA"
+  | "CABLE"
+  | "ELECTRICITY"
+  | "WALLET_FUND"
+  | "RECHARGE_PINS"
+  | "EXAM_PINS"
+  | "ESIM"
+  | "BULK_SMS"
+  | "SOCIAL"
 export type TxStatus = "SUCCESS" | "FAILED" | "PENDING"
 
 export interface TransactionEmailData {
@@ -43,6 +53,14 @@ function titleFor(category: TxCategory, status: TxStatus): string {
       return "Wallet Funded Successfully"
     case "RECHARGE_PINS":
       return "Recharge Pins Generated"
+    case "EXAM_PINS":
+      return "Exam Pin Purchase Successful"
+    case "ESIM":
+      return "eSIM Purchase Successful"
+    case "BULK_SMS":
+      return "Bulk SMS Sent"
+    case "SOCIAL":
+      return "Social Media Order Placed"
     default:
       return "Transaction Successful"
   }
@@ -62,6 +80,16 @@ function serviceLabel(category: TxCategory): string {
       return "Wallet Funding"
     case "RECHARGE_PINS":
       return "Recharge Pins"
+    case "EXAM_PINS":
+      return "Exam Pin"
+    case "ESIM":
+      return "eSIM"
+    case "BULK_SMS":
+      return "Bulk SMS"
+    case "SOCIAL":
+      return "Social Media"
+    default:
+      return "Transaction"
   }
 }
 

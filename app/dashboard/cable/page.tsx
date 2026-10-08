@@ -15,8 +15,9 @@ import { SuccessOverlay } from '@/components/success-overlay';
 import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
 import { PurchaseError } from '@/components/purchase-error';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { getWalletBalance } from '@/lib/actions/wallet';
+import { verifyCustomer } from '@/lib/actions/verify-customer';
 
 const PROVIDERS = [
   { id: 'dstv', name: 'DStv' },
@@ -38,6 +39,8 @@ export default function CablePage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
 
   // Handle modal-open class for body when confirm sheet is open
   useEffect(() => {
@@ -85,7 +88,28 @@ export default function CablePage() {
     setSelectedProvider(providerId);
     setPackagePlan(null);
     setSmartcard('');
+    setVerifiedName(null);
     setLoading(true);
+  };
+
+  // Confirm the smartcard/IUC belongs to a real customer before charging.
+  const handleVerify = async () => {
+    if (!selectedProvider || !smartcard) return;
+    setVerifying(true);
+    setVerifiedName(null);
+    setError(null);
+    try {
+      const res = await verifyCustomer({ serviceID: selectedProvider, billersCode: smartcard });
+      if (res.success) {
+        setVerifiedName(res.customer.customerName);
+      } else {
+        setError(res.message);
+      }
+    } catch {
+      setError('Verification is temporarily unavailable. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const selectedPlanData = plans.find((p) => p.value === packagePlan);
@@ -185,12 +209,31 @@ export default function CablePage() {
         {/* Smartcard Input */}
         <div className="mb-6">
           <label className="block text-sm font-medium mb-2">Smartcard Number</label>
-          <Input
-            value={smartcard}
-            onChange={(e) => setSmartcard(e.target.value)}
-            placeholder="Enter smartcard number"
-            className="h-12 rounded-2xl"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={smartcard}
+              onChange={(e) => {
+                setSmartcard(e.target.value);
+                setVerifiedName(null);
+              }}
+              placeholder="Enter smartcard number"
+              className="h-12 rounded-2xl flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleVerify}
+              disabled={!smartcard || verifying}
+              className="h-12 rounded-2xl px-4"
+            >
+              {verifying ? 'Checking...' : 'Verify'}
+            </Button>
+          </div>
+          {verifiedName && (
+            <p className="mt-2 text-sm text-green-600 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4" /> {verifiedName}
+            </p>
+          )}
         </div>
 
         {/* Plans Dropdown */}
