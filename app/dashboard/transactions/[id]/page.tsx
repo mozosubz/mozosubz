@@ -23,6 +23,56 @@ interface Transaction {
   plan_details?: string;
   service_type?: string;
   service_variant?: string;
+  service_name?: string;
+  service_id?: string;
+  metadata?: Record<string, any> | string | null;
+}
+
+function ReceiptCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden mb-3">
+      <div className="text-xs font-bold text-muted-foreground bg-muted px-3 py-1.5 border-b border-border uppercase tracking-wider">
+        {title}
+      </div>
+      <div className="divide-y divide-muted">{children}</div>
+    </div>
+  );
+}
+
+function ReceiptRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-2 px-3 text-xs">
+      <span className="text-muted-foreground font-medium flex-shrink-0">{label}</span>
+      <span className={`font-semibold text-foreground text-right ${mono ? 'font-mono break-all' : ''}`}>{value}</span>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: 'SUCCESS' | 'FAILED' }) {
+  const tone = status === 'SUCCESS' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+  return <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${tone}`}>{status}</span>;
+}
+
+function ReferenceCard({ id, onCopy, copied }: { id: string; onCopy: (text: string) => void; copied: boolean }) {
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">
+        Reference
+      </div>
+      <div className="flex items-center justify-between p-4 gap-2">
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Transaction ID</div>
+          <div className="font-mono text-xs text-foreground">{id}</div>
+        </div>
+        <button
+          onClick={() => onCopy(id)}
+          className="flex items-center gap-1 bg-muted text-foreground px-2 py-1 rounded text-xs font-semibold hover:bg-muted/80 transition-colors flex-shrink-0"
+        >
+          {copied ? 'Copied' : <><Copy className="w-3 h-3" /> Copy</>}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function TransactionDetailPage() {
@@ -128,6 +178,11 @@ export default function TransactionDetailPage() {
   const isCable = category === 'CABLE';
   const isElectricity = category === 'ELECTRICITY';
   const isWallet = category === 'WALLET_FUND';
+  const isExamPins = category === 'EXAM_PINS';
+  const isEsim = category === 'ESIM';
+  const isBulkSms = category === 'BULK_SMS';
+  const isSocial = category === 'SOCIAL';
+  const isRechargePins = category === 'RECHARGE_PINS';
   const isSuccess = transaction.status?.toUpperCase() === 'SUCCESS';
   const isFailed = !isSuccess;
 
@@ -143,6 +198,21 @@ export default function TransactionDetailPage() {
   }
 
   const electricityToken = extractElectricityToken(parsedResponse);
+  const rechargePins: { pin: string }[] = Array.isArray(parsedResponse?.pins) ? parsedResponse.pins : [];
+
+  let meta: Record<string, any> = {};
+  if (transaction.metadata) {
+    if (typeof transaction.metadata === 'string') {
+      try {
+        meta = JSON.parse(transaction.metadata);
+      } catch {
+        meta = {};
+      }
+    } else {
+      meta = transaction.metadata;
+    }
+  }
+
   const formattedDate = formatReceiptDate(transaction.created_at);
   const formattedTime = formatReceiptTime(transaction.created_at);
   
@@ -263,6 +333,34 @@ export default function TransactionDetailPage() {
                       <span className="text-xs text-muted-foreground font-medium">Meter</span>
                       <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
                     </div>
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Status</span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">FAILED</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(isExamPins || isEsim || isBulkSms || isSocial || isRechargePins) && (
+                <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                  <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">Service Details</div>
+                  <div className="divide-y divide-muted">
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Service</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.service_name || category}</span>
+                    </div>
+                    {transaction.plan_details && (
+                      <div className="flex items-center justify-between p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Plan</span>
+                        <span className="text-sm font-semibold text-foreground">{transaction.plan_details}</span>
+                      </div>
+                    )}
+                    {transaction.phone && (
+                      <div className="flex items-center justify-between p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Recipient</span>
+                        <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">FAILED</span>
@@ -680,6 +778,149 @@ export default function TransactionDetailPage() {
                       </button>
                     </div>
                   </div>
+                </>
+              )}
+
+              {/* EXAM PIN RECEIPT */}
+              {isExamPins && (
+                <>
+                  <div className="text-center mb-4">
+                    <h3 className="text-sm font-bold text-foreground">{transaction.service_name || 'Exam Pin'}</h3>
+                  </div>
+
+                  <ReceiptCard title="Service Details">
+                    <ReceiptRow label="Service Type" value="Exam Pin" />
+                    <ReceiptRow label="Board" value={transaction.plan_details || transaction.service_name || '—'} />
+                    <ReceiptRow label="Recipient" value={transaction.phone || '—'} />
+                    {meta.pin && <ReceiptRow label="PIN" value={String(meta.pin)} mono />}
+                    <ReceiptRow label="Time" value={`${formattedDate}, ${formattedTime}`} />
+                    <ReceiptRow label="Status" value={<StatusBadge status="SUCCESS" />} />
+                  </ReceiptCard>
+
+                  <ReceiptCard title="Payment">
+                    <ReceiptRow label="Charged" value={`₦${Number(transaction.amount || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance Before" value={`₦${Number(transaction.balance_before || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance After" value={`₦${Number(transaction.balance_after || 0).toLocaleString()}`} />
+                  </ReceiptCard>
+
+                  <ReferenceCard id={transaction.transaction_id || transaction.id} onCopy={handleCopy} copied={copied} />
+                </>
+              )}
+
+              {/* ESIM RECEIPT */}
+              {isEsim && (
+                <>
+                  <div className="text-center mb-4">
+                    <h3 className="text-sm font-bold text-foreground">{transaction.service_name || 'eSIM'}</h3>
+                  </div>
+
+                  <ReceiptCard title="Service Details">
+                    <ReceiptRow label="Service Type" value="eSIM" />
+                    <ReceiptRow label="Package" value={transaction.plan_details || transaction.service_name || '—'} />
+                    {meta.country && <ReceiptRow label="Country" value={String(meta.country)} />}
+                    <ReceiptRow label="Time" value={`${formattedDate}, ${formattedTime}`} />
+                    <ReceiptRow label="Status" value={<StatusBadge status="SUCCESS" />} />
+                  </ReceiptCard>
+
+                  <ReceiptCard title="Payment">
+                    <ReceiptRow label="Charged" value={`₦${Number(transaction.amount || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance Before" value={`₦${Number(transaction.balance_before || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance After" value={`₦${Number(transaction.balance_after || 0).toLocaleString()}`} />
+                  </ReceiptCard>
+
+                  <ReferenceCard id={transaction.transaction_id || transaction.id} onCopy={handleCopy} copied={copied} />
+                </>
+              )}
+
+              {/* BULK SMS RECEIPT */}
+              {isBulkSms && (
+                <>
+                  <div className="text-center mb-4">
+                    <h3 className="text-sm font-bold text-foreground">Bulk SMS</h3>
+                  </div>
+
+                  <ReceiptCard title="Service Details">
+                    <ReceiptRow label="Service Type" value="Bulk SMS" />
+                    {meta.sender && <ReceiptRow label="Sender" value={String(meta.sender)} />}
+                    {meta.recipients !== undefined && <ReceiptRow label="Recipients" value={String(meta.recipients)} />}
+                    {meta.pages !== undefined && <ReceiptRow label="Pages" value={String(meta.pages)} />}
+                    <ReceiptRow label="Time" value={`${formattedDate}, ${formattedTime}`} />
+                    <ReceiptRow label="Status" value={<StatusBadge status="SUCCESS" />} />
+                  </ReceiptCard>
+
+                  <ReceiptCard title="Payment">
+                    <ReceiptRow label="Charged" value={`₦${Number(transaction.amount || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance Before" value={`₦${Number(transaction.balance_before || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance After" value={`₦${Number(transaction.balance_after || 0).toLocaleString()}`} />
+                  </ReceiptCard>
+
+                  <ReferenceCard id={transaction.transaction_id || transaction.id} onCopy={handleCopy} copied={copied} />
+                </>
+              )}
+
+              {/* SOCIAL RECEIPT */}
+              {isSocial && (
+                <>
+                  <div className="text-center mb-4">
+                    <h3 className="text-sm font-bold text-foreground">{transaction.service_name || 'Social Media'}</h3>
+                  </div>
+
+                  <ReceiptCard title="Service Details">
+                    <ReceiptRow label="Service Type" value="Social Media" />
+                    <ReceiptRow label="Service" value={transaction.service_name || '—'} />
+                    {meta.quantity !== undefined && <ReceiptRow label="Quantity" value={String(meta.quantity)} />}
+                    {meta.link && <ReceiptRow label="Link" value={String(meta.link)} mono />}
+                    <ReceiptRow label="Time" value={`${formattedDate}, ${formattedTime}`} />
+                    <ReceiptRow label="Status" value={<StatusBadge status="SUCCESS" />} />
+                  </ReceiptCard>
+
+                  <ReceiptCard title="Payment">
+                    <ReceiptRow label="Charged" value={`₦${Number(transaction.amount || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance Before" value={`₦${Number(transaction.balance_before || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance After" value={`₦${Number(transaction.balance_after || 0).toLocaleString()}`} />
+                  </ReceiptCard>
+
+                  <ReferenceCard id={transaction.transaction_id || transaction.id} onCopy={handleCopy} copied={copied} />
+                </>
+              )}
+
+              {/* RECHARGE PINS RECEIPT */}
+              {isRechargePins && (
+                <>
+                  <div className="text-center mb-4">
+                    <h3 className="text-sm font-bold text-foreground">Recharge Pins</h3>
+                  </div>
+
+                  <ReceiptCard title="Service Details">
+                    <ReceiptRow label="Service Type" value="Recharge Pins" />
+                    <ReceiptRow label="Network" value={(transaction.service_id || '').toUpperCase() || '—'} />
+                    <ReceiptRow label="Time" value={`${formattedDate}, ${formattedTime}`} />
+                    <ReceiptRow label="Status" value={<StatusBadge status="SUCCESS" />} />
+                  </ReceiptCard>
+
+                  {rechargePins.length > 0 && (
+                    <div className="bg-card border border-border rounded-lg overflow-hidden mb-3">
+                      <div className="text-xs font-bold text-muted-foreground bg-muted px-3 py-1.5 border-b border-border uppercase tracking-wider">
+                        Your Pins ({rechargePins.length})
+                      </div>
+                      <div className="divide-y divide-muted">
+                        {rechargePins.map((p, i) => (
+                          <div key={i} className="flex items-center justify-between gap-3 p-2 px-3 text-xs">
+                            <span className="text-muted-foreground font-medium">{i + 1}</span>
+                            <span className="font-mono font-semibold text-foreground break-all">{p.pin}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <ReceiptCard title="Payment">
+                    <ReceiptRow label="Charged" value={`₦${Number(transaction.amount || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance Before" value={`₦${Number(transaction.balance_before || 0).toLocaleString()}`} />
+                    <ReceiptRow label="Balance After" value={`₦${Number(transaction.balance_after || 0).toLocaleString()}`} />
+                  </ReceiptCard>
+
+                  <ReferenceCard id={transaction.transaction_id || transaction.id} onCopy={handleCopy} copied={copied} />
                 </>
               )}
 

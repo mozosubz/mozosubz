@@ -4,6 +4,7 @@ import { generateRechargePins as generatePinsAPI } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
+import { applyServiceMarkup } from "@/lib/pricing/markup"
 import { sendEmail } from "@/lib/email/client"
 import { renderShell, escapeHtml, formatNaira, formatDateTime } from "@/lib/email/templates/shell"
 import { revalidatePath } from "next/cache"
@@ -66,7 +67,8 @@ export async function generateRechargePins(
       return { success: false, error: "Invalid quantity (must be between 1 and 50)" }
     }
 
-    const totalCost = pinVal * pinQty
+    const unitPrice = await applyServiceMarkup("recharge-pins", `₦${pinVal} Pin`, pinVal)
+    const totalCost = unitPrice * pinQty
 
     if (!profile || Number(profile.wallet_balance) < totalCost) {
       return {

@@ -74,6 +74,7 @@ export async function finalizeGsubzPurchase(
       apiResponse: outcome.raw,
       planDetails: ctx.planDetails,
       serviceType: ctx.serviceType,
+      metadata: ctx.meta,
     })
 
     revalidatePath("/dashboard")
@@ -100,6 +101,7 @@ export async function finalizeGsubzPurchase(
       balanceAfter: ctx.balanceBefore,
       planDetails: ctx.planDetails,
       serviceType: ctx.serviceType,
+      metadata: ctx.meta,
     })
 
     scheduleVerifyPending({
@@ -128,6 +130,7 @@ export async function finalizeGsubzPurchase(
     apiResponse: outcome.raw,
     planDetails: ctx.planDetails,
     serviceType: ctx.serviceType,
+    metadata: ctx.meta,
   })
 
   return {

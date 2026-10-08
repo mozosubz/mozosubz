@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { resolveProviderError } from "@/lib/utils/provider-error"
 import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
+import { applyServiceMarkup } from "@/lib/pricing/markup"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -66,10 +67,11 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     if (!meterNumber || meterNumber.trim().length < 6) {
       return { success: false, message: "Invalid meter number" }
     }
+    const chargeAmount = await applyServiceMarkup("electricity", "Electricity", purchaseAmount)
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance
-    if (balanceBefore < purchaseAmount) {
+    if (balanceBefore < chargeAmount) {
       return { success: false, message: "Insufficient wallet balance" }
     }
 
@@ -88,7 +90,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       const transactionId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
-      const deductResult = await atomicDeductWallet(userId, purchaseAmount)
+      const deductResult = await atomicDeductWallet(userId, chargeAmount)
 
       if (!deductResult.success) {
         console.error("[v0] Deduction failed - contact support")
@@ -107,7 +109,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
         category: "ELECTRICITY",
         serviceId: serviceID,
         serviceName: "Electricity",
-        amount: purchaseAmount,
+        amount: chargeAmount,
         phone: meterNumber,
         status: "SUCCESS",
         description: `${disco} Electricity · ${meterNumber}`,
@@ -147,7 +149,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
       category: "ELECTRICITY",
       serviceId: serviceID,
       serviceName: "Electricity",
-      amount: purchaseAmount,
+      amount: chargeAmount,
       phone: meterNumber,
       status: "FAILED",
       description: `${disco} Electricity · ${meterNumber}`,
@@ -196,6 +198,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
         const { data: profile } = await adminClient.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
         const bal = Number(profile?.wallet_balance ?? 0)
         const numAmount = parseFloat(amount)
+        const pendingChargeAmount = await applyServiceMarkup("electricity", "Electricity", numAmount)
       const pendingServiceId = resolveElectricityServiceId(disco)
       if (!pendingServiceId) {
         return { success: false, message: "Unsupported electricity provider" }
@@ -207,7 +210,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
           category: "ELECTRICITY",
           serviceId: pendingServiceId,
           serviceName: "Electricity",
-          amount: numAmount,
+          amount: pendingChargeAmount,
           phone: meterNumber,
           status: "PENDING",
           description: `${disco} Electricity · ${meterNumber}`,
@@ -218,7 +221,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
         scheduleVerifyPending({
           requestID,
           userId: pendingUserId,
-          amount: numAmount,
+          amount: pendingChargeAmount,
           balanceBefore: bal,
           category: "ELECTRICITY",
         })

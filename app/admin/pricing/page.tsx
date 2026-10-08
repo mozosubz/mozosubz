@@ -32,6 +32,63 @@ interface EditingRule {
   markupValue: number
 }
 
+type CategoryId =
+  | 'data'
+  | 'cable'
+  | 'airtime'
+  | 'electricity'
+  | 'exam'
+  | 'esim'
+  | 'sms'
+  | 'social'
+  | 'recharge'
+
+const CATEGORIES: { id: CategoryId; label: string }[] = [
+  { id: 'data', label: 'Data' },
+  { id: 'cable', label: 'Cable' },
+  { id: 'airtime', label: 'Airtime' },
+  { id: 'electricity', label: 'Electricity' },
+  { id: 'exam', label: 'Exam Pins' },
+  { id: 'esim', label: 'eSIM' },
+  { id: 'sms', label: 'Bulk SMS' },
+  { id: 'social', label: 'Social' },
+  { id: 'recharge', label: 'Recharge Pins' },
+]
+
+/**
+ * service_id stored on pricing_rules for categories that are not keyed by a
+ * network/provider sub-selection. Data and cable resolve theirs from the
+ * selected network/provider instead.
+ */
+const CATEGORY_SERVICE_ID: Record<CategoryId, string> = {
+  data: 'mtn',
+  cable: 'dstv',
+  airtime: 'airtime',
+  electricity: 'electricity',
+  exam: 'exam-pins',
+  esim: 'esim',
+  sms: 'bulk-sms',
+  social: 'social',
+  recharge: 'recharge-pins',
+}
+
+/**
+ * Categories whose "plans" are fixed rows rather than a live provider list.
+ * Airtime, electricity and bulk SMS are priced per transaction, so their base
+ * price is 0 and only the markup matters.
+ */
+const STATIC_PLANS: Partial<Record<CategoryId, GsubzPlan[]>> = {
+  airtime: [{ displayName: 'Airtime', value: 'airtime', price: '0' }],
+  electricity: [{ displayName: 'Electricity', value: 'electricity', price: '0' }],
+  sms: [{ displayName: 'Bulk SMS', value: 'bulk-sms', price: '0' }],
+  recharge: [
+    { displayName: '₦100 Pin', value: '100', price: '100' },
+    { displayName: '₦200 Pin', value: '200', price: '200' },
+    { displayName: '₦400 Pin', value: '400', price: '400' },
+    { displayName: '₦500 Pin', value: '500', price: '500' },
+  ],
+}
+
 const NETWORKS = [
   {
     name: 'MTN',
@@ -72,10 +129,12 @@ const CABLE_SERVICES = [
 export default function PricingPage() {
   const confirm = useConfirm()
   const toast = useToast()
-  const [activeService, setActiveService] = useState<'data' | 'cable'>('data')
+  const [activeService, setActiveService] = useState<CategoryId>('data')
   const [activeNetwork, setActiveNetwork] = useState('MTN')
   const [activePlanType, setActivePlanType] = useState('mtn_sme')
   const [activeCableService, setActiveCableService] = useState('dstv')
+  const [esimCountries, setEsimCountries] = useState<{ code: string; name: string }[]>([])
+  const [activeEsimCountry, setActiveEsimCountry] = useState('')
 
   const [gsubzPlans, setGsubzPlans] = useState<GsubzPlan[]>([])
   const [rules, setRules] = useState<PricingRule[]>([])
@@ -118,29 +177,54 @@ export default function PricingPage() {
     return serviceMap[planTypeOrService] || planTypeOrService
   }, [])
 
-  const fetchGsubzPlans = useCallback(
-    async (planTypeOrService: string) => {
-      setLoadingGsubz(true)
-      try {
-        const type = activeService === 'data' ? 'DATA' : 'CABLE'
-        const response = await fetch(`/api/provider/plans?service=${planTypeOrService}&type=${type}`)
-        const data = await response.json()
-        setGsubzPlans(data.plans || [])
-      } catch (error) {
-        console.error('[v0] Error fetching gsubz plans:', error)
-        setGsubzPlans([])
-      } finally {
-        setLoadingGsubz(false)
-      }
+  const resolveServiceId = useCallback(
+    (category: CategoryId) => {
+      if (category === 'data') return getPricingServiceId(activePlanType)
+      if (category === 'cable') return getPricingServiceId(activeCableService)
+      return CATEGORY_SERVICE_ID[category]
     },
-    [activeService]
+    [activePlanType, activeCableService, getPricingServiceId]
   )
+
+  const fetchPlans = useCallback(async () => {
+    const staticPlans = STATIC_PLANS[activeService]
+    if (staticPlans) {
+      setGsubzPlans(staticPlans)
+      return
+    }
+
+    setLoadingGsubz(true)
+    try {
+      let url = ''
+      if (activeService === 'data') {
+        url = `/api/provider/plans?service=${activePlanType}&type=DATA`
+      } else if (activeService === 'cable') {
+        url = `/api/provider/plans?service=${activeCableService}&type=CABLE`
+      } else if (activeService === 'esim') {
+        if (!activeEsimCountry) {
+          setGsubzPlans([])
+          return
+        }
+        url = `/api/admin/pricing-plans?category=esim&country=${encodeURIComponent(activeEsimCountry)}`
+      } else {
+        url = `/api/admin/pricing-plans?category=${activeService}`
+      }
+
+      const response = await fetch(url)
+      const data = await response.json()
+      setGsubzPlans(data.plans || [])
+    } catch (error) {
+      console.error('[v0] Error fetching plans:', error)
+      setGsubzPlans([])
+    } finally {
+      setLoadingGsubz(false)
+    }
+  }, [activeService, activePlanType, activeCableService, activeEsimCountry])
 
   const fetchRules = useCallback(async () => {
     setLoading(true)
     try {
-      const serviceId =
-        activeService === 'data' ? getPricingServiceId(activePlanType) : getPricingServiceId(activeCableService)
+      const serviceId = resolveServiceId(activeService)
       const { data } = await supabase
         .from('pricing_rules')
         .select('*')
@@ -153,13 +237,12 @@ export default function PricingPage() {
     } finally {
       setLoading(false)
     }
-  }, [activeService, activePlanType, activeCableService, getPricingServiceId, supabase])
+  }, [activeService, resolveServiceId, supabase])
 
   useEffect(() => {
-    const planTypeOrService = activeService === 'data' ? activePlanType : activeCableService
-    fetchGsubzPlans(planTypeOrService)
+    fetchPlans()
     fetchRules()
-  }, [activeService, activePlanType, activeCableService, fetchGsubzPlans, fetchRules])
+  }, [fetchPlans, fetchRules])
 
   useEffect(() => {
     if (currentNetwork && currentNetwork.types.length > 0) {
@@ -167,16 +250,34 @@ export default function PricingPage() {
     }
   }, [activeNetwork, currentNetwork])
 
+  // eSIM packages are nested under a country, so load the country list once
+  // the eSIM tab is opened and default to the first one.
+  useEffect(() => {
+    if (activeService !== 'esim' || esimCountries.length > 0) return
+    let cancelled = false
+    fetch('/api/admin/pricing-plans?category=esim-countries')
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return
+        const list: { code: string; name: string }[] = d.countries || []
+        setEsimCountries(list)
+        if (list[0]) setActiveEsimCountry(list[0].code)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [activeService, esimCountries.length])
+
   const handleAddRule = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.planName || !formData.basePrice || formData.markupValue === '') {
+    if (!formData.planName || formData.basePrice === '' || formData.markupValue === '') {
       toast('Please fill in all fields', 'error')
       return
     }
 
     setSubmitting(true)
-    const serviceId =
-      activeService === 'data' ? getPricingServiceId(activePlanType) : getPricingServiceId(activeCableService)
+    const serviceId = resolveServiceId(activeService)
 
     const result = await createPricingRule(
       serviceId,
@@ -252,7 +353,12 @@ export default function PricingPage() {
       const planTypeLabel = currentNetwork?.types.find((t) => t.value === activePlanType)?.label || ''
       return `${activeNetwork} ${planTypeLabel}`
     }
-    return currentCableService?.name || ''
+    if (activeService === 'cable') return currentCableService?.name || ''
+    if (activeService === 'esim') {
+      const country = esimCountries.find((c) => c.code === activeEsimCountry)
+      return country ? `eSIM · ${country.name}` : 'eSIM'
+    }
+    return CATEGORIES.find((c) => c.id === activeService)?.label || ''
   }
 
   const handleApplyTemplate = (markupType: 'fixed' | 'percentage', markupValue: number) => {
@@ -260,8 +366,7 @@ export default function PricingPage() {
     setActiveTab('individual')
   }
 
-  const serviceId =
-    activeService === 'data' ? getPricingServiceId(activePlanType) : getPricingServiceId(activeCableService)
+  const serviceId = resolveServiceId(activeService)
 
   return (
     <div className="admin-page">
@@ -269,31 +374,27 @@ export default function PricingPage() {
         <div className="admin-header-row">
           <div>
             <h1>Pricing Management</h1>
-            <p>Manage markup rules for data and cable services. Plans are fetched live from Gsubz.</p>
+            <p>Manage markup rules for every service. Plans are fetched live from the provider.</p>
           </div>
         </div>
       </div>
 
-      {/* Service type selector */}
+      {/* Category selector */}
       <div className="admin-tabs">
-        <button
-          type="button"
-          className={`admin-tab ${activeService === 'data' ? 'active' : ''}`}
-          onClick={() => setActiveService('data')}
-        >
-          Data Plans
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${activeService === 'cable' ? 'active' : ''}`}
-          onClick={() => setActiveService('cable')}
-        >
-          Cable Plans
-        </button>
+        {CATEGORIES.map((category) => (
+          <button
+            type="button"
+            key={category.id}
+            className={`admin-tab ${activeService === category.id ? 'active' : ''}`}
+            onClick={() => setActiveService(category.id)}
+          >
+            {category.label}
+          </button>
+        ))}
       </div>
 
       {/* Network or cable service selector */}
-      {activeService === 'data' ? (
+      {activeService === 'data' && (
         <>
           <div className="filter-chips">
             {NETWORKS.map((network) => (
@@ -323,7 +424,9 @@ export default function PricingPage() {
             </div>
           )}
         </>
-      ) : (
+      )}
+
+      {activeService === 'cable' && (
         <div className="filter-chips">
           {CABLE_SERVICES.map((service) => (
             <button
@@ -335,6 +438,28 @@ export default function PricingPage() {
               {service.name}
             </button>
           ))}
+        </div>
+      )}
+
+      {activeService === 'esim' && (
+        <div style={{ marginBottom: 16 }}>
+          <label htmlFor="esim-country" className="sr-only">
+            eSIM country
+          </label>
+          <select
+            id="esim-country"
+            className="admin-select"
+            value={activeEsimCountry}
+            onChange={(e) => setActiveEsimCountry(e.target.value)}
+            style={{ maxWidth: 320 }}
+          >
+            {esimCountries.length === 0 && <option value="">Loading countries…</option>}
+            {esimCountries.map((country) => (
+              <option key={country.code} value={country.code}>
+                {country.name}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -444,7 +569,7 @@ export default function PricingPage() {
                   >
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 600 }}>{plan.displayName}</p>
                     <p style={{ margin: '2px 0 0 0', fontSize: 11, color: 'var(--admin-success)', fontWeight: 600 }}>
-                      ₦{Number(plan.price).toLocaleString()}
+                      {Number(plan.price) > 0 ? `₦${Number(plan.price).toLocaleString()}` : 'Variable amount'}
                     </p>
                   </button>
                 ))}
@@ -617,7 +742,7 @@ export default function PricingPage() {
                   <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--admin-success)' }}>
                     Live Preview
                   </p>
-                  {formData.planName && formData.basePrice && (
+                  {formData.planName && formData.basePrice !== '' && (
                     <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div>
                         <p style={{ margin: 0, fontSize: 11, color: 'var(--admin-text-tertiary)' }}>Plan</p>

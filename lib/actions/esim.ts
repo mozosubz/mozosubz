@@ -5,6 +5,7 @@ import { getGsubz, runGsubz } from "@/lib/api/gsubz-sdk"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
+import { applyServiceMarkup } from "@/lib/pricing/markup"
 
 /** Public catalogue — no API key required, so it is safe to call freely. */
 export async function listEsimCountries(query?: string): Promise<EsimCountry[]> {
@@ -17,11 +18,22 @@ export async function listEsimCountries(query?: string): Promise<EsimCountry[]> 
   }
 }
 
-export async function listEsimPackages(locationCode: string): Promise<EsimPackage[]> {
+/**
+ * Packages for a country, priced for the customer. Pass `raw` to get the
+ * provider's base prices (used by the admin pricing page).
+ */
+export async function listEsimPackages(locationCode: string, raw = false): Promise<EsimPackage[]> {
   if (!locationCode) return []
   try {
     const { packages } = await getGsubz().esimPackages(locationCode)
-    return packages ?? []
+    const list = packages ?? []
+    if (raw) return list
+    return Promise.all(
+      list.map(async (p) => ({
+        ...p,
+        price: await applyServiceMarkup("esim", p.name, Number(p.price)),
+      })),
+    )
   } catch (error) {
     console.error("[v0] listEsimPackages error:", error)
     return []
@@ -62,10 +74,11 @@ export async function purchaseEsim(formData: FormData) {
     }
     if (!pkg) return { success: false, message: "That eSIM package is no longer available." }
 
-    const price = Number(pkg.price)
-    if (!Number.isFinite(price) || price <= 0) {
+    const basePrice = Number(pkg.price)
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
       return { success: false, message: "This eSIM package is temporarily unavailable." }
     }
+    const price = await applyServiceMarkup("esim", pkg.name, basePrice)
 
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()

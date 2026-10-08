@@ -52,6 +52,19 @@ export function TransactionDetailModal({
     ? extractElectricityToken(transaction.api_response)
     : null
 
+  const meta: Record<string, any> = (() => {
+    const raw = transaction.metadata
+    if (!raw) return {}
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return {}
+      }
+    }
+    return raw
+  })()
+
   return (
     <ModalPortal onClose={onClose}>
       <div className="modal-overlay" onClick={onClose} role="presentation">
@@ -152,6 +165,20 @@ export function TransactionDetailModal({
                 {transaction.service_id && (
                   <DetailRow label="Provider service" value={transaction.service_id} mono copyable />
                 )}
+              </>
+            )}
+            {['EXAM_PINS', 'ESIM', 'BULK_SMS', 'SOCIAL', 'RECHARGE_PINS'].includes(
+              String(transaction.category || '').toUpperCase()
+            ) && (
+              <>
+                {transaction.plan_details && <DetailRow label="Plan" value={transaction.plan_details} />}
+                {meta.country && <DetailRow label="Country" value={String(meta.country)} />}
+                {meta.sender && <DetailRow label="Sender" value={String(meta.sender)} />}
+                {meta.recipients !== undefined && <DetailRow label="Recipients" value={String(meta.recipients)} />}
+                {meta.pages !== undefined && <DetailRow label="Pages" value={String(meta.pages)} />}
+                {meta.quantity !== undefined && <DetailRow label="Quantity" value={String(meta.quantity)} />}
+                {meta.link && <DetailRow label="Link" value={String(meta.link)} mono copyable />}
+                {meta.pin && <DetailRow label="PIN" value={String(meta.pin)} mono copyable highlight />}
               </>
             )}
             {electricityToken && (

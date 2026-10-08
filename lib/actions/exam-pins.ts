@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
 import { isValidPhone } from "@/lib/utils/input-validation"
+import { applyServiceMarkup } from "@/lib/pricing/markup"
 
 const EXAM_BOARDS: Record<string, { serviceId: string; plan: string; label: string }> = {
   waec: { serviceId: "waec", plan: "WAEC", label: "WAEC Result Checker Pin" },
@@ -19,14 +20,19 @@ export interface ExamBoardOption {
   price: number
 }
 
-/** Live prices for the board picker, so the UI never shows a stale amount. */
-export async function getExamPinPrices(): Promise<ExamBoardOption[]> {
+/**
+ * Live prices for the board picker, so the UI never shows a stale amount.
+ * Pass `raw` to get the provider's base price (used by the admin pricing page).
+ */
+export async function getExamPinPrices(raw = false): Promise<ExamBoardOption[]> {
   const gsubz = getGsubz()
   return Promise.all(
     Object.entries(EXAM_BOARDS).map(async ([id, config]) => {
       try {
         const plans = await gsubz.getPlans(config.serviceId)
-        return { id, label: config.label, short: id.toUpperCase(), price: Number(plans.plans?.[0]?.price ?? 0) }
+        const base = Number(plans.plans?.[0]?.price ?? 0)
+        const price = raw || base <= 0 ? base : await applyServiceMarkup("exam-pins", config.label, base)
+        return { id, label: config.label, short: id.toUpperCase(), price }
       } catch {
         return { id, label: config.label, short: id.toUpperCase(), price: 0 }
       }
@@ -61,16 +67,17 @@ export async function purchaseExamPin(formData: FormData) {
 
     // Price comes from the live catalogue so a provider price change can never
     // leave us charging a stale amount.
-    let price = 0
+    let basePrice = 0
     try {
       const plans = await gsubz.getPlans(config.serviceId)
-      price = Number(plans.plans?.[0]?.price ?? 0)
+      basePrice = Number(plans.plans?.[0]?.price ?? 0)
     } catch {
       return { success: false, message: "Could not load the current price. Please try again." }
     }
-    if (!Number.isFinite(price) || price <= 0) {
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
       return { success: false, message: "This exam pin is temporarily unavailable." }
     }
+    const price = await applyServiceMarkup("exam-pins", config.label, basePrice)
 
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()

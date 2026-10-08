@@ -4,6 +4,7 @@ import { getGsubz, runGsubz } from "@/lib/api/gsubz-sdk"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
+import { applyServiceMarkup } from "@/lib/pricing/markup"
 
 /**
  * GSUBZ does not publish an SMS price through the plans endpoint, so the
@@ -45,7 +46,7 @@ export async function sendBulkSms(formData: FormData) {
   }
 
   const pages = Math.max(1, Math.ceil(msg.length / SMS_PAGE_CHARS))
-  const price = recipients.length * pages * SMS_UNIT_PRICE
+  const basePrice = recipients.length * pages * SMS_UNIT_PRICE
 
   try {
     const supabase = await createClient()
@@ -58,8 +59,11 @@ export async function sendBulkSms(formData: FormData) {
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
+    const price = await applyServiceMarkup("bulk-sms", "Bulk SMS", basePrice)
     const balanceBefore = Number(profile.wallet_balance)
-    if (balanceBefore < price) return { success: false, message: "Insufficient wallet balance" }
+    if (balanceBefore < price) {
+      return { success: false, message: "Insufficient wallet balance" }
+    }
 
     const gsubz = getGsubz()
     const outcome = await runGsubz(() => gsubz.sendSms({ from, to: recipients, msg, requestID }))

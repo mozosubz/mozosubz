@@ -4,10 +4,22 @@ import { getGsubz, getSocialServices, runGsubz, type SocialService } from "@/lib
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
+import { applyServiceMarkup } from "@/lib/pricing/markup"
 
-export async function listSocialServices(): Promise<SocialService[]> {
+/**
+ * Social catalogue priced for the customer. Pass `raw` to get the provider's
+ * base prices (used by the admin pricing page).
+ */
+export async function listSocialServices(raw = false): Promise<SocialService[]> {
   try {
-    return await getSocialServices()
+    const services = await getSocialServices()
+    if (raw) return services
+    return Promise.all(
+      services.map(async (s) => ({
+        ...s,
+        price: String(await applyServiceMarkup("social", s.display_name, Number(s.price))),
+      })),
+    )
   } catch (error) {
     console.error("[v0] listSocialServices error:", error)
     return []
@@ -51,7 +63,8 @@ export async function purchaseSocial(formData: FormData) {
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       return { success: false, message: "This service is temporarily unavailable." }
     }
-    const price = Math.round(unitPrice * quantity * 100) / 100
+    const markedUpUnit = await applyServiceMarkup("social", service.display_name, unitPrice)
+    const price = Math.round(markedUpUnit * quantity * 100) / 100
 
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()
