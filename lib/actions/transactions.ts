@@ -2,7 +2,8 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getMonnifyAccessToken, monnifyFetch, MONNIFY_BASE_URL } from './monnify'
+import { getMonnifyAccessToken, monnifyFetch } from './monnify'
+import { MONNIFY_BASE_URL } from '@/lib/api/monnify-config'
 import { sendTransactionEmail } from '@/lib/email/send-transaction-email'
 import { isValidTransactionReference, isValidAmount } from '@/lib/utils/input-validation'
 import { getDepositRules } from './deposit-rules'
