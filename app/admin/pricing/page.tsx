@@ -35,24 +35,18 @@ interface EditingRule {
 type CategoryId =
   | 'data'
   | 'cable'
-  | 'airtime'
-  | 'electricity'
   | 'exam'
   | 'esim'
   | 'sms'
   | 'social'
-  | 'recharge'
 
 const CATEGORIES: { id: CategoryId; label: string }[] = [
   { id: 'data', label: 'Data' },
   { id: 'cable', label: 'Cable' },
-  { id: 'airtime', label: 'Airtime' },
-  { id: 'electricity', label: 'Electricity' },
   { id: 'exam', label: 'Exam Pins' },
   { id: 'esim', label: 'eSIM' },
   { id: 'sms', label: 'Bulk SMS' },
   { id: 'social', label: 'Social' },
-  { id: 'recharge', label: 'Recharge Pins' },
 ]
 
 /**
@@ -63,28 +57,19 @@ const CATEGORIES: { id: CategoryId; label: string }[] = [
 const CATEGORY_SERVICE_ID: Record<CategoryId, string> = {
   data: 'mtn',
   cable: 'dstv',
-  airtime: 'airtime',
-  electricity: 'electricity',
   exam: 'exam-pins',
   esim: 'esim',
   sms: 'bulk-sms',
   social: 'social',
-  recharge: 'recharge-pins',
 }
 
 /**
  * Categories whose "plans" are fixed rows rather than a live provider list.
- * Airtime, electricity and bulk SMS are priced per transaction, so their base
- * price is 0 and only the markup matters.
+ * Bulk SMS is priced per transaction, so its base price is 0 and only the
+ * markup matters.
  */
 const STATIC_PLANS: Partial<Record<CategoryId, GsubzPlan[]>> = {
-  airtime: [{ displayName: 'Airtime', value: 'airtime', price: '0' }],
-  electricity: [{ displayName: 'Electricity', value: 'electricity', price: '0' }],
   sms: [{ displayName: 'Bulk SMS', value: 'bulk-sms', price: '0' }],
-  recharge: [
-    { displayName: '₦100 Pin', value: '100', price: '100' },
-    { displayName: '₦200 Pin', value: '200', price: '200' },
-    { displayName: '₦400 Pin', value: '400', price: '400' },
     { displayName: '₦500 Pin', value: '500', price: '500' },
   ],
 }
