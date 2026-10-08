@@ -2,7 +2,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getMonnifyAccessToken, monnifyFetch } from './monnify'
+import { getMonnifyAccessToken, monnifyFetch, MONNIFY_BASE_URL } from './monnify'
 import { sendTransactionEmail } from '@/lib/email/send-transaction-email'
 import { isValidTransactionReference, isValidAmount } from '@/lib/utils/input-validation'
 import { getDepositRules } from './deposit-rules'
@@ -502,7 +502,7 @@ export async function queryMonnifyTransaction(paymentReference: string, useAdmin
     // Query Monnify using their transactionReference (not our paymentReference)
     const encodedRef = encodeURIComponent(dbTransaction.transaction_reference)
     const response = await monnifyFetch(
-      `https://api.monnify.com/api/v2/merchant/transactions/query?transactionReference=${encodedRef}`,
+      `${MONNIFY_BASE_URL}/api/v2/merchant/transactions/query?transactionReference=${encodedRef}`,
       {
         method: 'GET',
         headers: {

@@ -145,8 +145,7 @@ export async function verifyConnectKey(
           last_used_at: now.toISOString(),
         })
         .eq('id', connectKey.id)
-        .then()
-        .catch(() => {})
+        .then(undefined, () => {})
     } else {
       if (requestCount >= 10_000) {
         return {
@@ -164,8 +163,7 @@ export async function verifyConnectKey(
           last_used_at: now.toISOString(),
         })
         .eq('id', connectKey.id)
-        .then()
-        .catch(() => {})
+        .then(undefined, () => {})
     }
 
     const context: CachedContext = {

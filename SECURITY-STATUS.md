@@ -1,7 +1,7 @@
 # Mozosubz Security Status — Bug Bounty Remediation Tracker
 
 Status of every finding from the 14-round bug bounty report (2026-10-05), plus
-post-report hardening. Verified via same-value oracles, live probes, and
+post-report hardening. Verified via same-value oracles, live REST probes, and
 type-checks as noted.
 
 ## Critical
@@ -11,8 +11,9 @@ type-checks as noted.
 | CRITICAL-0 — any registered user can set own `wallet_balance`, `monnify_account_*` | **FIXED** | `protect_profile_sensitive_columns` trigger returns 42501; verified live |
 | CRITICAL-0 addendum — `bvn` (KYC) still client-writable at re-test | **FIXED** | `bvn` added to the protected-columns trigger |
 | CRITICAL-1 — anon full read/INSERT/UPDATE on `connect_keys` (27 rows exposed) | **FIXED** | RLS was disabled (all owner policies inert). Enabled; anon sees 0 rows, cross-user UPDATE applies 0 rows — verified with the report's same-value oracle |
-| CRITICAL-1 escalated (Round 14) — authenticated cross-user UPDATE on `connect_keys` | **FIXED** | Same RLS enablement; authenticated probe applies 0 rows |
+| CRITICAL-1 escalated (Round 14) — authenticated cross-user UPDATE on `connect_keys` | **FIXED** | Same RLS enablement; authenticated probe applies 0 rows. Policies re-scoped from PUBLIC to `authenticated` |
 | CRITICAL-2 — anon destructive writes on `transactions`/`profiles` | RETRACTED by tester (Round 8) | n/a |
+| `bot_otp` RLS disabled — OTP codes readable/writable by anon (Supabase linter) | **FIXED** | RLS enabled; permissive `USING true` policy dropped. Anon REST read now `[]` |
 
 ## High
 
@@ -24,6 +25,7 @@ type-checks as noted.
 | HIGH-4 — any authenticated user can UPDATE the live `deposit_rules` fee | **FIXED** | Policies were `qual: true`; now admin-only via `profiles.is_admin` |
 | Monnify webhook accepts unsigned events (200 on empty body) | **FIXED** | Present-but-invalid signature = rejected. Absent signature (sandbox case) = never trusted; out-of-band verification against Monnify's transaction-status API, credit only on confirmed PAID |
 | Session RPCs callable cross-user (`end_all_user_sessions`, `invalidate_other_sessions`, `create_device_session`) — post-report audit find | **FIXED** | EXECUTE revoked from anon/authenticated/public; service_role only. No app code calls them |
+| SECURITY DEFINER functions callable by anon via `/rest/v1/rpc` (`is_admin`, `is_profile_complete`, `is_session_active`, `create_profile_on_signup`) | **FIXED** | Default PUBLIC EXECUTE grant revoked; re-granted to `authenticated` only where needed. Anon RPC now 401/404 |
 
 ## Medium
 
@@ -31,16 +33,21 @@ type-checks as noted.
 |---|---|---|
 | User enumeration via `/api/auth/check-*` (no rate limit) | **FIXED** | 5/min/IP via Upstash; live-verified 5×200 then 429 |
 | Login/OTP brute force (30 bad logins, no lockout) | **FIXED (login)** | Server-action throttle: 10 attempts / 5 min / IP+email before auth attempt. OTP throttling exists upstream (Round 10) |
+| Connect-key brute force (2,000 attempts, 0×429) | **FIXED** | Failed-attempt throttle: 20/min/IP on invalid/expired/revoked keys. Valid keys unaffected |
 | `monnify_transactions` self-editing by owner (Round 14) | **FIXED** | Trigger: user sessions may only set `status → CANCELLED` from pending + `updated_at`; any other column change → 42501. Cancel flow unaffected; server writes bypass |
+| `/api/email/welcome` unauthenticated open mail primitive | **FIXED** | Now gated: only sends to an address belonging to a signup created in the last 15 min; otherwise silently dropped |
+| `/api/deposit/start` validated amount before auth (validation oracle) | **FIXED** | Auth now runs first; unauthenticated callers get 401 before any payload validation |
+| Disposable email domains accepted at signup (Round 5) | **FIXED** | `isDisposableEmail()` check on the register form |
+| Weak phone validation — `00000000000` accepted (Round 11) | **FIXED** | Shared `normalizeNigerianPhone()` (valid mobile prefixes only) applied to airtime, data, cable, electricity v1 routes |
 | DMARC missing (domain spoofable) | **EXTERNAL** | DNS-side; publish `p=reject` at the domain registrar/DNS. Not fixable from code |
 | Signup SMTP quota (500s after first send/hour) | **EXTERNAL** | Resend account limits — check the Resend dashboard/plan |
-| Monnify 403 Cloudflare block on Vercel egress IPs | **EXTERNAL / OPEN** | Confirmed IP-reputation block (same request succeeds from non-Vercel IPs). UA + retry shipped; needs Monnify support to whitelist Vercel ranges, or different egress |
+| Monnify 403 Cloudflare block on Vercel egress IPs | **EXTERNAL / OPEN** | Confirmed IP-reputation block (same request succeeds from non-Vercel IPs). UA + retry shipped; base URL is now env-configurable (`MONNIFY_BASE_URL`) so a proxy/gateway can be swapped in without a code change. Needs Monnify support to whitelist Vercel ranges, or different egress |
 
 ## Low / Info
 
 | Finding | Status | Fix |
 |---|---|---|
-| `/api/email/welcome` callable unauthenticated | **MITIGATED** | Kept (needed post-signup) but throttled ~3/hr as observed |
+| `/api/health` leaked region, caller IP, build version | **FIXED** | Response trimmed to status/timestamp/responseTime |
 | No per-user cap on connect-key creation (13 keys minted) | **FIXED** | 20-key lifetime cap per user, 429 beyond |
 | Revoke returns `success: true` on zero rows | **FIXED** | 404 with "No active keys to revoke" |
 | Airtime amount has no upper bound (₦1,000,001 passed) | **FIXED** | Capped at ₦100,000 per transaction |
@@ -57,14 +64,16 @@ type-checks as noted.
 ## Verification log
 
 - Same-value oracle (simulated authenticated user): `connect_keys` cross-user UPDATE → 0 rows; `bot_connections` → 0 rows; `pricing_rules`/`deposit_rules` → 0 rows; anon `connect_keys` SELECT → 0 rows.
-- Anon REST replay with project anon key: `connect_keys`/`bot_connections`/`pricing_rules` → `[]`; `audit_logs`/`connect_keys` INSERT → 401.
+- Anon REST replay with project anon key: all 18 sensitive tables (`profiles`, `connect_keys`, `bot_connections`, `bot_otp`, `audit_logs`, `failed_auth_logs`, `api_logs`, `suspicious_activity_logs`, `pricing_rules`, `deposit_rules`, `monnify_transactions`, `device_sessions`, `email_preferences`, `transactions`, `notifications`, `admin_logs`, `whatsapp_sessions`, `api_service_settings`) → `[]`.
+- Anon RPC probe: `is_admin` → 401; `is_profile_complete`/`is_session_active`/`create_profile_on_signup` → 404.
+- Anon INSERT probe: `audit_logs` → 401.
 - Rate limit live probe: 5×200 then 429 on `check-email`.
-- Type-check: clean except one pre-existing unrelated error in `app/dashboard/recharge-pins/page.tsx`.
+- Type-check: clean except pre-existing unrelated errors (`recharge-pins` page, `checkout` page, `v1-auth-helper`, `performance.ts`, and two `.then().catch()` type nits in `verify-connect-key.ts`).
 
 ## Remaining external actions
 
 1. Publish DMARC (`p=reject`) + SPF `-all` at DNS provider.
 2. Raise Supabase minimum password length to 8 (Auth settings).
-3. Resolve Monnify 403 (support whitelist or different egress) — deposits blocked until then.
+3. Resolve Monnify 403 (support whitelist or different egress) — deposits blocked until then. `MONNIFY_BASE_URL` is ready for a proxy/gateway swap.
 4. Review CSP report-only violations, then switch to enforcing.
 5. Check Resend plan/limits for the signup SMTP 500s.

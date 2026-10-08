@@ -9,7 +9,7 @@ import { createServerClient } from '@/lib/supabase/server'
 // production hostname. Because Cloudflare blocks Vercel's egress IPs on the
 // production host, the base URL is env-configurable so it can be pointed at a
 // proxy/gateway without a code change. Defaults to production.
-const MONNIFY_BASE_URL = (process.env.MONNIFY_BASE_URL || 'https://api.monnify.com').replace(/\/$/, '')
+export const MONNIFY_BASE_URL = (process.env.MONNIFY_BASE_URL || 'https://api.monnify.com').replace(/\/$/, '')
 const MONNIFY_AUTH_URL = `${MONNIFY_BASE_URL}/api/v1/auth/login`
 const MONNIFY_API_URL = `${MONNIFY_BASE_URL}/api/v2`
 const API_KEY = process.env.MONNIFY_API_KEY || ''
