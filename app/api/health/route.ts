@@ -9,22 +9,14 @@ export async function GET(request: Request) {
   const startTime = Date.now()
   
   try {
-    // Get client IP for debugging connectivity
-    const ip = 
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      request.headers.get('cf-connecting-ip') ||
-      'unknown'
-
     const responseTime = Date.now() - startTime
 
+    // SECURITY (bounty INFO): this endpoint is public, so it must not echo
+    // infrastructure detail (region, caller IP, build version) back to callers.
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      region: process.env.VERCEL_REGION || 'unknown',
       responseTime: `${responseTime}ms`,
-      clientIp: ip,
-      version: '1.0.0',
     }, { 
       status: 200,
       headers: {

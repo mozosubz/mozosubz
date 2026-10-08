@@ -7,6 +7,7 @@ import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from '@/lib/u
 import { scheduleVerifyPending } from '@/lib/utils/schedule-verify'
 import { logRequest } from '@/lib/api-logger'
 import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
+import { normalizeNigerianPhone } from '@/lib/utils/phone'
 
 /**
  * POST /api/v1/data/purchase
@@ -77,9 +78,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Validate phone
-  const phoneClean = String(phone).replace(/\s+/g, '')
-  if (!/^(0|234|\+234)\d{10}$/.test(phoneClean) && !/^\d{11}$/.test(phoneClean)) {
+  // Validate phone (bounty Round 11: reject non-mobile prefixes like 00000000000)
+  const phoneClean = normalizeNigerianPhone(String(phone))
+  if (!phoneClean) {
     console.log(`[Data Purchase API] ✗ Invalid phone: ${phone}`)
     return NextResponse.json(
       { success: false, error: 'Invalid Nigerian phone number', error_code: 'INVALID_PHONE' },

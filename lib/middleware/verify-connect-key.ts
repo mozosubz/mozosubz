@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hashConnectKey, isValidKeyFormat } from '@/lib/utils/connect-key'
+import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 
 // ─── In-memory key cache ───────────────────────────────────────────────────────
 // Stores only the minimal context needed — never the raw key or full DB row.
@@ -49,6 +50,31 @@ export interface KeyVerificationResult {
   context?: ConnectKeyContext
 }
 
+// ─── Failed-attempt throttle ───────────────────────────────────────────────────
+// Bounty remediation #6: key guessing had no throttle (2,000 attempts → 0×429).
+// Only *failed* attempts are counted, so a legitimate caller presenting a valid
+// key is never affected.
+async function fail(
+  request: NextRequest,
+  error: string,
+  status: number,
+): Promise<KeyVerificationResult> {
+  const ip = getRateLimitIdentifier(request)
+  const { allowed } = await checkRateLimit(ip, {
+    interval: 60000,
+    maxRequests: 20,
+    keyPrefix: 'rl:connect:keyfail',
+  })
+  if (!allowed) {
+    return {
+      success: false,
+      error: 'Too many failed authentication attempts. Try again later.',
+      status: 429,
+    }
+  }
+  return { success: false, error, status }
+}
+
 // ─── Main verifier ─────────────────────────────────────────────────────────────
 export async function verifyConnectKey(
   request: NextRequest,
@@ -56,7 +82,7 @@ export async function verifyConnectKey(
   const key = request.headers.get('X-Connect-Key')
 
   if (!key || !isValidKeyFormat(key)) {
-    return { success: false, error: 'Invalid or missing API key', status: 401 }
+    return fail(request, 'Invalid or missing API key', 401)
   }
 
   const keyHash = hashConnectKey(key)
@@ -67,7 +93,7 @@ export async function verifyConnectKey(
     // Re-check expiry even on cache hit
     if (cached.expiresAt && new Date(cached.expiresAt) < new Date()) {
       keyCache.delete(keyHash)
-      return { success: false, error: 'API key has expired', status: 401 }
+      return fail(request, 'API key has expired', 401)
     }
     return { success: true, context: cached }
   }
@@ -88,16 +114,16 @@ export async function verifyConnectKey(
     }
 
     if (!connectKey) {
-      return { success: false, error: 'Invalid API key', status: 401 }
+      return fail(request, 'Invalid API key', 401)
     }
 
     // ── Validate key state ──────────────────────────────────────────────────
     if (!connectKey.is_active || connectKey.revoked_at) {
-      return { success: false, error: 'API key is inactive or has been revoked', status: 401 }
+      return fail(request, 'API key is inactive or has been revoked', 401)
     }
 
     if (connectKey.expires_at && new Date(connectKey.expires_at) < new Date()) {
-      return { success: false, error: 'API key has expired', status: 401 }
+      return fail(request, 'API key has expired', 401)
     }
 
     // ── Rate limit (10,000 requests / day) ─────────────────────────────────

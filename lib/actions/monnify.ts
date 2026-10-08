@@ -2,9 +2,16 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 
-// Use production endpoints for both auth and API calls
-const MONNIFY_AUTH_URL = 'https://api.monnify.com/api/v1/auth/login'
-const MONNIFY_API_URL = 'https://api.monnify.com/api/v2'
+// Single configurable base URL for every Monnify call.
+//
+// Monnify publishes exactly two official hosts: https://api.monnify.com
+// (production) and https://sandbox.monnify.com (sandbox) — there is no third
+// production hostname. Because Cloudflare blocks Vercel's egress IPs on the
+// production host, the base URL is env-configurable so it can be pointed at a
+// proxy/gateway without a code change. Defaults to production.
+const MONNIFY_BASE_URL = (process.env.MONNIFY_BASE_URL || 'https://api.monnify.com').replace(/\/$/, '')
+const MONNIFY_AUTH_URL = `${MONNIFY_BASE_URL}/api/v1/auth/login`
+const MONNIFY_API_URL = `${MONNIFY_BASE_URL}/api/v2`
 const API_KEY = process.env.MONNIFY_API_KEY || ''
 const SECRET_KEY = process.env.MONNIFY_SECRET_KEY || ''
 const CONTRACT_CODE = process.env.MONNIFY_CONTRACT_CODE || ''
@@ -179,7 +186,7 @@ export async function initTransaction(
       redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard`,
     }
 
-    const response = await monnifyFetch('https://api.monnify.com/api/v1/merchant/transactions/init-transaction', {
+    const response = await monnifyFetch(`${MONNIFY_BASE_URL}/api/v1/merchant/transactions/init-transaction`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -262,7 +269,7 @@ export async function initializePayment(transactionReference: string, bankCode?:
       requestBody.bankCode = bankCode
     }
 
-    const response = await monnifyFetch('https://api.monnify.com/api/v1/merchant/bank-transfer/init-payment', {
+    const response = await monnifyFetch(`${MONNIFY_BASE_URL}/api/v1/merchant/bank-transfer/init-payment`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

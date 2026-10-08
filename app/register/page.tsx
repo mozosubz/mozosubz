@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { Loader2, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { isDisposableEmail } from "@/lib/utils/disposable-email"
 
 // Snappy: short debounce so feedback feels instant.
 const DEBOUNCE_MS = 220
@@ -145,6 +146,13 @@ function RegisterFormContent() {
     }
     if (!EMAIL_RX.test(trimmed)) {
       setEmailError("Invalid email format")
+      setEmailAvailable(false)
+      setCheckingEmail(false)
+      return
+    }
+    // Bounty Round 5: disposable domains were accepted at signup.
+    if (isDisposableEmail(trimmed)) {
+      setEmailError("Disposable email addresses are not allowed")
       setEmailAvailable(false)
       setCheckingEmail(false)
       return

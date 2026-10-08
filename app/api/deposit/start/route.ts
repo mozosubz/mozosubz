@@ -28,6 +28,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // SECURITY (bounty Round 6): authenticate before validating the payload.
+    // Previously the amount was validated first, so an unauthenticated caller
+    // could use this endpoint as a validation oracle.
+    const supabase = await createServerClient()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user?.id) {
+      console.error('[DEPOSIT_API] User not authenticated')
+      return NextResponse.json(
+        { success: false, error: 'User not authenticated' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { amount, description } = body
 
@@ -41,26 +55,11 @@ export async function POST(request: NextRequest) {
 
     console.log('[DEPOSIT_API] Creating deposit transaction')
 
-    // Pre-warm the Monnify token while we do auth + DB lookups. The auth
-    // round-trip happens in parallel with the rest of the route, so by
-    // the time initTransaction needs the token it's already cached.
+    // Pre-warm the Monnify token while we fetch the deposit rules. Auth already
+    // happened above, so by the time initTransaction needs the token it's cached.
     void getMonnifyAccessToken()
 
-    const supabase = await createServerClient()
-
-    // Auth + deposit rules in parallel.
-    const [{ data: { user }, error: userError }, depositRules] = await Promise.all([
-      supabase.auth.getUser(),
-      getDepositRules(),
-    ])
-
-    if (userError || !user?.id) {
-      console.error('[DEPOSIT_API] User not authenticated')
-      return NextResponse.json(
-        { success: false, error: 'User not authenticated' },
-        { status: 401 }
-      )
-    }
+    const depositRules = await getDepositRules()
 
     // Profile lookup uses the now-known user id.
     const { data: profile, error: profileError } = await supabase

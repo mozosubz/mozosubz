@@ -51,6 +51,7 @@ export async function POST(req: Request) {
     // properly signed. If we can't find the user yet (signUp is async), we
     // send with a generic unsubscribe link and log — the email still sends.
     let userId: string | undefined
+    let userCreatedAt: string | undefined
     try {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -62,10 +63,23 @@ export async function POST(req: Request) {
         // registered email will be on the first page sorted by created_at desc.
         const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
         const match = data?.users?.find((u) => (u.email || "").toLowerCase() === email)
-        if (match) userId = match.id
+        if (match) {
+          userId = match.id
+          userCreatedAt = match.created_at
+        }
       }
     } catch (err) {
       console.error("[email] welcome userId lookup failed:", err)
+    }
+
+    // SECURITY (bounty MEDIUM): this endpoint is unauthenticated, so without a
+    // gate it is an open mail-sending primitive on our own domain. Only send to
+    // an address that belongs to a genuinely new signup (created in the last 15
+    // minutes); anything else is silently dropped.
+    const isFreshSignup =
+      !!userCreatedAt && Date.now() - new Date(userCreatedAt).getTime() < 15 * 60 * 1000
+    if (!userId || !isFreshSignup) {
+      return NextResponse.json({ ok: true, sent: false })
     }
 
     const base = getAppUrl()
