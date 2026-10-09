@@ -566,6 +566,7 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
             {profile?.is_admin && (
               <Link
                 href="/admin"
+                prefetch={false}
                 className="w-full px-4 py-4 flex items-center gap-3 hover:bg-[#f0f5ff] transition-colors border-b border-gray-100"
               >
                 <div className="w-9 h-9 bg-[#f0f5ff] rounded-md flex items-center justify-center flex-shrink-0">

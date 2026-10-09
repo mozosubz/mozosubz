@@ -265,6 +265,7 @@ export function DashboardClient({
           {isAdmin && (
             <Link
               href="/admin"
+              prefetch={false}
               className="text-xs font-semibold text-[var(--primary)] flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--primary)]/25 hover:bg-[var(--primary-light)] transition"
               title="Admin Panel"
             >

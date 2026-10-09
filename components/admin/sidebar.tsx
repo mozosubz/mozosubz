@@ -82,7 +82,7 @@ export function AdminSidebar() {
       {/* Sidebar */}
       <aside className={cn('admin-sidebar', isOpen && 'open')}>
         <div className="admin-sidebar-header">
-          <Link href="/admin" className="admin-logo">
+          <Link href="/admin" prefetch={false} className="admin-logo">
             <span className="admin-logo-icon">
               <BarChart3 size={18} />
             </span>
