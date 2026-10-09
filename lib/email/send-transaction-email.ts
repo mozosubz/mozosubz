@@ -1,9 +1,9 @@
-import "server-only"
 /**
  * Resolves the recipient (from auth.users/profiles) and fires the transaction
  * receipt email. Intentionally non-throwing so callers can fire-and-forget.
  */
 "use server"
+import "server-only"
 
 import { createClient } from "@supabase/supabase-js"
 import { sendEmail } from "./client"

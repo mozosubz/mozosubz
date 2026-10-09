@@ -1,5 +1,5 @@
-import "server-only"
 "use server"
+import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { processReferralEarning } from "@/lib/referral"

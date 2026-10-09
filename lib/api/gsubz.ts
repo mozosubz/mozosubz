@@ -1,5 +1,5 @@
-import "server-only"
 "use server"
+import "server-only"
 
 import { unstable_cache } from "next/cache"
 const API_BASE_URL = "https://gsubz.com"
