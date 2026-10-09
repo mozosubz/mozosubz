@@ -7,6 +7,14 @@ export const dynamic = "force-dynamic"
 
 const USERNAME_RX = /^[a-z0-9_-]+$/
 
+// Well-known names that must never be user-facing handles — mirrors the
+// server-side list in lib/actions/auth.ts so the form catches it live.
+const RESERVED_USERNAMES = new Set([
+  "admin", "administrator", "support", "help", "helpdesk", "security",
+  "root", "staff", "team", "official", "mozosubz", "mozo", "moderator",
+  "billing", "payments", "api", "docs", "null", "undefined",
+])
+
 export async function POST(request: Request) {
   try {
     // Bounty fix: this endpoint is a user-enumeration oracle — throttle it.
@@ -42,6 +50,10 @@ export async function POST(request: Request) {
       return Response.json({ available: false, error: "Invalid characters" })
     }
 
+    if (RESERVED_USERNAMES.has(trimmedUsername)) {
+      return Response.json({ available: false, error: "That username is reserved" })
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -55,12 +67,12 @@ export async function POST(request: Request) {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     })
 
-    // Indexed lookup against profiles.username
-    // (partial unique index uniq_profiles_username_lower).
+    // Case-insensitive match so "John" blocks "john" — the unique index is on
+    // lower(username), and .eq() would miss rows stored with different casing.
     const { count, error } = await supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
-      .eq("username", trimmedUsername)
+      .ilike("username", trimmedUsername)
       .limit(1)
 
     if (error) {

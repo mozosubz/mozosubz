@@ -8,6 +8,7 @@ const SECRET_KEY = process.env.MONNIFY_SECRET_KEY || ''
 /**
  * Verify Monnify webhook signature using HMAC-SHA512
  * Per Monnify docs: SHA-512(client secret key + stringified JSON body)
+ * Comparison is timing-safe so forged signatures can't be probed byte by byte.
  */
 function verifyWebhookSignature(body: string, signature: string): boolean {
   try {
@@ -16,8 +17,14 @@ function verifyWebhookSignature(body: string, signature: string): boolean {
       .createHmac('sha512', SECRET_KEY)
       .update(body)
       .digest('hex')
-    
-    const isValid = hash === signature
+
+    const expected = Buffer.from(hash, 'hex')
+    const received = Buffer.from(String(signature || ''), 'hex')
+    // timingSafeEqual throws on length mismatch — equal-length check first,
+    // which itself leaks nothing useful to a forger.
+    const isValid =
+      expected.length === received.length && crypto.timingSafeEqual(expected, received)
+
     console.log('[WEBHOOK] Signature verification:', {
       isValid,
       receivedLength: signature?.length || 0,
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
     
     let query = supabase
       .from('monnify_transactions')
-      .select('status, webhook_received_at, user_id')
+      .select('status, webhook_received_at, user_id, amount, net_amount')
       .eq('payment_reference', cleanPaymentReference)
 
     // If user_id was appended by Monnify, add it to the query for extra validation
@@ -146,6 +153,22 @@ export async function POST(request: NextRequest) {
         paymentStatus,
       })
       return NextResponse.json({ status: 'success' })
+    }
+
+    // SECURITY 4: Verify the paid amount covers what the transaction expects.
+    // A signed-but-underpaid payment (partial settlement, tampered event) must
+    // never credit the full stored amount.
+    const expectedAmount = Number(existingTx?.amount)
+    const amountPaid = Number(eventData?.amountPaid)
+    if (Number.isFinite(expectedAmount) && expectedAmount > 0) {
+      if (!Number.isFinite(amountPaid) || amountPaid + 0.001 < expectedAmount) {
+        console.error('[WEBHOOK] Amount mismatch - not crediting:', {
+          paymentReference: cleanPaymentReference,
+          expectedAmount,
+          amountPaid,
+        })
+        return NextResponse.json({ status: 'success' })
+      }
     }
 
     // Credit the wallet using clean payment reference (idempotent - marks SUCCESS immediately)

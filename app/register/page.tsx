@@ -7,6 +7,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { Loader2, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { isDisposableEmail } from "@/lib/utils/disposable-email"
+import { signUpAction } from "@/lib/actions/auth"
 
 // Snappy: short debounce so feedback feels instant.
 const DEBOUNCE_MS = 220
@@ -278,58 +279,32 @@ function RegisterFormContent() {
     if (!username.trim() || !usernameAvailable) return setError("Choose a valid, available username")
     if (!email.trim() || !emailAvailable) return setError("Use a valid, available email")
     if (!phone.trim() || !phoneAvailable) return setError("Use a valid, available phone number")
-    if (password.length < 6) return setError("Password min 6 chars")
+    if (password.length < 8) return setError("Password min 8 chars")
 
     setIsLoading(true)
     setError(null)
 
     try {
-      const { createClient } = await import("@/lib/supabase/client")
-      const supabase = createClient()
-      const phoneDigits = phone.replace(/\D/g, "")
-
-      console.log("[v0] Attempting signup with:", {
-        email: email.toLowerCase().trim(),
+      // Bounty fix: signup runs in one server action where the disposable-
+      // email block, validation and rate limiting are authoritative — the
+      // browser no longer calls Supabase's signup endpoint directly (that
+      // path let attackers bypass every client-side check via raw REST).
+      // One roundtrip, then redirect.
+      const result = await signUpAction({
+        fullName: fullName.trim(),
         username: username.toLowerCase().trim(),
-        phone: phoneDigits,
-      })
-
-      const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.toLowerCase().trim(),
+        phone,
         password,
-        options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-            `${window.location.origin}/dashboard`,
-          data: {
-            full_name: fullName.trim(),
-            username: username.toLowerCase().trim(),
-            phone: phoneDigits,
-          },
-        },
       })
 
-      console.log("[v0] Signup response:", { data, error: signUpError })
-
-      if (signUpError) {
-        console.error("[v0] Signup error details:", signUpError)
-        throw signUpError
+      if (!result.success) {
+        if (result.error === "Email already registered") {
+          setEmailAvailable(false)
+          setEmailError("Email already registered")
+        }
+        throw new Error(result.error || "Registration failed")
       }
-
-      // Check for Supabase email-enumeration protection: when the email already exists,
-      // returns NO error but the new "user" has an empty `identities` array.
-      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        console.log("[v0] Email already registered (empty identities)")
-        setEmailAvailable(false)
-        setEmailError("Email already registered")
-        throw new Error("Email already registered")
-      }
-
-      if (!data?.user?.id) {
-        throw new Error("Signup failed: No user ID returned")
-      }
-
-      console.log("[v0] Signup successful, user ID:", data.user.id)
 
       // Fire-and-forget welcome email — never block the redirect on this.
       fetch("/api/email/welcome", {
@@ -340,27 +315,11 @@ function RegisterFormContent() {
 
       router.push(`/register-success?email=${encodeURIComponent(email.trim())}`)
     } catch (err: unknown) {
-      console.error("[v0] Registration error:", err)
-      
-      let message = "Registration failed. Please try again."
-      
-      if (err instanceof Error) {
-        message = err.message || "Registration failed"
-      } else if (typeof err === "object" && err !== null) {
-        const errorObj = err as any
-        // Check various Supabase error message fields
-        message = errorObj?.message 
-          || errorObj?.error_description 
-          || errorObj?.msg
-          || errorObj?.error 
-          || (typeof errorObj === "string" ? errorObj : "Registration failed")
-      }
-      
-      // Clean up empty or object string representations
-      if (!message || message === "{}" || message === "[object Object]") {
-        message = "Registration failed. Please check your details and try again."
-      }
-      
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Registration failed. Please check your details and try again."
+
       setError(message)
       toast({ title: "Registration failed", description: message, variant: "destructive" })
       setIsLoading(false)
@@ -518,7 +477,7 @@ function RegisterFormContent() {
           <input
             id="password"
             type={showPassword ? "text" : "password"}
-            placeholder="Min 6 chars"
+                      placeholder="Min 8 chars"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}

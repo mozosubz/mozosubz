@@ -4,8 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { consumeLoginAttempt } from "@/lib/actions/login-throttle"
+import { signInAction } from "@/lib/actions/auth"
 import { Loader2, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -32,32 +31,20 @@ function LoginForm() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
     setNotice(null)
 
     try {
-      // Bounty fix: server-side brute-force throttle — must pass before the
-      // auth attempt. 10 attempts per 5 min per IP+email pair.
-      const throttle = await consumeLoginAttempt(email)
-      if (!throttle.allowed) {
-        throw new Error("Too many login attempts. Please wait a few minutes and try again.")
+      // Bounty fix: sign-in happens in one server action that throttles
+      // brute-force attempts (per IP+email and per IP) BEFORE verifying the
+      // password server-side. The browser never talks to the Supabase auth
+      // endpoint directly, so the throttle can no longer be bypassed with
+      // the public anon key. One roundtrip instead of the previous two.
+      const result = await signInAction(email, password)
+      if (!result.success) {
+        throw new Error(result.error || "Invalid email or password")
       }
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw error
-
-      // Improvement to the existing single-device-login system: as soon as
-      // we're signed in, ask Supabase to revoke every OTHER refresh token
-      // for this user. Any other device that's logged in will lose access
-      // the moment its access token tries to refresh, and the existing
-      // setupSessionManager on /dashboard picks up the SIGNED_OUT event
-      // and redirects them. Fire-and-forget so it never blocks navigation.
-      supabase.auth.signOut({ scope: "others" }).catch(() => {})
 
       // Fire-and-forget sign-in alert email.
       fetch("/api/email/login-alert", {

@@ -628,6 +628,27 @@ export default function DocPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Live Testing */}
+              <div className="p-6 rounded-lg bg-success/5 border border-success/20">
+                <h3 className="text-lg font-bold text-foreground mb-3">Live Testing</h3>
+                <p className="text-text-2 text-sm mb-3 leading-relaxed">
+                  This API runs entirely live — there is no sandbox or test mode. Every request you make is processed
+                  by the real provider and debited from your real wallet balance, so you can test the exact behaviour
+                  your production integration will see: real delivery, real pricing, real error codes.
+                </p>
+                <div className="space-y-2 text-sm mb-3">
+                  <p className="text-text-2 flex gap-2"><span className="text-success font-bold">•</span>Top up your wallet first — every endpoint checks the balance before contacting the provider.</p>
+                  <p className="text-text-2 flex gap-2"><span className="text-success font-bold">•</span>Start small: buy the cheapest plan or a single pin while you verify your integration.</p>
+                  <p className="text-text-2 flex gap-2"><span className="text-success font-bold">•</span>Failed purchases are refunded automatically — a test that fails should never cost you money.</p>
+                  <p className="text-text-2 flex gap-2"><span className="text-success font-bold">•</span>Use your transaction history to reconcile every test call.</p>
+                </div>
+                <p className="text-text-3 text-xs mb-3">Quick smoke test with curl:</p>
+                <code className="block bg-background p-4 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">
+{`curl -X GET "${API_BASE}/api/v1/data/plans?service=mtn_sme" \\
+  -H "X-Connect-Key: your_api_key_here"`}
+                </code>
+              </div>
             </div>
 
             {/* Endpoints Documentation */}

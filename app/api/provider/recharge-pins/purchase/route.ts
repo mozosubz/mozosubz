@@ -31,14 +31,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse JSON body
-    const body = await request.json()
+    // Parse JSON body — malformed bodies must answer 400, not 500.
+    let body: Record<string, unknown>
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request body' },
+        { status: 400 }
+      )
+    }
 
     // Call server action
     const result = await generateRechargePins({
-      network: body.network,
-      value: body.value,
-      number: body.number
+      network: body.network as string,
+      value: String(body.value),
+      number: String(body.number)
     })
 
     return NextResponse.json(

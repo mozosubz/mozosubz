@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 import { subscribeCable } from '@/lib/actions/cable'
+import { parsePurchaseRequest } from '@/lib/utils/request-body'
 
 /**
  * Rate-limited API endpoint for cable subscriptions
@@ -32,8 +33,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse form data
-    const formData = await request.formData()
+    // Parse form data (JSON bodies are accepted too — a raw formData() call
+    // used to throw on them and surface as an opaque 500).
+    const formData = await parsePurchaseRequest(request)
+    if (!formData) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request body' },
+        { status: 400 }
+      )
+    }
 
     // Call server action
     const result = await subscribeCable(formData)
