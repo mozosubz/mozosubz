@@ -264,12 +264,20 @@ export default function TransactionDetailPage() {
                   <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">Service Details</div>
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Service Type</span>
+                      <span className="text-sm font-semibold text-foreground">Airtime</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Network</span>
                       <span className="text-sm font-semibold text-foreground">{networkName}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Recipient</span>
                       <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Time</span>
+                      <span className="text-sm font-semibold text-foreground">{formattedDate}, {formattedTime}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -284,6 +292,16 @@ export default function TransactionDetailPage() {
                   <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">Service Details</div>
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Service Type</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.service_type || 'Data'}</span>
+                    </div>
+                    {transaction.service_variant && (
+                      <div className="flex items-center justify-between p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Variant</span>
+                        <span className="text-sm font-semibold text-foreground">{transaction.service_variant}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Network</span>
                       <span className="text-sm font-semibold text-foreground">{networkName}</span>
                     </div>
@@ -294,6 +312,10 @@ export default function TransactionDetailPage() {
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Recipient</span>
                       <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Time</span>
+                      <span className="text-sm font-semibold text-foreground">{formattedDate}, {formattedTime}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -308,16 +330,24 @@ export default function TransactionDetailPage() {
                   <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">Service Details</div>
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Service Type</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.service_type || 'Cable TV'}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Provider</span>
                       <span className="text-sm font-semibold text-foreground">{cableProvider}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
-                      <span className="text-xs text-muted-foreground font-medium">Smart Card</span>
+                      <span className="text-xs text-muted-foreground font-medium">Package</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.plan_details || extractPlanDetails(transaction.description)}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Smartcard</span>
                       <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
-                      <span className="text-xs text-muted-foreground font-medium">Plan</span>
-                      <span className="text-sm font-semibold text-foreground">{transaction.plan_details || '—'}</span>
+                      <span className="text-xs text-muted-foreground font-medium">Time</span>
+                      <span className="text-sm font-semibold text-foreground">{formattedDate}, {formattedTime}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -332,12 +362,20 @@ export default function TransactionDetailPage() {
                   <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">Service Details</div>
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Service Type</span>
+                      <span className="text-sm font-semibold text-foreground">Electricity</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">DISCO</span>
                       <span className="text-sm font-semibold text-foreground">{discoName}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Meter</span>
                       <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Time</span>
+                      <span className="text-sm font-semibold text-foreground">{formattedDate}, {formattedTime}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -384,6 +422,10 @@ export default function TransactionDetailPage() {
                         <p className="text-sm text-foreground mt-1 whitespace-pre-wrap break-words">{smsMessage}</p>
                       </div>
                     )}
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Time</span>
+                      <span className="text-sm font-semibold text-foreground">{formattedDate}, {formattedTime}</span>
+                    </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">FAILED</span>
