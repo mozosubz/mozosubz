@@ -258,11 +258,11 @@ export default function TransactionDetailPage() {
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Network</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{networkName}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Recipient</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -278,11 +278,15 @@ export default function TransactionDetailPage() {
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Network</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{networkName}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Plan</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.plan_details || planName}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Recipient</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -298,11 +302,15 @@ export default function TransactionDetailPage() {
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Provider</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{cableProvider}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Smart Card</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 px-4">
+                      <span className="text-xs text-muted-foreground font-medium">Plan</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.plan_details || '—'}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -318,11 +326,11 @@ export default function TransactionDetailPage() {
                   <div className="divide-y divide-muted">
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">DISCO</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{discoName}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Meter</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
@@ -340,14 +348,35 @@ export default function TransactionDetailPage() {
                       <span className="text-xs text-muted-foreground font-medium">Service</span>
                       <span className="text-sm font-semibold text-foreground">{transaction.service_name || category}</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 px-4">
-                      <span className="text-xs text-muted-foreground font-medium">Plan</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 px-4">
-                      <span className="text-xs text-muted-foreground font-medium">Recipient</span>
-                      <span className="text-sm font-semibold text-muted-foreground">—</span>
-                    </div>
+                    {isBulkSms && smsSender && (
+                      <div className="flex items-center justify-between p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Sender ID</span>
+                        <span className="text-sm font-semibold text-foreground">{smsSender}</span>
+                      </div>
+                    )}
+                    {transaction.plan_details && (
+                      <div className="flex items-center justify-between p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Plan</span>
+                        <span className="text-sm font-semibold text-foreground">{transaction.plan_details}</span>
+                      </div>
+                    )}
+                    {isBulkSms && smsRecipients ? (
+                      <div className="p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Recipients</span>
+                        <p className="text-sm font-semibold text-foreground mt-1 break-words">{smsRecipients}</p>
+                      </div>
+                    ) : transaction.phone ? (
+                      <div className="flex items-center justify-between p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Recipient</span>
+                        <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
+                      </div>
+                    ) : null}
+                    {isBulkSms && smsMessage && (
+                      <div className="p-3 px-4">
+                        <span className="text-xs text-muted-foreground font-medium">Message</span>
+                        <p className="text-sm text-foreground mt-1 whitespace-pre-wrap break-words">{smsMessage}</p>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Status</span>
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">FAILED</span>
