@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { ArrowLeft, AlertCircle, Check, MessageSquare, Info } from 'lucide-react'
 import { sendBulkSms, getBulkSmsRate } from '@/lib/actions/bulk-sms'
 import { getWalletBalance } from '@/lib/actions/wallet'
+import { countSmsPages } from '@/lib/utils/sms'
 import { ConfirmSheet } from '@/components/confirm-sheet'
 import { ProcessingOverlay } from '@/components/processing-overlay'
 
 // Fallbacks used only until the server rate loads.
-const DEFAULT_UNIT_PRICE = 4
+const DEFAULT_UNIT_PRICE = 5
 const DEFAULT_PAGE_CHARS = 160
 const DEFAULT_MAX_MESSAGE_CHARS = 905
 
@@ -32,9 +33,15 @@ export default function BulkSmsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ recipients: number; pages: number; amount: number; transactionId: string } | null>(
-    null,
-  )
+  const [result, setResult] = useState<{
+    recipients: number
+    pages: number
+    amount: number
+    transactionId: string
+    sent?: number
+    failed?: number
+    refund?: number
+  } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -56,7 +63,7 @@ export default function BulkSmsPage() {
   }, [])
 
   const recipientList = parseRecipients(recipients)
-  const pages = Math.max(1, Math.ceil(message.length / pageChars))
+  const pages = countSmsPages(message)
   const total = Math.round(recipientList.length * pages * unitPrice * 100) / 100
 
   const senderValid = /^[A-Za-z]{3,11}$/.test(sender)
@@ -90,8 +97,11 @@ export default function BulkSmsPage() {
       setResult({
         recipients: recipientList.length,
         pages,
-        amount: total,
+        amount: Number(res.transaction?.amount ?? total),
         transactionId: String(res.transaction?.id ?? ''),
+        sent: typeof res.transaction?.sent === 'number' ? res.transaction.sent : undefined,
+        failed: typeof res.transaction?.failed === 'number' ? res.transaction.failed : undefined,
+        refund: typeof res.transaction?.refund === 'number' ? res.transaction.refund : undefined,
       })
       setRecipients('')
       setMessage('')
@@ -266,6 +276,16 @@ export default function BulkSmsPage() {
                 <p className="text-[11px] text-[var(--text-3)]">Charged ₦{result.amount.toLocaleString()}</p>
               </div>
             </div>
+
+            {typeof result.failed === 'number' && result.failed > 0 && (
+              <div className="flex gap-2.5 p-3 rounded-xl bg-[#fffbeb] border border-[#fde68a] text-[#92400e] text-xs">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  {result.failed} of {result.recipients} number{result.failed === 1 ? '' : 's'} could not be
+                  delivered{result.refund ? ` — ₦${result.refund.toLocaleString()} refunded to your wallet` : ''}.
+                </span>
+              </div>
+            )}
 
             <div className="text-xs flex justify-between gap-3">
               <span className="text-[var(--text-3)]">Transaction ID</span>

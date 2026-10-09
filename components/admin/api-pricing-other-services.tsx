@@ -485,7 +485,7 @@ export default function ApiPricingOtherServices() {
 
       <ServiceAccessSection
         title="Bulk SMS"
-        description="Enable or disable bulk SMS for API users and set the markup applied to each send."
+        description="Enable or disable bulk SMS for API users. The markup is applied per page per recipient on top of the provider rate (₦5/page) and is completely separate from your regular user pricing."
         serviceId="bulk-sms"
         showMarkup
       />

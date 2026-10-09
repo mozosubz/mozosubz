@@ -4,15 +4,19 @@ import { getGsubz, runGsubz } from "@/lib/api/gsubz-sdk"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
-import { applyServiceMarkup } from "@/lib/pricing/markup"
+import { resolveUnitRate } from "@/lib/pricing/markup"
 import { applyApiMarkup, resolveApiServiceSettings, API_SERVICE_KEYS } from "@/lib/pricing/api-pricing"
+import { atomicRefundWallet } from "@/lib/utils/save-transaction"
+import { countSmsPages } from "@/lib/utils/sms"
 
 /**
- * GSUBZ does not publish an SMS price through the plans endpoint, so the
- * customer rate is configured here. Override with SMS_UNIT_PRICE (naira per
- * 160-character page) without a code change.
+ * GSUBZ bills bulk SMS per page per recipient (₦5/page at the time of writing
+ * — see "Send Bulk SMS" in the API doc) and does not publish an SMS price
+ * through the plans endpoint. This constant is only the fallback rate: once an
+ * admin saves a "Bulk SMS" rule on the pricing page, that rule's base price
+ * becomes the rate. Override the fallback with SMS_UNIT_PRICE.
  */
-const SMS_UNIT_PRICE = Number(process.env.SMS_UNIT_PRICE ?? 4)
+const SMS_UNIT_PRICE = Number(process.env.SMS_UNIT_PRICE ?? 5)
 const SMS_PAGE_CHARS = 160
 const MAX_RECIPIENTS = 5000
 const MAX_MESSAGE_CHARS = 905
@@ -26,10 +30,15 @@ function parseRecipients(raw: string): string[] {
     .filter(Boolean)
 }
 
+function toCount(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+}
+
 /**
- * The customer-facing rate for one 160-character page, with the admin markup
- * already applied. The page reads this so the amount it displays is the amount
- * the wallet is actually charged.
+ * The customer-facing rate for one page, with the admin markup already applied.
+ * The page reads this so the amount it displays is the amount the wallet is
+ * actually charged.
  */
 export async function getBulkSmsRate(): Promise<{
   unitPrice: number
@@ -37,7 +46,7 @@ export async function getBulkSmsRate(): Promise<{
   maxRecipients: number
   maxMessageChars: number
 }> {
-  const unitPrice = await applyServiceMarkup("bulk-sms", "Bulk SMS", SMS_UNIT_PRICE)
+  const unitPrice = await resolveUnitRate("bulk-sms", "Bulk SMS", SMS_UNIT_PRICE)
   return {
     unitPrice,
     pageChars: SMS_PAGE_CHARS,
@@ -71,7 +80,7 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
     return { success: false, message: `Too many recipients (max ${MAX_RECIPIENTS})` }
   }
 
-  const pages = Math.max(1, Math.ceil(msg.length / SMS_PAGE_CHARS))
+  const pages = countSmsPages(msg)
   const units = recipients.length * pages
 
   try {
@@ -89,11 +98,11 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
-    // Bulk SMS has no plan catalogue — it is billed per 160-character page per
-    // recipient, so the markup is applied to the UNIT rate and then multiplied
-    // out. Marking up the total instead would scale the markup with volume.
-    // API (Connect Key) callers use the enable flag and markup from the admin
-    // API pricing page; the dashboard markup does not apply to them.
+    // Bulk SMS has no plan catalogue — it is billed per page per recipient, so
+    // the markup is applied to the UNIT rate and then multiplied out. Marking
+    // up the total instead would scale the markup with volume. API (Connect
+    // Key) callers use the enable flag and markup from the admin API pricing
+    // page, which is deliberately separate from the dashboard rate.
     let unitPrice: number
     if (apiPricing) {
       const settings = await resolveApiServiceSettings(API_SERVICE_KEYS.bulkSms)
@@ -102,7 +111,7 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
       }
       unitPrice = applyApiMarkup(SMS_UNIT_PRICE, settings.markup)
     } else {
-      unitPrice = await applyServiceMarkup("bulk-sms", "Bulk SMS", SMS_UNIT_PRICE)
+      unitPrice = await resolveUnitRate("bulk-sms", "Bulk SMS", SMS_UNIT_PRICE)
     }
     const price = Math.round(unitPrice * units * 100) / 100
     const balanceBefore = Number(profile.wallet_balance)
@@ -113,7 +122,15 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
     const gsubz = getGsubz()
     const outcome = await runGsubz(() => gsubz.sendSms({ from, to: recipients, msg, requestID }))
 
-    return finalizeGsubzPurchase(
+    // GSUBZ refunds every number it could not deliver. Pass that on: the
+    // customer only pays for messages that actually went out.
+    const sent = toCount(outcome.raw.sent)
+    const failedCount = toCount(outcome.raw.failed)
+    const skippedCount = toCount(outcome.raw.skipped)
+    const refund =
+      outcome.success && failedCount > 0 ? Math.round(failedCount * pages * unitPrice * 100) / 100 : 0
+
+    const result = await finalizeGsubzPurchase(
       {
         userId,
         category: "BULK_SMS",
@@ -126,10 +143,32 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
         serviceType: "Bulk SMS",
         balanceBefore,
         requestID,
-        meta: { recipients: recipients.length, pages, sender: from },
+        meta: {
+          recipients: recipients.length,
+          pages,
+          sender: from,
+          sent,
+          failed: failedCount,
+          skipped: skippedCount,
+          refund,
+        },
       },
       outcome,
     )
+
+    if (result.success && refund > 0) {
+      const refunded = await atomicRefundWallet(userId, refund)
+      if (!refunded.success) {
+        console.error("[v0] Bulk SMS partial-failure refund failed:", {
+          requestID,
+          userId,
+          refund,
+          error: refunded.error,
+        })
+      }
+    }
+
+    return result
   } catch (error) {
     console.error("[v0] Bulk SMS error:", error)
     return { success: false, message: "An error occurred while processing your request" }

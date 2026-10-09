@@ -52,12 +52,19 @@ export async function finalizeGsubzPurchase(
     const transactionId = outcome.transactionID || ctx.requestID
     const deduct = await atomicDeductWallet(ctx.userId, ctx.amount)
     if (!deduct.success) {
-      return {
-        success: false,
-        message: deduct.error || "Failed to update wallet balance. Please contact support.",
-      }
+      // The provider already completed the purchase, so reporting a failure
+      // here would invite a retry and a duplicate order (a second SMS, a second
+      // pin…). Record the success and let support reconcile the wallet.
+      console.error("[v0] Provider purchase succeeded but wallet deduction failed:", {
+        requestID: ctx.requestID,
+        userId: ctx.userId,
+        amount: ctx.amount,
+        error: deduct.error,
+      })
     }
-    const balanceAfter = deduct.newBalance ?? ctx.balanceBefore - ctx.amount
+    const balanceAfter = deduct.success
+      ? deduct.newBalance ?? ctx.balanceBefore - ctx.amount
+      : ctx.balanceBefore
 
     await saveTransaction({
       userId: ctx.userId,
@@ -77,7 +84,13 @@ export async function finalizeGsubzPurchase(
       metadata: ctx.meta,
     })
 
-    revalidatePath("/dashboard")
+    // A cache revalidation error must never turn a completed purchase into a
+    // reported failure.
+    try {
+      revalidatePath("/dashboard")
+    } catch (error) {
+      console.error("[v0] revalidatePath failed after successful purchase:", error)
+    }
 
     return {
       success: true,

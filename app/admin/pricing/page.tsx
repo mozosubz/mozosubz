@@ -65,11 +65,11 @@ const CATEGORY_SERVICE_ID: Record<CategoryId, string> = {
 
 /**
  * Categories whose "plans" are fixed rows rather than a live provider list.
- * Bulk SMS is priced per transaction, so its base price is 0 and only the
- * markup matters.
+ * Bulk SMS has no plan catalogue: the base price is the provider's per-page
+ * rate (₦5 at the time of writing) and the markup on top is the user margin.
  */
 const STATIC_PLANS: Partial<Record<CategoryId, GsubzPlan[]>> = {
-  sms: [{ displayName: 'Bulk SMS', value: 'bulk-sms', price: '0' }],
+  sms: [{ displayName: 'Bulk SMS', value: 'bulk-sms', price: '5' }],
 }
 
 const NETWORKS = [
