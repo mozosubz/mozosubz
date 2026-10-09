@@ -14,7 +14,6 @@ export function prefetchResource(url: string, type: 'script' | 'style' | 'image'
   const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
   
   if (connection && connection.effectiveType && connection.effectiveType !== '4g') {
-    console.log('[v0] Skipping prefetch on slow connection:', connection.effectiveType)
     return
   }
 
@@ -92,7 +91,6 @@ export function reportCoreWebVitals() {
     try {
       const observer = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          console.log('[v0] LCP:', entry.renderTime || entry.loadTime)
         }
       })
       observer.observe({ entryTypes: ['largest-contentful-paint'] })

@@ -218,7 +218,6 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
     // ALL_CAPS enum in `description` on hard ones. resolveProviderError reads
     // both and returns something safe to show the customer.
     const resolved = resolveProviderError(response)
-    console.log(`[v0] Data purchase failed | ${resolved.code} | provider: ${resolved.providerMessage}`)
 
     return {
       success: false,
@@ -239,7 +238,6 @@ export async function purchaseData(formData: FormData, trustedUserId?: string) {
     const isTimeout = error instanceof Error && error.name === "AbortError"
 
     if (isTimeout) {
-      console.log(`[v0] Data purchase timed out — saving PENDING | requestID=${requestID}`)
 
       // The server-computed amount lives inside the try block's scope and may
       // not have been reached yet if the timeout happened during the plan/price
@@ -398,7 +396,6 @@ export async function fetchDataPlans(serviceID: string) {
         const markup = rule.markup_type === "fixed" ? rule.markup_value : (basePrice * rule.markup_value) / 100
         const finalPrice = basePrice + markup
         
-        console.log(`[v0] Applying markup to ${plan.displayName}: ${basePrice} + ${markup} = ${finalPrice}`)
         
         return {
           ...plan,
@@ -412,7 +409,6 @@ export async function fetchDataPlans(serviceID: string) {
       return plan
     })
     
-    console.log(`[v0] Enhanced plans with markup:`, enhancedPlans)
     
     return {
       success: true,

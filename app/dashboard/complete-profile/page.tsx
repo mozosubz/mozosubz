@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { getMyProfile, updateMyProfile } from '@/lib/actions/profile'
 import { Loader2 } from 'lucide-react'
 
 export default function CompleteProfilePage() {
@@ -13,37 +13,30 @@ export default function CompleteProfilePage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          router.push('/login')
-          return
-        }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, username, phone_number')
-          .eq('id', user.id)
-          .maybeSingle()
-
-        if (profile) {
-          setFullName(profile.full_name || '')
-          setUsername(profile.username || '')
-          setPhone(profile.phone_number || '')
+        const result = await getMyProfile()
+        if (!result.success) {
+          if (result.error === 'Not authenticated') {
+            router.push('/login')
+            return
+          }
+        } else if (result.profile) {
+          setFullName(result.profile.full_name || '')
+          setUsername(result.profile.username || '')
+          setPhone(result.profile.phone_number || '')
         }
       } catch (err) {
-        console.error('[COMPLETE] Error loading profile:', err)
+        console.error('Error loading profile:', err)
       } finally {
         setLoading(false)
       }
     }
 
     loadProfile()
-  }, [])
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,28 +60,14 @@ export default function CompleteProfilePage() {
     setSubmitting(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError('Not authenticated')
-        setSubmitting(false)
-        return
-      }
+      const result = await updateMyProfile({
+        fullName: fullName.trim(),
+        username: username.toLowerCase().trim(),
+        phone: phone.trim(),
+      })
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          full_name: fullName.trim(),
-          username: username.toLowerCase().trim(),
-          phone_number: phone.trim(),
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'id'
-        })
-
-      if (updateError) {
-        setError(updateError.message || 'Failed to update profile')
+      if (!result.success) {
+        setError(result.error === 'Not authenticated' ? 'Not authenticated' : result.error)
         setSubmitting(false)
         return
       }

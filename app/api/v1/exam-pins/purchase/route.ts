@@ -18,11 +18,9 @@ import { purchaseExamPin } from '@/lib/actions/exam-pins'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Exam Pins API] → POST /api/v1/exam-pins/purchase | From: ${requestLog.ip}`)
 
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
-    console.log(`[Exam Pins API] ✗ Auth failed: ${auth.error} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
@@ -34,7 +32,6 @@ export async function POST(request: NextRequest) {
 
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_EXAM_PINS_PURCHASE)
   if (!allowed) {
-    console.log(`[Exam Pins API] ✗ Rate limit exceeded | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -42,7 +39,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!permissions.includes('exam-pins') && !permissions.includes('all')) {
-    console.log(`[Exam Pins API] ✗ Permission denied for user: ${userId} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'This key does not have exam pin purchase permission', error_code: 'FORBIDDEN' },
       { status: 403 }
@@ -53,7 +49,6 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    console.log(`[Exam Pins API] ✗ Invalid JSON body`)
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
       { status: 400 }
@@ -62,7 +57,6 @@ export async function POST(request: NextRequest) {
 
   const { board, phone } = body
   if (!board || !phone) {
-    console.log(`[Exam Pins API] ✗ Missing fields: board=${!!board}, phone=${!!phone}`)
     return NextResponse.json(
       { success: false, error: 'Missing required fields: board, phone', error_code: 'MISSING_FIELDS' },
       { status: 400 }
@@ -76,9 +70,6 @@ export async function POST(request: NextRequest) {
   const result = await purchaseExamPin(formData, userId, true)
 
   if (result.success) {
-    console.log(
-      `[Exam Pins API] ✓ SUCCESS | TX: ${result.transaction?.id} | User: ${userId} | ${Date.now() - startTime}ms`
-    )
     return NextResponse.json({
       success: true,
       transaction_id: result.transaction?.id,
@@ -95,7 +86,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (result.pending) {
-    console.log(`[Exam Pins API] ⏳ PENDING | TX: ${result.transaction?.id}`)
     return NextResponse.json({
       success: false,
       pending: true,
@@ -105,7 +95,6 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  console.log(`[Exam Pins API] ✗ FAILED | ${result.message}`)
   const status = result.errorCode === 'PLAN_NOT_ENABLED' ? 404 : 400
   return NextResponse.json(
     {

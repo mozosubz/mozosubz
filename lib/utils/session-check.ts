@@ -22,17 +22,14 @@ let authSubscription: (() => void) | null = null
  */
 export function setupSessionManager() {
   if (authSubscription) {
-    console.log("[v0] Session manager already initialized")
     return authSubscription
   }
 
   const supabase = createClient()
 
-  console.log("[v0] Setting up session manager with Supabase real-time auth")
 
   const { data: { subscription } } = supabase.auth.onAuthStateChange(
     async (event, session) => {
-      console.log("[v0] Auth state changed:", event, "User:", session?.user?.email)
 
       // When SIGNED_IN event fires (new login detected anywhere)
       if (event === "SIGNED_IN" && session) {
@@ -41,7 +38,6 @@ export function setupSessionManager() {
 
         // If we're NOT the newly logged in device, sign out this one
         if (currentSession && currentSession.access_token !== session.access_token) {
-          console.log("[v0] New login detected on different device - signing out this session")
           await supabase.auth.signOut()
           
           // Redirect to login page
@@ -50,13 +46,11 @@ export function setupSessionManager() {
           }
         } else {
           // This is the currently active session, store it
-          console.log("[v0] This is the active session")
         }
       }
 
       // When SIGNED_OUT event fires (logout on another tab)
       if (event === "SIGNED_OUT") {
-        console.log("[v0] Sign out detected")
         if (typeof window !== "undefined") {
           window.location.href = "/login"
         }
@@ -64,7 +58,6 @@ export function setupSessionManager() {
 
       // When session expires
       if (event === "TOKEN_REFRESHED") {
-        console.log("[v0] Session token refreshed")
       }
     }
   )
@@ -82,7 +75,6 @@ export function cleanupSessionManager() {
   if (authSubscription) {
     authSubscription()
     authSubscription = null
-    console.log("[v0] Session manager cleaned up")
   }
 }
 

@@ -180,7 +180,6 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
     // Email is sent automatically by saveTransaction()
 
     const resolved = resolveProviderError(response)
-    console.log(`[v0] Airtime purchase failed | ${resolved.code} | provider: ${resolved.providerMessage}`)
 
     return {
       success: false,
@@ -200,7 +199,6 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
     const isTimeout = error instanceof Error && error.name === "AbortError"
 
     if (isTimeout) {
-      console.log(`[v0] Airtime purchase timed out — saving PENDING | requestID=${requestID}`)
 
       const numAmount = parseFloat(amount)
       const pendingChargeAmount = numAmount

@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing requestID or userId" }, { status: 400 })
   }
 
-  console.log(`[v0] verify-pending START | requestID=${requestID} | category=${category} | userId=${userId}`)
 
   const deadline = Date.now() + MAX_POLL_MS
   let attempt = 0
@@ -101,13 +100,9 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    console.log(
-      `[v0] verify-pending attempt ${attempt} | requestID=${requestID} | status=${verifyResponse?.status} | code=${verifyResponse?.code}`
-    )
 
     // ── Confirmed SUCCESS ───────────────────────────────────────────────────
     if (isProviderSuccess(verifyResponse)) {
-      console.log(`[v0] verify-pending CONFIRMED SUCCESS | requestID=${requestID} | attempts=${attempt}`)
 
       const deductResult = await atomicDeductWallet(userId, amount)
 
@@ -158,9 +153,6 @@ export async function POST(request: NextRequest) {
     // ── Confirmed FAILURE ───────────────────────────────────────────────────
     if (isProviderFailure(verifyResponse)) {
       const resolved = resolveProviderError(verifyResponse)
-      console.log(
-        `[v0] verify-pending CONFIRMED FAILURE | requestID=${requestID} | code=${resolved.code} | attempts=${attempt} — refunding`
-      )
 
       await updateTransactionStatus(requestID, "FAILED", { apiResponse: verifyResponse })
       // Refund the user since the provider confirmed the transaction failed
@@ -174,9 +166,6 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Deadline exceeded ─────────────────────────────────────────────────────
-  console.log(
-    `[v0] verify-pending DEADLINE EXCEEDED | requestID=${requestID} | attempts=${attempt} — marking FAILED and refunding`
-  )
   await updateTransactionStatus(requestID, "FAILED")
   // Provider never settled the transaction within 2 minutes, so refund the user
   await atomicRefundWallet(userId, amount)

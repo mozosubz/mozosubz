@@ -1,3 +1,4 @@
+import "server-only"
 import { revalidatePath } from "next/cache"
 import { atomicDeductWallet, saveTransaction, type TransactionCategory } from "@/lib/utils/save-transaction"
 import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"

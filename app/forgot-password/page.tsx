@@ -4,7 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { useState } from "react"
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { requestPasswordReset } from "@/lib/actions/auth"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -14,39 +14,23 @@ export default function ForgotPasswordPage() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL
-        ? `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`
-        : `${window.location.origin}/reset-password`
+      // SECURITY: the reset request runs server-side behind a rate limiter.
+      // The response never reveals whether the email is registered — the
+      // only surfaced error is a rate limit, which the user can act on.
+      const result = await requestPasswordReset(email.trim())
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: redirectUrl,
-      })
-
-      // SECURITY: never reveal whether the email is registered.
-      // The only error we surface is a rate-limit, which is a real
-      // problem the user can act on (wait + retry). Everything else is
-      // swallowed and we always show the generic success screen — this
-      // matches Supabase's recommended pattern and prevents account
-      // enumeration via the forgot-password endpoint.
-      if (error) {
-        const msg = error.message?.toLowerCase() || ""
-        if (msg.includes("rate") || msg.includes("too many")) {
-          setError("Too many attempts. Please wait a minute and try again.")
-          return
-        }
-        // Log for ops visibility but don't expose to the client.
-        console.error("[v0] resetPasswordForEmail error (suppressed):", error.message)
+      if (!result.success) {
+        setError(result.error || "Something went wrong. Please try again.")
+        setIsLoading(false)
+        return
       }
 
       setSuccess(true)
     } catch (err) {
-      // Network / unexpected failure — log internally, show generic message.
-      console.error("[v0] forgot-password unexpected error:", err)
       setError("Something went wrong. Please try again.")
     } finally {
       setIsLoading(false)

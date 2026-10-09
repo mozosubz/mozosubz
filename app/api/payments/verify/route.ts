@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[VERIFY_API] User clicked "I Have Paid" for:', paymentReference)
 
     // Step 1: Verify user owns this transaction
     const supabase = await createServerClient()
@@ -99,11 +98,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Query Monnify directly to confirm payment status
-    console.log('[VERIFY_API] Querying Monnify for status verification...')
     const monnifyResult = await queryMonnifyTransaction(paymentReference)
 
     if (!monnifyResult.success) {
-      console.log('[VERIFY_API] Monnify query failed:', monnifyResult.error)
       return NextResponse.json(
         {
           success: false,
@@ -115,13 +112,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Check if Monnify says the payment is PAID
-    console.log('[VERIFY_API] Monnify payment status:', monnifyResult.paymentStatus)
 
     if (monnifyResult.paymentStatus !== 'PAID') {
-      console.log('[VERIFY_API] Payment not yet confirmed by Monnify:', {
-        paymentReference,
-        status: monnifyResult.paymentStatus,
-      })
       return NextResponse.json(
         {
           success: false,
@@ -134,7 +126,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 4: Monnify confirms PAID - now credit the wallet with idempotency check
-    console.log('[VERIFY_API] Monnify confirmed PAID. Crediting wallet...')
     const creditResult = await verifyAndCreditPayment(paymentReference)
 
     if (!creditResult.success) {
@@ -149,11 +140,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[VERIFY_API] Payment complete and wallet credited:', {
-      paymentReference,
-      amount: transaction.amount,
-      alreadyProcessed: creditResult.alreadyProcessed,
-    })
 
     return NextResponse.json({
       success: true,

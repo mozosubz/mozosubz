@@ -3,7 +3,7 @@
 import { Copy, ArrowLeft } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getTransactionById } from '@/lib/actions/transactions';
 import { NetworkLogo } from '@/lib/utils/network-logo';
 import { extractElectricityToken, formatReceiptDate, formatReceiptTime, getNetworkName, getCableProviderName, getDISCOName, extractPlanDetails } from '@/lib/utils/transaction-helpers';
 
@@ -82,28 +82,19 @@ export default function TransactionDetailPage() {
   const [copied, setCopied] = useState(false);
   const router = useRouter();
   const params = useParams();
-  const supabase = createClient();
   const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadTransaction() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          router.push('/login');
-          return;
-        }
-
-        const { data } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('id', params.id)
-          .eq('user_id', user.id)
-          .single();
-
-        if (data) {
-          setTransaction(data);
+        const result = await getTransactionById(String(params.id));
+        if (result.success) {
+          setTransaction(result.transaction);
         } else {
+          if (result.error === 'Not authenticated') {
+            router.push('/login');
+            return;
+          }
           setError(true);
         }
       } catch (err) {
@@ -114,7 +105,7 @@ export default function TransactionDetailPage() {
     }
 
     if (params.id) loadTransaction();
-  }, [params.id, router, supabase]);
+  }, [params.id, router]);
 
   if (loading) {
     // Layout-stable loader: render the same shell (top bar + content area)

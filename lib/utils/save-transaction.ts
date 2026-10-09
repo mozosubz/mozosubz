@@ -1,3 +1,4 @@
+import "server-only"
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -92,12 +93,6 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       throw error
     }
 
-    console.log("[v0] Transaction saved:", {
-      transactionId: payload.transactionId,
-      category: payload.category,
-      amount: payload.amount,
-      status: payload.status,
-    })
 
     // Process referral earning if transaction is successful
     processReferralEarning({
@@ -109,7 +104,6 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
 
     // Fire-and-forget receipt email. Email failures MUST NOT affect the
     // transaction flow — sendTransactionEmail is non-throwing internally.
-    console.log("[v0] Calling sendTransactionEmail for transaction:", payload.transactionId, "status:", payload.status)
     
     const extras: Array<{ label: string; value: string }> = []
     
@@ -174,7 +168,6 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       console.error("[v0] sendTransactionEmail failed (swallowed):", err)
     })
     
-    console.log("[v0] sendTransactionEmail call queued (fire-and-forget)")
 
     return {
       success: true,
@@ -220,7 +213,6 @@ export async function updateTransactionStatus(
       return { success: false, error: error.message }
     }
 
-    console.log("[v0] updateTransactionStatus:", { transactionId, status })
     return { success: true }
   } catch (error) {
     console.error("[v0] updateTransactionStatus exception:", error)
@@ -259,7 +251,6 @@ export async function atomicDeductWallet(userId: string, amount: number) {
       throw error
     }
 
-    console.log("[v0] atomicDeductWallet success:", { userId, amount, newBalance: data })
 
     return {
       success: true,
@@ -293,7 +284,6 @@ export async function atomicRefundWallet(userId: string, amount: number) {
       throw error
     }
 
-    console.log("[v0] atomicRefundWallet success:", { userId, amount, newBalance: data })
 
     return {
       success: true,

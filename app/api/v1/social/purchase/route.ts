@@ -17,11 +17,9 @@ import { purchaseSocial } from '@/lib/actions/social'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Social API] → POST /api/v1/social/purchase | From: ${requestLog.ip}`)
 
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
-    console.log(`[Social API] ✗ Auth failed: ${auth.error} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
@@ -33,7 +31,6 @@ export async function POST(request: NextRequest) {
 
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_SOCIAL_PURCHASE)
   if (!allowed) {
-    console.log(`[Social API] ✗ Rate limit exceeded | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -41,7 +38,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!permissions.includes('social') && !permissions.includes('all')) {
-    console.log(`[Social API] ✗ Permission denied for user: ${userId} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'This key does not have social media order permission', error_code: 'FORBIDDEN' },
       { status: 403 }
@@ -52,7 +48,6 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    console.log(`[Social API] ✗ Invalid JSON body`)
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
       { status: 400 }
@@ -61,7 +56,6 @@ export async function POST(request: NextRequest) {
 
   const { service, link, quantity } = body
   if (!service || !link || quantity === undefined || quantity === null) {
-    console.log(`[Social API] ✗ Missing fields: service=${!!service}, link=${!!link}, quantity=${quantity}`)
     return NextResponse.json(
       { success: false, error: 'Missing required fields: service, link, quantity', error_code: 'MISSING_FIELDS' },
       { status: 400 }
@@ -76,9 +70,6 @@ export async function POST(request: NextRequest) {
   const result = await purchaseSocial(formData, userId, true)
 
   if (result.success) {
-    console.log(
-      `[Social API] ✓ SUCCESS | TX: ${result.transaction?.id} | User: ${userId} | ${Date.now() - startTime}ms`
-    )
     return NextResponse.json({
       success: true,
       transaction_id: result.transaction?.id,
@@ -94,7 +85,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (result.pending) {
-    console.log(`[Social API] ⏳ PENDING | TX: ${result.transaction?.id}`)
     return NextResponse.json({
       success: false,
       pending: true,
@@ -104,7 +94,6 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  console.log(`[Social API] ✗ FAILED | ${result.message}`)
   const status = result.errorCode === 'PLAN_NOT_ENABLED' ? 404 : 400
   return NextResponse.json(
     {

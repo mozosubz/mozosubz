@@ -1,3 +1,4 @@
+import "server-only"
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
@@ -32,12 +33,10 @@ export async function createReferralOnSignup(
       .limit(1)
 
     if (lookupError) {
-      console.log(`[REFERRAL] Lookup error for username ${trimmedUsername}:`, lookupError)
       return
     }
 
     if (!referrers || referrers.length === 0) {
-      console.log(`[REFERRAL] Username not found: ${trimmedUsername}`)
       return
     }
 
@@ -45,7 +44,6 @@ export async function createReferralOnSignup(
 
     // Step 2: Prevent self-referral
     if (referrerId === refereeId) {
-      console.log(`[REFERRAL] Self-referral blocked`)
       return
     }
 
@@ -57,7 +55,6 @@ export async function createReferralOnSignup(
       .limit(1)
 
     if (existing && existing.length > 0) {
-      console.log(`[REFERRAL] Referee already referred`)
       return
     }
 
@@ -82,7 +79,6 @@ export async function createReferralOnSignup(
       return
     }
 
-    console.log(`[REFERRAL] Referral created: ${trimmedUsername} -> ${refereeId}`)
   } catch (error) {
     console.error(`[REFERRAL] Error in createReferralOnSignup:`, error)
   }
@@ -112,7 +108,6 @@ export async function processReferralEarning(transaction: {
       .limit(1)
 
     if (lookupError) {
-      console.log(`[REFERRAL] Lookup error:`, lookupError)
       return
     }
 
@@ -151,7 +146,6 @@ export async function processReferralEarning(transaction: {
       amount: commission,
     })
 
-    console.log(`[REFERRAL] Earning recorded: ₦${commission} for referrer`)
   } catch (error) {
     console.error(`[REFERRAL] Error processing earning:`, error)
   }

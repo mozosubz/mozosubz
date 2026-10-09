@@ -16,12 +16,10 @@ import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Data Plans API] → GET | From: ${requestLog.ip}`)
 
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
     const duration = Date.now() - startTime
-    console.log(`[Data Plans API] ✗ Auth failed: ${auth.error} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: auth.error },
       { status: auth.status ?? 401 }
@@ -34,7 +32,6 @@ export async function GET(request: NextRequest) {
 
   if (!allowed) {
     const duration = Date.now() - startTime
-    console.log(`[Data Plans API] ✗ Rate limit exceeded | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -53,7 +50,6 @@ export async function GET(request: NextRequest) {
 
   if (!service || !VALID_SERVICES.includes(service)) {
     const duration = Date.now() - startTime
-    console.log(`[Data Plans API] ✗ Invalid service: ${service} | ${duration}ms`)
     // Bounty fix: don't enumerate the internal service catalog in the error.
     return NextResponse.json(
       {
@@ -66,7 +62,6 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  console.log(`[Data Plans API] → Fetching plans for service: ${service}`)
 
   try {
     // Fetch live plans from provider + API pricing rules in parallel.
@@ -114,7 +109,6 @@ export async function GET(request: NextRequest) {
       .filter(Boolean)
 
     const duration = Date.now() - startTime
-    console.log(`[Data Plans API] ✓ SUCCESS | Service: ${service} | Plans: ${plans.length} | ${duration}ms`)
 
     return NextResponse.json(
       {

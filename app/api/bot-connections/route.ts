@@ -41,10 +41,6 @@ export async function GET(request: NextRequest) {
       status: "active",
     }))
 
-    console.log(
-      `[Bot Connections API] Found ${formattedConnections.length} connections for user ${user.id}:`,
-      formattedConnections
-    )
 
     return NextResponse.json({
       connections: formattedConnections,

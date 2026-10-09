@@ -65,7 +65,7 @@ export function RevenueForecast({ transactions = [] }: { transactions: Transacti
 
       return { chartData, avgRevenue, trend }
     } catch (error) {
-      console.error('[v0] Error calculating forecast:', error)
+      console.error('Error calculating forecast:', error)
       return { chartData: [], avgRevenue: 0, trend: 0 }
     }
   }, [transactions])
@@ -98,7 +98,7 @@ export function RevenueForecast({ transactions = [] }: { transactions: Transacti
         )
       }
     } catch (error) {
-      console.error('[v0] Tooltip error:', error)
+      console.error('Tooltip error:', error)
     }
     return null
   }

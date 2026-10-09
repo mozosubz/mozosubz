@@ -24,7 +24,6 @@ export async function getDepositRules(): Promise<DepositRules | null> {
 
   // Return default rules if table is empty
   if (!data) {
-    console.log('[v0] No deposit rules found, using defaults')
     return {
       id: 'default',
       base_fee: 50,
@@ -83,7 +82,6 @@ export async function updateDepositRules(
 
   // If no rule exists, create default first
   if (!existingRule && fetchError?.code === 'PGRST116') {
-    console.log('[v0] No active deposit rule found, creating default...')
     const { data: newRule, error: insertError } = await supabase
       .from('deposit_rules')
       .insert({

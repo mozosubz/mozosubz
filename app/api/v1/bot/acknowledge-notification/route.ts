@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
     // always yielded undefined, so this guard fired on every request and the
     // route returned 401 unconditionally.
     if (!keyVerification.success || !keyVerification.context?.userId) {
-      console.log('[Bot Acknowledge] ❌ Invalid API key')
       return NextResponse.json(
         { success: false, error: 'Invalid API key' },
         { status: 401 }
@@ -46,9 +45,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(
-      `[Bot Acknowledge] User ${userId} acknowledging notification: ${payment_reference}`
-    )
 
     const supabase = createAdminClient()
 
@@ -70,9 +66,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(
-      `[Bot Acknowledge] ✓ Notification acknowledged: ${payment_reference}`
-    )
 
     return NextResponse.json(
       {

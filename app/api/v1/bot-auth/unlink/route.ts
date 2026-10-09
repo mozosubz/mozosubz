@@ -19,14 +19,12 @@ import { logRequest } from '@/lib/api-logger'
 async function handleUnlink(request: NextRequest, method: string) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Bot Auth Unlink] → ${method} | From: ${requestLog.ip}`)
 
   try {
     // Verify API key
     const auth = await verifyConnectKey(request)
     if (!auth.success) {
       const duration = Date.now() - startTime
-      console.log(`[Bot Auth Unlink] ✗ Auth failed: ${auth.error} | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: auth.error },
         { status: auth.status ?? 401 }
@@ -71,7 +69,6 @@ async function handleUnlink(request: NextRequest, method: string) {
 
     if (count === 0) {
       const duration = Date.now() - startTime
-      console.log(`[Bot Auth Unlink] ⚠ No connection found: ${platform} for user: ${userId} | ${duration}ms`)
       return NextResponse.json(
         { success: true, message: `No ${platform} account was connected` },
         { status: 200 }
@@ -79,7 +76,6 @@ async function handleUnlink(request: NextRequest, method: string) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Bot Auth Unlink] ✓ Platform unlinked: ${platform} for user: ${userId} | ${duration}ms`)
 
     return NextResponse.json(
       { success: true, message: `${platform} account unlinked successfully` },

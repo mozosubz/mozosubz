@@ -46,13 +46,6 @@ function LoginForm() {
         throw new Error(result.error || "Invalid email or password")
       }
 
-      // Fire-and-forget sign-in alert email.
-      fetch("/api/email/login-alert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      }).catch(() => {})
-
       // Redirect with ?welcome=1 so the dashboard can show a one-time
       // "Signed in successfully" banner — symmetric with the existing
       // "session expired" notice on this page.

@@ -1,3 +1,4 @@
+import "server-only"
 import { NextRequest, NextResponse } from 'next/server'
 
 interface RequestLog {
@@ -83,24 +84,4 @@ export function formatLog(request: RequestLog, response: ResponseLog): string {
 }
 
 export function debugLog(request: RequestLog, response: ResponseLog): void {
-  console.log(`
-═══════════════════════════════════════════════════════════════
-[API REQUEST LOG] - ${request.timestamp}
-───────────────────────────────────────────────────────────────
-METHOD: ${request.method}
-PATH: ${request.path}
-URL: ${request.url}
-IP: ${request.ip}
-USER-AGENT: ${request.userAgent || 'N/A'}
-───────────────────────────────────────────────────────────────
-QUERY PARAMS: ${JSON.stringify(request.query) || 'None'}
-HEADERS: ${JSON.stringify(request.headers, null, 2)}
-${request.body ? `BODY: ${JSON.stringify(request.body, null, 2)}` : 'BODY: None'}
-───────────────────────────────────────────────────────────────
-RESPONSE STATUS: ${response.statusCode}
-RESPONSE TIME: ${response.duration}ms
-RESPONSE SIZE: ${response.size || 'N/A'} bytes
-${response.error ? `ERROR: ${response.error}` : 'ERROR: None'}
-═══════════════════════════════════════════════════════════════
-  `)
 }

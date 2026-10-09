@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[DEPOSIT_API] Creating deposit transaction')
 
     // Pre-warm the Monnify token while we fetch the deposit rules. Auth already
     // happened above, so by the time initTransaction needs the token it's cached.

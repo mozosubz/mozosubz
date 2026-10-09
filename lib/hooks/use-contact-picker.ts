@@ -137,7 +137,6 @@ export function useContactPicker() {
         return { status: "cancelled" }
       }
 
-      console.log("[v0] Contact picker failed:", error)
 
       // Thrown when embedded in an iframe, which is the usual cause here.
       if (error instanceof DOMException && error.name === "InvalidStateError") {

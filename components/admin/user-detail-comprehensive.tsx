@@ -29,7 +29,7 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
         if (!active) return
 
         if (res.error || !res.user) {
-          console.error('[v0] Error fetching user:', res.error)
+          console.error('Error fetching user:', res.error)
           setLoading(false)
           return
         }
@@ -63,7 +63,7 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
         })
       } catch (error) {
         if (active) {
-          console.error('[v0] Unexpected error loading user data:', error)
+          console.error('Unexpected error loading user data:', error)
         }
       } finally {
         if (active) {

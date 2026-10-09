@@ -1,3 +1,4 @@
+import "server-only"
 /**
  * SECURITY: Rate Limiting using Upstash Redis
  * IP-based rate limiting to prevent abuse
@@ -51,7 +52,6 @@ export async function checkRateLimit(
     const allowed = count <= config.maxRequests
     const remaining = Math.max(0, config.maxRequests - count)
 
-    console.log(`[v0] Rate limit check - IP: ${ipAddress}, endpoint: ${config.keyPrefix}, count: ${count}, allowed: ${allowed}`)
 
     return {
       allowed,

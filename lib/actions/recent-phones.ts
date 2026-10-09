@@ -25,7 +25,6 @@ export async function getRecentPhones() {
 
     if (error) {
       // If table doesn't exist or other error, return empty array
-      console.log("[v0] Error fetching recent phones:", error.message)
       return { phones: [] }
     }
 
@@ -33,7 +32,6 @@ export async function getRecentPhones() {
       phones: (data || []).map((item) => item.phone_number),
     }
   } catch (error) {
-    console.log("[v0] Error in getRecentPhones:", error)
     return {
       phones: [],
     }
@@ -63,7 +61,6 @@ export async function saveRecentPhone(phoneNumber: string) {
       // PGRST116 = no rows found (expected)
       // If it's a different error like table doesn't exist, log and return
       if (selectError.code === "42P01" || selectError.message.includes("does not exist")) {
-        console.log("[v0] Table does not exist yet. Please run /scripts/SETUP-RECENT-PHONES.sql in Supabase")
         return { success: false }
       }
     }
@@ -76,7 +73,6 @@ export async function saveRecentPhone(phoneNumber: string) {
         .eq("id", existing.id)
 
       if (updateError) {
-        console.log("[v0] Error updating recent phone:", updateError)
         return { success: false }
       }
     } else {
@@ -91,7 +87,6 @@ export async function saveRecentPhone(phoneNumber: string) {
         ])
 
       if (insertError) {
-        console.log("[v0] Error inserting recent phone:", insertError)
         return { success: false }
       }
     }
@@ -104,7 +99,6 @@ export async function saveRecentPhone(phoneNumber: string) {
       .order("created_at", { ascending: false })
 
     if (fetchError) {
-      console.log("[v0] Error fetching all records for cleanup:", fetchError)
       return { success: true } // Still return success even if cleanup fails
     }
 
@@ -116,13 +110,11 @@ export async function saveRecentPhone(phoneNumber: string) {
         .in("id", toDelete)
 
       if (deleteError) {
-        console.log("[v0] Error deleting old recent phones:", deleteError)
       }
     }
 
     return { success: true }
   } catch (error) {
-    console.log("[v0] Error in saveRecentPhone:", error)
     return { success: false }
   }
 }
@@ -145,13 +137,11 @@ export async function deleteRecentPhone(phoneNumber: string) {
       .eq("phone_number", phoneNumber)
 
     if (error) {
-      console.log("[v0] Error deleting recent phone:", error)
       return { success: false, error: error.message }
     }
 
     return { success: true }
   } catch (error) {
-    console.log("[v0] Error in deleteRecentPhone:", error)
     return { success: false, error: "Failed to delete number" }
   }
 }

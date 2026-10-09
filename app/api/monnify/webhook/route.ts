@@ -25,11 +25,6 @@ function verifyWebhookSignature(body: string, signature: string): boolean {
     const isValid =
       expected.length === received.length && crypto.timingSafeEqual(expected, received)
 
-    console.log('[WEBHOOK] Signature verification:', {
-      isValid,
-      receivedLength: signature?.length || 0,
-      computedLength: hash.length,
-    })
     return isValid
   } catch (error) {
     console.error('[WEBHOOK] Signature verification error:', error)
@@ -43,8 +38,6 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const signature = request.headers.get('monnify-signature')
 
-    console.log('[WEBHOOK] Received webhook from Monnify')
-    console.log('[WEBHOOK] Signature header present:', !!signature)
 
     // SECURITY 1: Validate signature before processing.
     // Monnify signs production webhooks in the `monnify-signature` header but
@@ -62,7 +55,6 @@ export async function POST(request: NextRequest) {
     if (!signature) {
       console.warn('[WEBHOOK] No signature header (sandbox or probe) - falling back to out-of-band verification')
     } else {
-      console.log('[WEBHOOK] ✅ Signature verified')
     }
 
     // Parse the webhook payload
@@ -70,11 +62,9 @@ export async function POST(request: NextRequest) {
     const eventType = data.eventType
     const eventData = data.eventData
 
-    console.log('[WEBHOOK] Event type:', eventType)
 
     // Only process SUCCESSFUL_TRANSACTION events
     if (eventType !== 'SUCCESSFUL_TRANSACTION') {
-      console.log('[WEBHOOK] ⏭️  Ignoring non-transaction event:', eventType)
       return NextResponse.json({ status: 'success' })
     }
 
@@ -92,15 +82,9 @@ export async function POST(request: NextRequest) {
     if (!signature) {
       const referenceparts = paymentReference.split('|')
       const cleanPaymentReference = referenceparts[0]
-      console.log('[WEBHOOK] Out-of-band verification for:', cleanPaymentReference)
       const verification = await queryMonnifyTransaction(cleanPaymentReference, true)
       if (verification.success && verification.paymentStatus === 'PAID') {
-        console.log('[WEBHOOK] ✅ Out-of-band verification confirmed PAID - wallet credited:', cleanPaymentReference)
       } else {
-        console.log('[WEBHOOK] ⏭️  Out-of-band verification did not confirm PAID:', {
-          paymentReference: cleanPaymentReference,
-          status: verification.paymentStatus || verification.error,
-        })
       }
       return NextResponse.json({ status: 'success' })
     }
@@ -111,12 +95,6 @@ export async function POST(request: NextRequest) {
     const cleanPaymentReference = referenceparts[0]
     const webhookUserId = referenceparts[1] || null
 
-    console.log('[WEBHOOK] Processing successful payment:', {
-      paymentReference: cleanPaymentReference,
-      paymentStatus,
-      monnifyTransactionRef,
-      amount: eventData?.amountPaid,
-    })
 
     // SECURITY 2: Dual-key lookup - verify both payment_reference AND user_id match
     // This ensures we find the correct transaction even if payment reference format changes
@@ -142,7 +120,6 @@ export async function POST(request: NextRequest) {
 
     // CRITICAL: If already SUCCESS, this is a duplicate webhook - don't process again
     if (existingTx?.status === 'SUCCESS') {
-      console.log('[WEBHOOK] ⏭️  Duplicate webhook - transaction already credited:', cleanPaymentReference)
       return NextResponse.json({ status: 'success' })
     }
 
@@ -172,7 +149,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Credit the wallet using clean payment reference (idempotent - marks SUCCESS immediately)
-    console.log('[WEBHOOK] Crediting wallet for:', cleanPaymentReference)
     const creditResult = await verifyAndCreditPayment(cleanPaymentReference)
 
     if (!creditResult.success) {
@@ -191,10 +167,6 @@ export async function POST(request: NextRequest) {
       .update({ webhook_received_at: new Date().toISOString() })
       .eq('payment_reference', cleanPaymentReference)
 
-    console.log('[WEBHOOK] ✅ Payment processed successfully:', {
-      paymentReference: cleanPaymentReference,
-      credited: true,
-    })
 
     return NextResponse.json({ status: 'success' })
   } catch (error) {

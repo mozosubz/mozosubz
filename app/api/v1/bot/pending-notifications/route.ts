@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
     const paymentReference = url.searchParams.get('payment_reference')
 
     if (!paymentReference) {
-      console.log('[Check Deposit Status] Missing payment_reference parameter')
       return NextResponse.json(
         {
           success: false,
@@ -45,7 +44,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(`[Check Deposit Status] Checking status for: ${paymentReference}`)
 
     // 2. Query the transaction
     const supabase = createAdminClient()
@@ -69,7 +67,6 @@ export async function GET(request: NextRequest) {
 
     // Transaction not found
     if (!transaction) {
-      console.log(`[Check Deposit Status] Transaction not found: ${paymentReference}`)
       return NextResponse.json(
         {
           success: false,
@@ -81,7 +78,6 @@ export async function GET(request: NextRequest) {
 
     // Payment is still pending
     if (transaction.status !== 'SUCCESS') {
-      console.log(`[Check Deposit Status] Status is ${transaction.status}: ${paymentReference}`)
       return NextResponse.json(
         {
           success: true,
@@ -115,9 +111,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(
-      `[Check Deposit Status] ✓ Payment received: ${paymentReference} | Amount: ₦${transaction.amount}`
-    )
 
     return NextResponse.json(
       {

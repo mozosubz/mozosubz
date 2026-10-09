@@ -42,7 +42,6 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    console.log(`[Disconnect Bot] Disconnected bot ${connectionId} for user ${user.id}`)
 
     return NextResponse.json(
       { success: true, message: "Bot disconnected successfully" },

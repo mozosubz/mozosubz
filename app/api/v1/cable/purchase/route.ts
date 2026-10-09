@@ -24,13 +24,11 @@ import { isGsubzSuccess, resolveCableServiceId } from '@/lib/api/gsubz-services'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Cable Purchase API] → POST | From: ${requestLog.ip}`)
 
   // Verify API key
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
     const duration = Date.now() - startTime
-    console.log(`[Cable Purchase API] ✗ Auth failed: ${auth.error} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
@@ -44,7 +42,6 @@ export async function POST(request: NextRequest) {
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_CABLE_PURCHASE)
   if (!allowed) {
     const duration = Date.now() - startTime
-    console.log(`[Cable Purchase API] ✗ Rate limit exceeded | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -53,7 +50,6 @@ export async function POST(request: NextRequest) {
 
   if (!permissions.includes('cable') && !permissions.includes('all')) {
     const duration = Date.now() - startTime
-    console.log(`[Cable Purchase API] ✗ Permission denied for user: ${userId} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: 'This key does not have cable subscription permission', error_code: 'FORBIDDEN' },
       { status: 403 }
@@ -64,7 +60,6 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    console.log(`[Cable Purchase API] ✗ Invalid JSON body`)
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
       { status: 400 }
@@ -74,9 +69,6 @@ export async function POST(request: NextRequest) {
   const { provider, package: packageName, smartcard, phone } = body
 
   if (!provider || !packageName || !smartcard || !phone) {
-    console.log(
-      `[Cable Purchase API] ✗ Missing fields: provider=${!!provider}, package=${!!packageName}, smartcard=${!!smartcard}, phone=${!!phone}`
-    )
     return NextResponse.json(
       { success: false, error: 'Missing required fields: provider, package, smartcard, phone', error_code: 'MISSING_FIELDS' },
       { status: 400 }
@@ -86,7 +78,6 @@ export async function POST(request: NextRequest) {
   // Validate phone (bounty Round 11: reject non-mobile prefixes like 00000000000)
   const phoneClean = normalizeNigerianPhone(String(phone))
   if (!phoneClean) {
-    console.log(`[Cable Purchase API] ✗ Invalid phone: ${phone}`)
     return NextResponse.json(
       { success: false, error: 'Invalid Nigerian phone number', error_code: 'INVALID_PHONE' },
       { status: 400 }
@@ -117,7 +108,6 @@ export async function POST(request: NextRequest) {
     const rule = ruleRows?.[0] ?? null
 
     if (!rule) {
-      console.log(`[Cable Purchase API] ✗ Package not available for API users: ${packageName}`)
       return NextResponse.json(
         { success: false, error: 'Package not available for API users. Contact support.', error_code: 'PACKAGE_NOT_ENABLED' },
         { status: 404 }
@@ -137,7 +127,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!profile) {
-      console.log(`[Cable Purchase API] ✗ User account not found: ${userId}`)
       return NextResponse.json(
         { success: false, error: 'User account not found', error_code: 'ACCOUNT_NOT_FOUND' },
         { status: 404 }
@@ -146,7 +135,6 @@ export async function POST(request: NextRequest) {
 
     const walletBalance = parseFloat(profile.wallet_balance || '0')
     if (walletBalance < apiPrice) {
-      console.log(`[Cable Purchase API] ✗ Insufficient balance | Required: ₦${apiPrice}, Available: ₦${walletBalance}`)
       return NextResponse.json(
         {
           success: false,
@@ -159,19 +147,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Cable Purchase API] → Processing: ${provider} | ${packageName} | ₦${apiPrice} | Smartcard: ${smartcard}`)
 
     // Deduct from wallet atomically
     const deduction = await atomicDeductWallet(userId, apiPrice)
     if (!deduction.success) {
-      console.log(`[Cable Purchase API] ✗ Wallet deduction failed: ${deduction.error}`)
       return NextResponse.json(
         { success: false, error: deduction.error || 'Failed to deduct wallet', error_code: 'INSUFFICIENT_BALANCE' },
         { status: 402 }
       )
     }
 
-    console.log(`[Cable Purchase API] → Wallet deducted | New balance: ₦${deduction.newBalance}`)
 
     const transactionId = `V1-CABLE-${crypto.randomUUID().replace(/-/g, '').toUpperCase().substring(0, 12)}`
     const balanceAfter = deduction.newBalance ?? walletBalance - apiPrice
@@ -179,7 +164,6 @@ export async function POST(request: NextRequest) {
     // Subscribe to cable via Gsubz
     let gsubzResult: Awaited<ReturnType<typeof buyCableSubscription>>
     try {
-      console.log(`[Cable Purchase API] → Calling Gsubz | Service: ${serviceID} | Package: ${packageName}`)
     gsubzResult = await buyCableSubscription({
       serviceID,
       plan: packageName,
@@ -189,13 +173,11 @@ export async function POST(request: NextRequest) {
       customerID: smartcard,
       requestID: transactionId,
     })
-      console.log(`[Cable Purchase API] → Gsubz response | Code: ${gsubzResult.code} | Status: ${gsubzResult.status}`)
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === 'AbortError'
 
       if (isTimeout) {
         // Timeout — provider may have processed it, so save as PENDING and verify in background.
-        console.log(`[Cable Purchase API] ✗ Timeout | Saving PENDING | TX: ${transactionId}`)
 
         await saveTransaction({
           userId,
@@ -231,7 +213,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Non-timeout error — refund immediately
-      console.log(`[Cable Purchase API] ✗ Gsubz API error: ${err}`)
       await atomicRefundWallet(userId, apiPrice)
       return NextResponse.json(
         {
@@ -270,9 +251,6 @@ export async function POST(request: NextRequest) {
       })
 
       const duration = Date.now() - startTime
-      console.log(
-        `[Cable Purchase API] ✓ SUCCESS | TX: ${finalTransactionId} | Amount: ₦${apiPrice} | Duration: ${duration}ms`
-      )
 
       return NextResponse.json(
         {
@@ -289,9 +267,6 @@ export async function POST(request: NextRequest) {
 
     // Transaction failed from provider — refund and save failed transaction
     const resolved = resolveProviderError(gsubzResult)
-    console.log(
-      `[Cable Purchase API] ✗ FAILED | Provider response: ${gsubzResult.status} | Code: ${resolved.code}`
-    )
 
     await atomicRefundWallet(userId, apiPrice)
 

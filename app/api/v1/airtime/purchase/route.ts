@@ -25,13 +25,11 @@ import { normalizeNigerianPhone } from '@/lib/utils/phone'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = await logRequestWithBody(request)
-  console.log(`[Airtime API] → POST /api/v1/airtime/purchase | From: ${requestLog.ip}`)
 
   // Verify API key
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
     const duration = Date.now() - startTime
-    console.log(`[Airtime API] ✗ Auth failed: ${auth.error} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
@@ -45,7 +43,6 @@ export async function POST(request: NextRequest) {
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_AIRTIME_PURCHASE)
   if (!allowed) {
     const duration = Date.now() - startTime
-    console.log(`[Airtime API] ✗ Rate limit exceeded | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -54,7 +51,6 @@ export async function POST(request: NextRequest) {
 
   if (!permissions.includes('airtime') && !permissions.includes('all')) {
     const duration = Date.now() - startTime
-    console.log(`[Airtime API] ✗ Permission denied for user: ${userId} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: 'This key does not have airtime purchase permission', error_code: 'FORBIDDEN' },
       { status: 403 }
@@ -65,7 +61,6 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    console.log(`[Airtime API] ✗ Invalid JSON body`)
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
       { status: 400 }
@@ -75,7 +70,6 @@ export async function POST(request: NextRequest) {
   const { network, amount, phone } = body
 
   if (!network || !amount || !phone) {
-    console.log(`[Airtime API] ✗ Missing fields: network=${!!network}, amount=${!!amount}, phone=${!!phone}`)
     return NextResponse.json(
       { success: false, error: 'Missing required fields: network, amount, phone', error_code: 'MISSING_FIELDS' },
       { status: 400 }
@@ -85,7 +79,6 @@ export async function POST(request: NextRequest) {
   const VALID_NETWORKS = ['mtn', 'glo', 'airtel', 'etisalat']
   const networkLower = String(network).toLowerCase()
   if (!VALID_NETWORKS.includes(networkLower)) {
-    console.log(`[Airtime API] ✗ Invalid network: ${network}`)
     return NextResponse.json(
       { success: false, error: `Invalid network. Must be one of: ${VALID_NETWORKS.join(', ')}`, error_code: 'INVALID_NETWORK' },
       { status: 400 }
@@ -96,7 +89,6 @@ export async function POST(request: NextRequest) {
   // Bounty fix: no upper bound previously — ₦1,000,001 passed validation.
   // Cap per-transaction to bound the blast radius of a compromised key.
   if (isNaN(parsedAmount) || parsedAmount < 50 || parsedAmount > 100000) {
-    console.log(`[Airtime API] ✗ Invalid amount: ${amount}`)
     return NextResponse.json(
       { success: false, error: 'Amount must be between ₦50 and ₦100,000', error_code: 'INVALID_AMOUNT' },
       { status: 400 }
@@ -106,7 +98,6 @@ export async function POST(request: NextRequest) {
     // Validate phone (bounty Round 11: reject non-mobile prefixes like 00000000000)
     const phoneClean = normalizeNigerianPhone(String(phone))
     if (!phoneClean) {
-      console.log(`[Airtime API] ✗ Invalid phone: ${phone}`)
     return NextResponse.json(
       { success: false, error: 'Invalid Nigerian phone number', error_code: 'INVALID_PHONE' },
       { status: 400 }
@@ -132,7 +123,6 @@ export async function POST(request: NextRequest) {
 
     const walletBalance = parseFloat(profile.wallet_balance || '0')
     if (walletBalance < parsedAmount) {
-      console.log(`[Airtime API] ✗ Insufficient balance | Required: ₦${parsedAmount}, Available: ₦${walletBalance}`)
       return NextResponse.json(
         {
           success: false,
@@ -145,19 +135,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Airtime API] → Processing: ${networkLower} | ₦${parsedAmount} | Phone: ${phoneClean}`)
 
     // Deduct from wallet atomically
     const deduction = await atomicDeductWallet(userId, parsedAmount)
     if (!deduction.success) {
-      console.log(`[Airtime API] ✗ Wallet deduction failed: ${deduction.error}`)
       return NextResponse.json(
         { success: false, error: deduction.error || 'Failed to deduct wallet', error_code: 'INSUFFICIENT_BALANCE' },
         { status: 402 }
       )
     }
 
-    console.log(`[Airtime API] → Wallet deducted | New balance: ₦${deduction.newBalance}`)
 
     const transactionId = `V1-AIR-${crypto.randomUUID().replace(/-/g, '').toUpperCase().substring(0, 12)}`
     const balanceAfter = deduction.newBalance ?? walletBalance - parsedAmount
@@ -175,21 +162,18 @@ export async function POST(request: NextRequest) {
     // Type comes from buyAirtime's return — see lib/api/gsubz.ts for the full shape.
     let gsubzResult: Awaited<ReturnType<typeof buyAirtime>>
     try {
-      console.log(`[Airtime API] → Calling Gsubz | Service: ${serviceId}`)
       gsubzResult = await buyAirtime({
         serviceID: serviceId,
         amount: String(parsedAmount),
         phone: phoneClean,
         requestID: transactionId,
       })
-      console.log(`[Airtime API] → Gsubz response | Code: ${gsubzResult.code} | Status: ${gsubzResult.status}`)
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === 'AbortError'
 
       if (isTimeout) {
         // Timeout — provider may have processed it, so save as PENDING and verify in background.
         // The wallet was already deducted; if verification confirms failure, we refund.
-        console.log(`[Airtime API] ✗ Timeout | Saving PENDING | TX: ${transactionId}`)
 
         await saveTransaction({
           userId,
@@ -224,7 +208,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Non-timeout error — refund immediately
-      console.log(`[Airtime API] ✗ Gsubz API error: ${err}`)
       await atomicRefundWallet(userId, parsedAmount)
       return NextResponse.json(
         {
@@ -249,7 +232,6 @@ export async function POST(request: NextRequest) {
 
     // Refund if Gsubz failed
     if (!purchased) {
-      console.log(`[Airtime API] ✗ Purchase failed from Gsubz: ${gsubzResult.description}`)
       await atomicRefundWallet(userId, parsedAmount)
     }
 
@@ -271,9 +253,6 @@ export async function POST(request: NextRequest) {
 
     if (!purchased) {
       const resolved = resolveProviderError(gsubzResult, { refunded: true })
-      console.log(
-        `[Airtime API] ✗ Final: Purchase failed, wallet refunded | ${resolved.code} | Gsubz: ${resolved.providerMessage}`
-      )
       return NextResponse.json(
         {
           success: false,
@@ -288,7 +267,6 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Airtime API] ✓ SUCCESS | TX: ${transactionId} | User: ${userId} | ₦${parsedAmount} | ${duration}ms`)
     
     return NextResponse.json({
       success: true,

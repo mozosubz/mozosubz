@@ -59,7 +59,6 @@ export async function POST(
       )
     }
 
-    console.log('[CANCEL] Payment cancelled:', paymentReference)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[CANCEL] Exception:', error)

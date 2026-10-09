@@ -195,7 +195,6 @@ export default function RootLayout({
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                    console.log('[v0] ServiceWorker registration failed: ', err);
                   });
                 });
               }

@@ -1,3 +1,5 @@
+// Shared service catalog — safe for client import (display lists only).
+// Server-only guards live on gsubz.ts / gsubz-sdk.ts where the API key is used.
 export const CABLE_SERVICE_IDS = {
   dstv: 'dstv',
   gotv: 'gotv',

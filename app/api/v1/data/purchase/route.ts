@@ -21,13 +21,11 @@ import { normalizeNigerianPhone } from '@/lib/utils/phone'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Data Purchase API] → POST | From: ${requestLog.ip}`)
 
   // Verify API key
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
     const duration = Date.now() - startTime
-    console.log(`[Data Purchase API] ✗ Auth failed: ${auth.error} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
@@ -41,7 +39,6 @@ export async function POST(request: NextRequest) {
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_DATA_PURCHASE)
   if (!allowed) {
     const duration = Date.now() - startTime
-    console.log(`[Data Purchase API] ✗ Rate limit exceeded | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -50,7 +47,6 @@ export async function POST(request: NextRequest) {
 
   if (!permissions.includes('data') && !permissions.includes('all')) {
     const duration = Date.now() - startTime
-    console.log(`[Data Purchase API] ✗ Permission denied for user: ${userId} | ${duration}ms`)
     return NextResponse.json(
       { success: false, error: 'This key does not have data purchase permission', error_code: 'FORBIDDEN' },
       { status: 403 }
@@ -61,7 +57,6 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    console.log(`[Data Purchase API] ✗ Invalid JSON body`)
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
       { status: 400 }
@@ -71,7 +66,6 @@ export async function POST(request: NextRequest) {
   const { service, plan_id, phone } = body
 
   if (!service || !plan_id || !phone) {
-    console.log(`[Data Purchase API] ✗ Missing fields: service=${!!service}, plan_id=${!!plan_id}, phone=${!!phone}`)
     return NextResponse.json(
       { success: false, error: 'Missing required fields: service, plan_id, phone', error_code: 'MISSING_FIELDS' },
       { status: 400 }
@@ -81,7 +75,6 @@ export async function POST(request: NextRequest) {
   // Validate phone (bounty Round 11: reject non-mobile prefixes like 00000000000)
   const phoneClean = normalizeNigerianPhone(String(phone))
   if (!phoneClean) {
-    console.log(`[Data Purchase API] ✗ Invalid phone: ${phone}`)
     return NextResponse.json(
       { success: false, error: 'Invalid Nigerian phone number', error_code: 'INVALID_PHONE' },
       { status: 400 }
@@ -101,7 +94,6 @@ export async function POST(request: NextRequest) {
     )
 
     if (!matchedPlan) {
-      console.log(`[Data Purchase API] ✗ Invalid plan_id: ${plan_id}`)
       return NextResponse.json(
         { success: false, error: 'Invalid plan_id. Use the id from GET /api/v1/data/plans.', error_code: 'INVALID_PLAN' },
         { status: 404 }
@@ -125,7 +117,6 @@ export async function POST(request: NextRequest) {
     const rule = ruleRows?.[0] ?? null
 
     if (!rule) {
-      console.log(`[Data Purchase API] ✗ Plan not available for API users: ${matchedPlan.displayName}`)
       return NextResponse.json(
         { success: false, error: 'Plan not available for API users. Contact support.', error_code: 'PLAN_NOT_ENABLED' },
         { status: 404 }
@@ -145,7 +136,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!profile) {
-      console.log(`[Data Purchase API] ✗ User account not found: ${userId}`)
       return NextResponse.json(
         { success: false, error: 'User account not found', error_code: 'ACCOUNT_NOT_FOUND' },
         { status: 404 }
@@ -154,7 +144,6 @@ export async function POST(request: NextRequest) {
 
     const walletBalance = parseFloat(profile.wallet_balance || '0')
     if (walletBalance < apiPrice) {
-      console.log(`[Data Purchase API] ✗ Insufficient balance | Required: ₦${apiPrice}, Available: ₦${walletBalance}`)
       return NextResponse.json(
         {
           success: false,
@@ -167,19 +156,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Data Purchase API] → Processing: ${service} | ₦${apiPrice} | Phone: ${phoneClean}`)
 
     // Deduct from wallet atomically
     const deduction = await atomicDeductWallet(userId, apiPrice)
     if (!deduction.success) {
-      console.log(`[Data Purchase API] ✗ Wallet deduction failed: ${deduction.error}`)
       return NextResponse.json(
         { success: false, error: deduction.error || 'Failed to deduct wallet', error_code: 'INSUFFICIENT_BALANCE' },
         { status: 402 }
       )
     }
 
-    console.log(`[Data Purchase API] → Wallet deducted | New balance: ₦${deduction.newBalance}`)
 
     const transactionId = `V1-DATA-${crypto.randomUUID().replace(/-/g, '').toUpperCase().substring(0, 12)}`
     const balanceAfter = deduction.newBalance ?? walletBalance - apiPrice
@@ -189,21 +175,18 @@ export async function POST(request: NextRequest) {
     // returns more fields than this route used to describe (see lib/api/gsubz.ts).
     let gsubzResult: Awaited<ReturnType<typeof buyData>>
     try {
-      console.log(`[Data Purchase API] → Calling Gsubz | Service: ${service}`)
       gsubzResult = await buyData({
         serviceID: service,
         plan: plan_id,           // plan.value — what Gsubz expects
         phone: phoneClean,
         requestID: transactionId,
       })
-      console.log(`[Data Purchase API] → Gsubz response | Code: ${gsubzResult.code} | Status: ${gsubzResult.status}`)
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === 'AbortError'
 
       if (isTimeout) {
         // Timeout — provider may have processed it, so save as PENDING and verify in background.
         // The wallet was already deducted; if verification confirms failure, we refund.
-        console.log(`[Data Purchase API] ✗ Timeout | Saving PENDING | TX: ${transactionId}`)
 
         await saveTransaction({
           userId,
@@ -239,7 +222,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Non-timeout error — refund immediately
-      console.log(`[Data Purchase API] ✗ Gsubz API error: ${err}`)
       await atomicRefundWallet(userId, apiPrice)
       return NextResponse.json(
         {
@@ -266,7 +248,6 @@ export async function POST(request: NextRequest) {
 
     // If Gsubz failed, refund the user
     if (!purchased) {
-      console.log(`[Data Purchase API] ✗ Purchase failed from Gsubz: ${gsubzResult.description}`)
       await atomicRefundWallet(userId, apiPrice)
     }
 
@@ -289,9 +270,6 @@ export async function POST(request: NextRequest) {
 
     if (!purchased) {
       const resolved = resolveProviderError(gsubzResult, { refunded: true })
-      console.log(
-        `[Data Purchase API] ✗ Final: Purchase failed, wallet refunded | ${resolved.code} | Gsubz: ${resolved.providerMessage}`
-      )
       return NextResponse.json(
         {
           success: false,
@@ -306,7 +284,6 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Data Purchase API] ✓ SUCCESS | TX: ${transactionId} | User: ${userId} | ₦${apiPrice} | ${duration}ms`)
 
     return NextResponse.json({
       success: true,

@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
         // but we're providing a convenience method to clear by email
         lookupIdentifier = identifier.toLowerCase()
         
-        console.log("[v0] Clearing rate limit for email:", identifier)
       } catch (error) {
         console.error("[v0] Email lookup error:", error)
         return NextResponse.json(

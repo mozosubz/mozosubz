@@ -17,7 +17,6 @@ import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Bot Auth Request OTP] → POST | From: ${requestLog.ip}`)
 
   try {
     // SECURITY: Enforce rate limit (5 requests per minute per IP)
@@ -84,7 +83,6 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (profileError || !profile?.id) {
-      console.log(`[Bot Auth Request OTP] User not found: ${email}`)
       // Don't leak that user doesn't exist - for security
       return NextResponse.json(
         { success: true, message: 'If the email exists, you will receive an OTP' },
@@ -121,7 +119,6 @@ export async function POST(request: NextRequest) {
     await sendBotOtpEmail(email, firstName, platform, identifier, otp)
 
     const duration = Date.now() - startTime
-    console.log(`[Bot Auth Request OTP] ✓ OTP sent to ${email} | ${duration}ms`)
 
     return NextResponse.json(
       { success: true, message: 'OTP sent to your email' },

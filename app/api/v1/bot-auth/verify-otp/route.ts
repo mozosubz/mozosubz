@@ -22,7 +22,6 @@ import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Bot Auth Verify OTP] → POST | From: ${requestLog.ip}`)
 
   try {
     // SECURITY: Rate limit OTP verification attempts to prevent brute force (5 attempts/min per IP)
@@ -61,7 +60,6 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (profileError || !profile?.id) {
-      console.log(`[Bot Auth Verify OTP] User not found: ${email} | Error: ${profileError?.message}`)
       return NextResponse.json(
         { success: false, error: 'User not found', details: profileError?.message },
         { status: 404 }
@@ -71,7 +69,6 @@ export async function POST(request: NextRequest) {
     const userId = profile.id
 
     // 2. Verify OTP from database
-    console.log(`[Bot Auth Verify OTP] Checking OTP | userId: ${userId} | otp_code: ${otp_code} | platform: ${platform}`)
     const { data: otpRecords, error: otpFetchError } = await supabase
       .from('bot_otp')
       .select('*')
@@ -88,10 +85,8 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    console.log(`[Bot Auth Verify OTP] OTP record found:`, otpRecords ? 'YES' : 'NO')
 
     if (!otpRecords) {
-      console.log(`[Bot Auth Verify OTP] Invalid or expired OTP for user: ${userId}`)
       return NextResponse.json(
         { success: false, error: 'Invalid or expired OTP' },
         { status: 401 }
@@ -101,7 +96,6 @@ export async function POST(request: NextRequest) {
     // Check expiry
     const expiresAt = new Date(otpRecords.expires_at)
     if (expiresAt < new Date()) {
-      console.log(`[Bot Auth Verify OTP] OTP expired for user: ${userId}`)
       // Clean up expired OTP
       await supabase.from('bot_otp').delete().eq('id', otpRecords.id)
       return NextResponse.json(
@@ -155,10 +149,8 @@ export async function POST(request: NextRequest) {
 
     // If user already has a key, reuse it (don't generate new one)
     if (connectKeys) {
-      console.log(`[Bot Auth Verify OTP] ✓ User has existing key: ${connectKeys.key_preview}`)
     } else {
       // Only create new key if user has none - use standard key generation utilities
-      console.log(`[Bot Auth Verify OTP] User has no key, creating one for ${userId}`)
       
       // Generate new key using standard utility
       plainTextKey = generateConnectKey()
@@ -189,12 +181,10 @@ export async function POST(request: NextRequest) {
 
       connectKeys = newKey
       isNewKey = true
-      console.log(`[Bot Auth Verify OTP] ✓ New key created: ${keyPreview}`)
     }
 
     // 6. Profile already fetched at the start, use it for response
     const duration = Date.now() - startTime
-    console.log(`[Bot Auth Verify OTP] ✓ OTP verified and bot connection created for user: ${userId} | ${duration}ms`)
 
     const responseData: any = {
       success: true,

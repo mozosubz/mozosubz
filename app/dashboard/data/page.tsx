@@ -115,7 +115,7 @@ export default function DataPage() {
         .catch((err) => {
           setError(err.message || "Failed to load plans. Please try another option.")
           setPlans([])
-          console.error("[v0] Error fetching plans:", err)
+          console.error("Error fetching plans:", err)
         })
         .finally(() => setLoadingPlans(false))
     }

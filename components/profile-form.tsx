@@ -71,7 +71,7 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
 
       router.refresh()
     } catch (error: any) {
-      console.error("[v0] Error uploading avatar:", error)
+      console.error("Error uploading avatar:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to upload profile picture",
@@ -105,7 +105,7 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
 
       router.refresh()
     } catch (error: any) {
-      console.error("[v0] Error updating profile:", error)
+      console.error("Error updating profile:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to update profile",

@@ -5,6 +5,9 @@ import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { checkRateLimit } from "@/lib/utils/rate-limit"
 import { isDisposableEmail } from "@/lib/utils/disposable-email"
+import { after } from "next/server"
+import { sendLoginAlertEmail, sendWelcomeEmail } from "@/lib/email/server-flows"
+import { EMAIL_RX, RESERVED_USERNAMES, USERNAME_RX } from "@/lib/utils/profile-validation"
 
 export async function signOut() {
   const supabase = await createClient()
@@ -72,7 +75,7 @@ export async function signInAction(
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
     password: trimmedPassword,
   })
@@ -86,18 +89,14 @@ export async function signInAction(
   // manager on /dashboard picks up the SIGNED_OUT event and redirects them.
   supabase.auth.signOut({ scope: "others" }).catch(() => {})
 
+  // Security alert email runs after the response is sent — never blocks login.
+  const signedInUserId = data?.user?.id
+  if (signedInUserId) {
+    after(() => sendLoginAlertEmail(signedInUserId, normalizedEmail))
+  }
+
   return { success: true }
 }
-
-const USERNAME_RX = /^[a-z0-9_-]+$/
-const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// Well-known names that must never be user-facing handles.
-const RESERVED_USERNAMES = new Set([
-  "admin", "administrator", "support", "help", "helpdesk", "security",
-  "root", "staff", "team", "official", "mozosubz", "mozo", "moderator",
-  "billing", "payments", "api", "docs", "null", "undefined",
-])
 
 /**
  * Bounty fix: signup used to call supabase.auth.signUp directly from the
@@ -189,6 +188,50 @@ export async function signUpAction(input: {
 
   if (!data?.user?.id) {
     return { success: false, error: "Registration failed. Please try again." }
+  }
+
+  // Welcome email runs after the response is sent — never blocks signup.
+  const newUserId = data.user.id
+  after(() => sendWelcomeEmail(newUserId, email, fullName))
+
+  return { success: true }
+}
+
+/**
+ * Bounty fix: the forgot-password form called supabase.auth.resetPasswordForEmail
+ * directly from the browser. The request now runs server-side behind a rate
+ * limiter, and the response never reveals whether the email is registered.
+ */
+export async function requestPasswordReset(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  const normalizedEmail = String(email || "").trim().toLowerCase()
+  if (!EMAIL_RX.test(normalizedEmail)) {
+    return { success: false, error: "Enter a valid email address" }
+  }
+
+  const ip = await getClientIp()
+  const throttle = await checkRateLimit(`${ip}:${normalizedEmail}`, {
+    interval: 300000,
+    maxRequests: 5,
+    keyPrefix: "rl:auth:reset",
+  })
+  if (!throttle.allowed) {
+    return { success: false, error: "Too many attempts. Please wait a few minutes and try again." }
+  }
+
+  const supabase = await createClient()
+  const headerList = await headers()
+  const origin =
+    headerList.get("origin") ||
+    `${headerList.get("x-forwarded-proto") || "https"}://${headerList.get("x-forwarded-host") || "localhost:3000"}`
+
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+    redirectTo: `${origin}/reset-password`,
+  })
+  if (error) {
+    // Ops visibility only — the client always sees the generic success screen.
+    console.error("password reset request failed:", error.message)
   }
 
   return { success: true }

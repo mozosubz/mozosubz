@@ -34,7 +34,6 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    console.log('[QUERY] Verifying payment:', payment_reference)
 
     // Query Monnify directly for faster verification
     const result = await queryMonnifyTransaction(payment_reference)

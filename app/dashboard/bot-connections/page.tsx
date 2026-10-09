@@ -14,7 +14,7 @@ async function fetchBotConnections(userId: string) {
     .order("connected_at", { ascending: false })
 
   if (connectError) {
-    console.error("[Bot Connections] Failed to fetch connections:", connectError)
+    console.error("Failed to fetch connections:", connectError)
     return []
   }
 

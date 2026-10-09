@@ -14,14 +14,12 @@ import { logRequest } from '@/lib/api-logger'
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Bot Auth Connections] → GET | From: ${requestLog.ip}`)
 
   try {
     // Verify API key
     const auth = await verifyConnectKey(request)
     if (!auth.success) {
       const duration = Date.now() - startTime
-      console.log(`[Bot Auth Connections] ✗ Auth failed: ${auth.error} | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: auth.error },
         { status: auth.status ?? 401 }
@@ -47,7 +45,6 @@ export async function GET(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Bot Auth Connections] ✓ Retrieved ${connections?.length || 0} connections for user: ${userId} | ${duration}ms`)
 
     return NextResponse.json(
       {

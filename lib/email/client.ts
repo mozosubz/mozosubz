@@ -1,3 +1,4 @@
+import "server-only"
 /**
  * Resend email client.
  *
@@ -110,7 +111,6 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean
       return { sent: false, skipped: "no_api_key" }
     }
     
-    console.log("[email] sendEmail called | To:", opts.to, "| Subject:", opts.subject)
 
     if (!opts.to || !opts.to.includes("@")) {
       return { sent: false, skipped: "invalid_recipient" }
@@ -118,7 +118,6 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ sent: boolean
 
     const allowed = await shouldSend(opts.userId, opts.category)
     if (!allowed) {
-      console.log("[email] user opted out of", opts.category, "— skipping")
       return { sent: false, skipped: "opted_out" }
     }
 

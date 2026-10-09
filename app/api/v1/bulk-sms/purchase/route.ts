@@ -19,11 +19,9 @@ import { sendBulkSms } from '@/lib/actions/bulk-sms'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Bulk SMS API] → POST /api/v1/bulk-sms/purchase | From: ${requestLog.ip}`)
 
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
-    console.log(`[Bulk SMS API] ✗ Auth failed: ${auth.error} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
@@ -35,7 +33,6 @@ export async function POST(request: NextRequest) {
 
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_BULK_SMS_PURCHASE)
   if (!allowed) {
-    console.log(`[Bulk SMS API] ✗ Rate limit exceeded | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -43,7 +40,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!permissions.includes('bulk-sms') && !permissions.includes('all')) {
-    console.log(`[Bulk SMS API] ✗ Permission denied for user: ${userId} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'This key does not have bulk SMS permission', error_code: 'FORBIDDEN' },
       { status: 403 }
@@ -54,7 +50,6 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    console.log(`[Bulk SMS API] ✗ Invalid JSON body`)
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
       { status: 400 }
@@ -63,7 +58,6 @@ export async function POST(request: NextRequest) {
 
   const { from, to, msg } = body
   if (!from || !to || !msg) {
-    console.log(`[Bulk SMS API] ✗ Missing fields: from=${!!from}, to=${!!to}, msg=${!!msg}`)
     return NextResponse.json(
       { success: false, error: 'Missing required fields: from, to, msg', error_code: 'MISSING_FIELDS' },
       { status: 400 }
@@ -83,9 +77,6 @@ export async function POST(request: NextRequest) {
   const result = await sendBulkSms(formData, userId, true)
 
   if (result.success) {
-    console.log(
-      `[Bulk SMS API] ✓ SUCCESS | TX: ${result.transaction?.id} | User: ${userId} | ${Date.now() - startTime}ms`
-    )
     return NextResponse.json({
       success: true,
       transaction_id: result.transaction?.id,
@@ -100,7 +91,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (result.pending) {
-    console.log(`[Bulk SMS API] ⏳ PENDING | TX: ${result.transaction?.id}`)
     return NextResponse.json({
       success: false,
       pending: true,
@@ -110,7 +100,6 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  console.log(`[Bulk SMS API] ✗ FAILED | ${result.message}`)
   const status = result.errorCode === 'SERVICE_DISABLED' ? 503 : 400
   return NextResponse.json(
     {

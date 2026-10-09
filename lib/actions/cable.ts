@@ -192,7 +192,6 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
     // Email is sent automatically by saveTransaction()
 
     const resolved = resolveProviderError(response)
-    console.log(`[v0] Cable subscription failed | ${resolved.code} | provider: ${resolved.providerMessage}`)
 
     return {
       success: false,
@@ -213,7 +212,6 @@ export async function subscribeCable(formData: FormData, trustedUserId?: string)
     const isTimeout = error instanceof Error && error.name === "AbortError"
 
     if (isTimeout) {
-      console.log(`[v0] Cable purchase timed out — saving PENDING | requestID=${requestID}`)
 
       let pendingUserId: string | undefined = trustedUserId
       if (!pendingUserId) {
@@ -334,7 +332,6 @@ export async function fetchCablePlans(provider: string) {
       return plan
     })
 
-    console.log(`[v0] Enhanced cable plans with markup:`, enhancedPlans)
 
     return {
       success: true,

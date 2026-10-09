@@ -306,13 +306,6 @@ function RegisterFormContent() {
         throw new Error(result.error || "Registration failed")
       }
 
-      // Fire-and-forget welcome email — never block the redirect on this.
-      fetch("/api/email/welcome", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), fullName: fullName.trim() }),
-      }).catch(() => {})
-
       router.push(`/register-success?email=${encodeURIComponent(email.trim())}`)
     } catch (err: unknown) {
       const message =

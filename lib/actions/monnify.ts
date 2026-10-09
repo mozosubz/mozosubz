@@ -73,7 +73,6 @@ async function fetchMonnifyAccessTokenUncached(): Promise<string | null> {
   }
 
   const credentials = Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString('base64')
-  console.log('[MONNIFY] Authenticating')
 
   const response = await monnifyFetch(MONNIFY_AUTH_URL, {
     method: 'POST',
@@ -104,7 +103,6 @@ async function fetchMonnifyAccessTokenUncached(): Promise<string | null> {
       // Refresh 60s before real expiry to avoid edge-case rejections.
       expiresAt: Date.now() + (expiresInSec - 60) * 1000,
     }
-    console.log('[MONNIFY] Auth successful, cached for', expiresInSec - 60, 's')
     return token
   } catch (parseError) {
     console.error('[MONNIFY] Failed to parse auth response:', parseError)
@@ -159,7 +157,6 @@ export async function initTransaction(
   customerName: string
 ) {
   try {
-    console.log('[MONNIFY] Initializing transaction:', { amount, description, paymentReference, userId })
 
     // Get Monnify access token
     const accessToken = await getMonnifyAccessToken()
@@ -189,7 +186,6 @@ export async function initTransaction(
     })
 
     const responseText = await response.text()
-    console.log('[MONNIFY] Init-transaction response status:', response.status)
 
     if (!response.ok) {
       console.error('[MONNIFY] Init-transaction failed:', response.status, 'Response:', responseText)
@@ -220,7 +216,6 @@ export async function initTransaction(
         return { success: false, error: 'Transaction reference verification failed' }
       }
 
-      console.log('[MONNIFY] Transaction initialized successfully')
 
       return {
         success: true,
@@ -245,7 +240,6 @@ export async function initTransaction(
  */
 export async function initializePayment(transactionReference: string, bankCode?: string) {
   try {
-    console.log('[MONNIFY] Initializing payment for transaction:', transactionReference)
 
     // Get Monnify access token
     const accessToken = await getMonnifyAccessToken()
@@ -272,7 +266,6 @@ export async function initializePayment(transactionReference: string, bankCode?:
     })
 
     const responseText = await response.text()
-    console.log('[MONNIFY] Payment initialization response status:', response.status)
 
     if (!response.ok) {
       console.error('[MONNIFY] Payment initialization failed:', response.status)
@@ -288,7 +281,6 @@ export async function initializePayment(transactionReference: string, bankCode?:
       const data = JSON.parse(responseText) as any
       const responseBody = data.responseBody
 
-      console.log('[MONNIFY] Payment initialized successfully')
 
       return {
         success: true,

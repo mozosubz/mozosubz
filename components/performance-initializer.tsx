@@ -19,7 +19,6 @@ export function PerformanceInitializer() {
     
     // Log network type for debugging
     if (isSlowNetwork()) {
-      console.log('[v0] Slow network detected - optimizing content delivery')
       document.documentElement.setAttribute('data-slow-network', 'true')
     }
     

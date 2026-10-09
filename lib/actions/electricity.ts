@@ -160,7 +160,6 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     // Email is sent automatically by saveTransaction()
 
     const resolved = resolveProviderError(response)
-    console.log(`[v0] Electricity payment failed | ${resolved.code} | provider: ${resolved.providerMessage}`)
 
     return {
       success: false,
@@ -181,7 +180,6 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     const isTimeout = error instanceof Error && error.name === "AbortError"
 
     if (isTimeout) {
-      console.log(`[v0] Electricity payment timed out — saving PENDING | requestID=${requestID}`)
 
       let pendingUserId: string | undefined = trustedUserId
       if (!pendingUserId) {

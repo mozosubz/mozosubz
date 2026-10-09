@@ -12,7 +12,7 @@ export default async function WalletPage() {
     .limit(50)
 
   if (error) {
-    console.error('[v0] Error fetching monnify transactions:', error)
+    console.error('Error fetching monnify transactions:', error)
   }
 
   const pending = monnifyTransactions?.filter((t) => t.status === 'PENDING').length || 0

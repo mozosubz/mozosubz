@@ -10,7 +10,6 @@ export async function GET(
   try {
     const { payment_reference } = await params
 
-    console.log('[CHECKOUT API] Fetching transaction:', payment_reference)
 
     // Get transaction from DB
     const result = await getTransaction(payment_reference)
@@ -44,7 +43,6 @@ export async function POST(
     const body = await request.json()
     const { action } = body
 
-    console.log('[CHECKOUT API] Action:', action, 'Payment Reference:', payment_reference)
 
     if (action === 'verify') {
       // SECURITY: Require user authentication and ownership check

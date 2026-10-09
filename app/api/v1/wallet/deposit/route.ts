@@ -25,14 +25,12 @@ import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Wallet Deposit] → POST | From: ${requestLog.ip}`)
 
   try {
     // Verify API key
     const auth = await verifyConnectKey(request)
     if (!auth.success) {
       const duration = Date.now() - startTime
-      console.log(`[Wallet Deposit] ✗ Auth failed: ${auth.error} | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: auth.error },
         { status: auth.status ?? 401 }
@@ -45,7 +43,6 @@ export async function POST(request: NextRequest) {
     const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_DATA_PLANS)
     if (!allowed) {
       const duration = Date.now() - startTime
-      console.log(`[Wallet Deposit] ✗ Rate limit exceeded | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
         { status: 429, headers: { 'Retry-After': '60' } }
@@ -63,7 +60,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[Wallet Deposit] Creating deposit transaction')
 
     // Pre-warm Monnify token
     void getMonnifyAccessToken()
@@ -101,7 +97,6 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString()
 
     // Create transaction directly with admin client (can't use createTransaction function as it requires session)
-    console.log('[Wallet Deposit] Creating monnify_transactions row')
     const { data: txData, error: txInsertError } = await supabase
       .from('monnify_transactions')
       .insert({
@@ -165,7 +160,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Update transaction with Monnify data using admin client directly
-    console.log('[Wallet Deposit] Updating monnify_transactions with payment details')
     const { data: updated, error: updateError } = await supabase
       .from('monnify_transactions')
       .update({
@@ -191,7 +185,6 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Wallet Deposit] ✓ Deposit initialized for user: ${userId} | Amount: ₦${numAmount} | ${duration}ms`)
 
     return NextResponse.json(
       {

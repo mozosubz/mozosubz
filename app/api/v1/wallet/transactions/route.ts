@@ -18,14 +18,12 @@ import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Wallet Transactions] → GET | From: ${requestLog.ip}`)
 
   try {
     // Verify API key
     const auth = await verifyConnectKey(request)
     if (!auth.success) {
       const duration = Date.now() - startTime
-      console.log(`[Wallet Transactions] ✗ Auth failed: ${auth.error} | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: auth.error },
         { status: auth.status ?? 401 }
@@ -38,7 +36,6 @@ export async function GET(request: NextRequest) {
     const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_DATA_PLANS)
     if (!allowed) {
       const duration = Date.now() - startTime
-      console.log(`[Wallet Transactions] ✗ Rate limit exceeded | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: 'Rate limit exceeded (50 requests per minute)' },
         { status: 429, headers: { 'Retry-After': '60' } }
@@ -87,7 +84,6 @@ export async function GET(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Wallet Transactions] ✓ Retrieved ${transactions?.length || 0}/${count} transactions for user: ${userId} | ${duration}ms`)
 
     return NextResponse.json(
       {

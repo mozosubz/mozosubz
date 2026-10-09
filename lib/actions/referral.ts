@@ -14,7 +14,6 @@ export async function createReferralOnSignupAction(
   try {
     const trimmedUsername = referrerUsername.trim().toLowerCase()
 
-    console.log(`[REFERRAL] Looking up username: ${trimmedUsername} for referee: ${refereeId}`)
 
     // Step 1: Find referrer by username (using server client - bypasses RLS)
     const { data: referrers, error: lookupError } = await supabase
@@ -24,12 +23,10 @@ export async function createReferralOnSignupAction(
       .limit(1)
 
     if (lookupError) {
-      console.log(`[REFERRAL] Lookup error for username ${trimmedUsername}:`, lookupError.message)
       return { success: false }
     }
 
     if (!referrers || referrers.length === 0) {
-      console.log(`[REFERRAL] Username not found: ${trimmedUsername}`)
       return { success: false }
     }
 
@@ -37,7 +34,6 @@ export async function createReferralOnSignupAction(
 
     // Step 2: Prevent self-referral
     if (referrerId === refereeId) {
-      console.log(`[REFERRAL] Self-referral blocked`)
       return { success: false }
     }
 
@@ -49,7 +45,6 @@ export async function createReferralOnSignupAction(
       .limit(1)
 
     if (existing && existing.length > 0) {
-      console.log(`[REFERRAL] Referee already referred`)
       return { success: false }
     }
 
@@ -79,7 +74,6 @@ export async function createReferralOnSignupAction(
       return { success: false }
     }
 
-    console.log(`[REFERRAL] Referral created: ${referrerId} -> ${refereeId}`)
     return { success: true }
   } catch (error) {
     console.error(`[REFERRAL] Exception in createReferralOnSignupAction:`, error)

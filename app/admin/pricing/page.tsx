@@ -197,7 +197,7 @@ export default function PricingPage() {
       const data = await response.json()
       setGsubzPlans(data.plans || [])
     } catch (error) {
-      console.error('[v0] Error fetching plans:', error)
+      console.error('Error fetching plans:', error)
       setGsubzPlans([])
     } finally {
       setLoadingGsubz(false)

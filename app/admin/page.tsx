@@ -224,7 +224,7 @@ export default async function AdminDashboard() {
       </div>
     )
   } catch (error) {
-    console.error('[v0] Admin Dashboard Error:', error)
+    console.error('Admin Dashboard Error:', error)
     return (
       <div className="admin-page">
         <div className="empty-state">

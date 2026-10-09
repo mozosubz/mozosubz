@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[API] Initializing transaction:', { amount, description, paymentReference })
 
     // Get authenticated user from session
     const supabase = await createServerClient()

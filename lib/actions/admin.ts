@@ -442,7 +442,6 @@ export async function getTransactions(
 
     const totalPages = Math.ceil((count || 0) / limit)
 
-    console.log('[v0] getTransactions - Real data:', { totalCount: count, txReturned: transactions.length, page, totalPages })
 
     return { transactions, count: count || 0, error: null, totalPages }
   } catch (err) {

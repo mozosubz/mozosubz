@@ -1,3 +1,4 @@
+import "server-only"
 import Gsubz, { GsubzError, type TransactionResponse } from "gsubz-sdk"
 
 /**

@@ -1,3 +1,4 @@
+import "server-only"
 import { NextRequest, NextResponse } from 'next/server'
 import { logRequestWithBody, logResponse, formatLog } from './api-logger'
 
@@ -13,14 +14,12 @@ export function withApiLogging(handler: ApiHandler, endpointName: string) {
     const requestLog = await logRequestWithBody(request)
 
     try {
-      console.log(`[${endpointName}] → ${request.method} ${request.nextUrl.pathname}`)
       
       const response = await handler(request)
       
       const duration = Date.now() - startTime
       const responseLog = logResponse(response.status, duration, 0)
       
-      console.log(formatLog(requestLog, responseLog))
       
       return response
     } catch (err) {

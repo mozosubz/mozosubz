@@ -14,14 +14,12 @@ import { logRequest } from '@/lib/api-logger'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Bot Auth Disconnect] → POST | From: ${requestLog.ip}`)
 
   try {
     // Verify API key
     const auth = await verifyConnectKey(request)
     if (!auth.success) {
       const duration = Date.now() - startTime
-      console.log(`[Bot Auth Disconnect] ✗ Auth failed: ${auth.error} | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: auth.error },
         { status: auth.status ?? 401 }
@@ -57,7 +55,6 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Bot Auth Disconnect] ✓ Platform disconnected: ${platform} for user: ${userId} | ${duration}ms`)
 
     return NextResponse.json(
       { success: true, message: `${platform} disconnected successfully` },
@@ -84,14 +81,12 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Bot Auth Disconnect] → DELETE | From: ${requestLog.ip}`)
 
   try {
     // Verify API key
     const auth = await verifyConnectKey(request)
     if (!auth.success) {
       const duration = Date.now() - startTime
-      console.log(`[Bot Auth Disconnect] ✗ Auth failed: ${auth.error} | ${duration}ms`)
       return NextResponse.json(
         { success: false, error: auth.error },
         { status: auth.status ?? 401 }
@@ -128,7 +123,6 @@ export async function DELETE(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log(`[Bot Auth Disconnect] ✓ Platform unlinked: ${platform} for user: ${userId} | ${duration}ms`)
 
     return NextResponse.json(
       { success: true, message: `${platform} account unlinked successfully` },

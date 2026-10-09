@@ -83,7 +83,7 @@ export function ResetPasswordClient() {
 
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
           if (exchangeError) {
-            console.error("[v0] Recovery code exchange failed:", exchangeError.message)
+            console.error("Recovery code exchange failed:", exchangeError.message)
             setError("Invalid or expired recovery link. Please request a new one.")
             setLinkInvalid(true)
             return
@@ -91,7 +91,7 @@ export function ResetPasswordClient() {
           setSessionReady(true)
           return
         } catch (err) {
-          console.error("[v0] Recovery code exchange error:", err)
+          console.error("Recovery code exchange error:", err)
           setError("Failed to verify recovery link. Please try again.")
           setLinkInvalid(true)
           return

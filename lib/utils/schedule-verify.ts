@@ -43,5 +43,4 @@ export function scheduleVerifyPending(payload: {
     console.error("[v0] scheduleVerifyPending fetch failed (swallowed):", err)
   })
 
-  console.log(`[v0] scheduleVerifyPending queued | requestID=${payload.requestID}`)
 }

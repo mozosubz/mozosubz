@@ -1,3 +1,4 @@
+import "server-only"
 /**
  * Resolves the recipient (from auth.users/profiles) and fires the transaction
  * receipt email. Intentionally non-throwing so callers can fire-and-forget.
@@ -83,11 +84,9 @@ export async function sendTransactionEmail(input: Input): Promise<void> {
     // Only send on SUCCESS. Failures auto-refund silently — we don't want to
     // spam the user with every provider hiccup that was fixed by a refund.
     if (input.status !== "SUCCESS") {
-      console.log("[email] Skipping non-SUCCESS email | Status:", input.status)
       return
     }
 
-    console.log("[email] sendTransactionEmail starting | UserId:", input.userId, "| Category:", input.category)
 
     const recipient = await resolveRecipient(input.userId)
     if (!recipient) {
@@ -95,10 +94,8 @@ export async function sendTransactionEmail(input: Input): Promise<void> {
       return
     }
 
-    console.log("[email] Resolved recipient:", recipient.email)
 
   const base = getAppUrl()
-  console.log("[email] Building email template | Base URL:", base)
   
   const { subject, html } = transactionEmail({
     firstName: recipient.firstName,
@@ -114,7 +111,6 @@ export async function sendTransactionEmail(input: Input): Promise<void> {
     extras: input.extras,
   })
 
-  console.log("[email] Sending email | To:", recipient.email, "| Subject:", subject)
 
   const result = await sendEmail({
     to: recipient.email,
@@ -125,7 +121,6 @@ export async function sendTransactionEmail(input: Input): Promise<void> {
     tag: `tx_${input.category.toLowerCase()}`,
   })
 
-  console.log("[email] Email send result:", result)
   } catch (err) {
     console.error("[email] sendTransactionEmail error:", err)
   }

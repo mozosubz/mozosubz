@@ -258,15 +258,6 @@ export async function updateTransactionWithMonnifyData(
   try {
     const supabase = await createServerClient()
     
-    console.log('[TRANSACTION_UPDATE] Starting update for payment_reference:', paymentReference)
-    console.log('[TRANSACTION_UPDATE] Fields to update:', {
-      transaction_reference: data.transactionReference,
-      account_number: data.accountNumber,
-      bank_name: data.bankName,
-      account_name: data.accountName,
-      bank_code: data.bankCode,
-      ussd_code: data.ussdCode,
-    })
     
     // FIX 2: Use .select() to get back the updated row and verify the update matched
     const { data: updated, error } = await supabase
@@ -296,12 +287,6 @@ export async function updateTransactionWithMonnifyData(
       return { success: false, error: 'Update matched 0 rows - payment_reference not found' }
     }
 
-    console.log('[TRANSACTION_UPDATE] ✅ Successfully updated', {
-      payment_reference: paymentReference,
-      transaction_reference: updated.transaction_reference,
-      account_number: updated.account_number,
-      bank_name: updated.bank_name,
-    })
 
     return { success: true, updated }
   } catch (error) {
@@ -340,7 +325,6 @@ export async function verifyAndCreditPayment(paymentReference: string) {
 
     // CRITICAL IDEMPOTENCY CHECK: If already marked SUCCESS, skip entirely
     if (transaction.status === 'SUCCESS') {
-      console.log('[TRANSACTION] Already credited (status=SUCCESS):', paymentReference)
       return { success: true, credited: true, alreadyProcessed: true }
     }
 
@@ -359,7 +343,6 @@ export async function verifyAndCreditPayment(paymentReference: string) {
     }
 
     if (!updatedRows || updatedRows.length === 0) {
-      console.log('[TRANSACTION] Race condition detected - transaction was claimed by another process:', paymentReference)
       return { success: true, credited: true, alreadyProcessed: true }
     }
 
@@ -386,14 +369,6 @@ export async function verifyAndCreditPayment(paymentReference: string) {
     const balanceAfter = Number(newBalance)
     const balanceBefore = Number((balanceAfter - creditAmount).toFixed(2))
 
-    console.log('[TRANSACTION] Crediting wallet:', {
-      paymentReference,
-      depositAmount: transaction.amount,
-      processingFee: transaction.processing_fee || 0,
-      netAmount: creditAmount,
-      balanceBefore,
-      balanceAfter,
-    })
 
     // Log transaction to transactions table with full schema
     // Check if profile exists (if they have a wallet balance, they're a valid user)
@@ -443,11 +418,6 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       console.warn('[TRANSACTION] Profile not found, skipping transaction log:', transaction.user_id)
     }
 
-    console.log('[TRANSACTION] Payment credited successfully:', {
-      paymentReference,
-      amount: transaction.amount,
-      newBalance: balanceAfter,
-    })
 
     // Fire-and-forget receipt. This path only runs for NEWLY credited deposits
     // (the idempotency check above returns early for duplicates), so the email
@@ -514,7 +484,6 @@ export async function queryMonnifyTransaction(paymentReference: string, useAdmin
     )
 
     const responseText = await response.text()
-    console.log('[MONNIFY_QUERY] Response status:', response.status)
 
     if (!response.ok) {
       console.error('[MONNIFY_QUERY] Query failed:', response.status, responseText)
@@ -550,5 +519,43 @@ export async function queryMonnifyTransaction(paymentReference: string, useAdmin
   } catch (error) {
     console.error('[MONNIFY_QUERY] Exception:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Get one of the current user's transactions by row id for the receipt page.
+ * SECURITY: the session user is resolved server-side and the query is scoped
+ * to their user_id — the client never supplies or spoofs ownership.
+ */
+export async function getTransactionById(id: string) {
+  try {
+    const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRx.test(id)) {
+      return { success: false as const, error: 'Invalid transaction id' }
+    }
+
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false as const, error: 'Not authenticated' }
+    }
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (error) {
+      return { success: false as const, error: 'Failed to load transaction' }
+    }
+    if (!data) {
+      return { success: false as const, error: 'Transaction not found' }
+    }
+
+    return { success: true as const, transaction: data }
+  } catch {
+    return { success: false as const, error: 'Failed to load transaction' }
   }
 }

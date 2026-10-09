@@ -1,3 +1,4 @@
+import "server-only"
 /**
  * Shared markup resolution for every service.
  *

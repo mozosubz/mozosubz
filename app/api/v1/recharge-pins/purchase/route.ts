@@ -21,11 +21,9 @@ import { generateRechargePins } from '@/lib/actions/recharge-pins'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestLog = logRequest(request)
-  console.log(`[Recharge Pins API] → POST /api/v1/recharge-pins/purchase | From: ${requestLog.ip}`)
 
   const auth = await verifyConnectKey(request)
   if (!auth.success) {
-    console.log(`[Recharge Pins API] ✗ Auth failed: ${auth.error} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: auth.error, error_code: 'UNAUTHORIZED' },
       { status: auth.status || 401 }
@@ -37,7 +35,6 @@ export async function POST(request: NextRequest) {
 
   const { allowed, remaining } = await checkRateLimit(userId, RATE_LIMIT_CONFIG.V1_RECHARGE_PINS_PURCHASE)
   if (!allowed) {
-    console.log(`[Recharge Pins API] ✗ Rate limit exceeded | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded (50 requests per minute)', error_code: 'RATE_LIMITED' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -45,7 +42,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!permissions.includes('recharge-pins') && !permissions.includes('all')) {
-    console.log(`[Recharge Pins API] ✗ Permission denied for user: ${userId} | ${Date.now() - startTime}ms`)
     return NextResponse.json(
       { success: false, error: 'This key does not have recharge pin permission', error_code: 'FORBIDDEN' },
       { status: 403 }
@@ -56,7 +52,6 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    console.log(`[Recharge Pins API] ✗ Invalid JSON body`)
     return NextResponse.json(
       { success: false, error: 'Invalid JSON body', error_code: 'INVALID_REQUEST' },
       { status: 400 }
@@ -65,7 +60,6 @@ export async function POST(request: NextRequest) {
 
   const { network, value, number } = body
   if (!network || value === undefined || value === null || number === undefined || number === null) {
-    console.log(`[Recharge Pins API] ✗ Missing fields: network=${!!network}, value=${value}, number=${number}`)
     return NextResponse.json(
       { success: false, error: 'Missing required fields: network, value, number', error_code: 'MISSING_FIELDS' },
       { status: 400 }
@@ -80,9 +74,6 @@ export async function POST(request: NextRequest) {
   )
 
   if (result.success) {
-    console.log(
-      `[Recharge Pins API] ✓ SUCCESS | TX: ${result.transactionId} | User: ${userId} | ${Date.now() - startTime}ms`
-    )
     return NextResponse.json({
       success: true,
       transaction_id: result.transactionId,
@@ -97,7 +88,6 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  console.log(`[Recharge Pins API] ✗ FAILED | ${result.error}`)
   const status = result.errorCode === 'SERVICE_DISABLED' ? 503 : 400
   return NextResponse.json(
     { success: false, error: result.error, error_code: result.errorCode || 'PURCHASE_FAILED' },

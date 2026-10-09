@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[API] Initializing payment for:', transactionReference, 'Amount:', amount)
 
     // Call the initializePayment function
     const result = await initializePayment(transactionReference)
