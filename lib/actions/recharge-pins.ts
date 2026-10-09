@@ -48,7 +48,10 @@ export async function generateRechargePins(
     // works for both UI users and trusted v1 callers without a Supabase
     // session cookie.
     const admin = createAdminClient()
-    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance, email").eq("id", userId).single()
+    // Trusted (v1) callers have no session, so fall back to the profile email
+    // for the receipt rather than sending to a placeholder recipient.
+    if (!userEmail) userEmail = (profile?.email as string | undefined) || null
 
     const pinVal = Number(data.value)
     const pinQty = Number(data.number)

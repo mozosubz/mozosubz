@@ -44,8 +44,12 @@ export async function listEsimPackages(locationCode: string, raw = false): Promi
  * Buy an eSIM. Activation is often asynchronous, so this returns as soon as the
  * order is placed and the client polls `getEsimOrder` for the QR code rather
  * than holding the request open.
+ *
+ * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
+ *   authenticated v1 endpoint), the user is treated as authenticated as that
+ *   id and the cookie/session lookup is skipped.
  */
-export async function purchaseEsim(formData: FormData) {
+export async function purchaseEsim(formData: FormData, trustedUserId?: string) {
   const packageCode = String(formData.get("packageCode") || "").trim()
   const locationCode = String(formData.get("locationCode") || "").trim()
   const requestID = `ESIM${Date.now()}${Math.floor(Math.random() * 1000)}`
@@ -55,11 +59,15 @@ export async function purchaseEsim(formData: FormData) {
   }
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+    let userId = trustedUserId
+    if (!userId) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+      userId = user.id
+    }
 
     const gsubz = getGsubz()
 
@@ -81,7 +89,7 @@ export async function purchaseEsim(formData: FormData) {
     const price = await applyServiceMarkup("esim", pkg.name, basePrice)
 
     const admin = createAdminClient()
-    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
     const balanceBefore = Number(profile.wallet_balance)
@@ -91,7 +99,7 @@ export async function purchaseEsim(formData: FormData) {
 
     return finalizeGsubzPurchase(
       {
-        userId: user.id,
+        userId,
         category: "ESIM",
         serviceId: packageCode,
         serviceName: pkg.name,

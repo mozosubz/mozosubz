@@ -26,7 +26,12 @@ export async function listSocialServices(raw = false): Promise<SocialService[]> 
   }
 }
 
-export async function purchaseSocial(formData: FormData) {
+/**
+ * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
+ *   authenticated v1 endpoint), the user is treated as authenticated as that
+ *   id and the cookie/session lookup is skipped.
+ */
+export async function purchaseSocial(formData: FormData, trustedUserId?: string) {
   const serviceValue = String(formData.get("service") || "").trim()
   const link = String(formData.get("link") || "").trim()
   const quantity = Number.parseInt(String(formData.get("quantity") || "0"), 10)
@@ -38,11 +43,15 @@ export async function purchaseSocial(formData: FormData) {
   }
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+    let userId = trustedUserId
+    if (!userId) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+      userId = user.id
+    }
 
     // Re-resolve the service from the live catalogue so min/max and price are
     // always the provider's current values.
@@ -67,7 +76,7 @@ export async function purchaseSocial(formData: FormData) {
     const price = Math.round(markedUpUnit * quantity * 100) / 100
 
     const admin = createAdminClient()
-    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
     const balanceBefore = Number(profile.wallet_balance)
@@ -80,7 +89,7 @@ export async function purchaseSocial(formData: FormData) {
 
     return finalizeGsubzPurchase(
       {
-        userId: user.id,
+        userId,
         category: "SOCIAL",
         serviceId: String(service.value),
         serviceName: service.display_name,

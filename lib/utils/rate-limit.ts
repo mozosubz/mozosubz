@@ -121,6 +121,11 @@ export const RATE_LIMIT_CONFIG = {
   V1_AIRTIME_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:airtime:purchase" },
   V1_CABLE_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:cable:purchase" },
   V1_ELECTRICITY_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:electricity:purchase" },
+  V1_EXAM_PINS_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:exam-pins:purchase" },
+  V1_ESIM_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:esim:purchase" },
+  V1_SOCIAL_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:social:purchase" },
+  V1_BULK_SMS_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:bulk-sms:purchase" },
+  V1_RECHARGE_PINS_PURCHASE: { interval: 60000, maxRequests: 50, keyPrefix: "rl:v1:recharge-pins:purchase" },
 }
 
 /**

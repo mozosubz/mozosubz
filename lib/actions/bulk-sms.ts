@@ -25,7 +25,12 @@ function parseRecipients(raw: string): string[] {
     .filter(Boolean)
 }
 
-export async function sendBulkSms(formData: FormData) {
+/**
+ * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
+ *   authenticated v1 endpoint), the user is treated as authenticated as that
+ *   id and the cookie/session lookup is skipped.
+ */
+export async function sendBulkSms(formData: FormData, trustedUserId?: string) {
   const from = String(formData.get("from") || "").trim()
   const toRaw = String(formData.get("to") || "")
   const msg = String(formData.get("msg") || "").trim()
@@ -49,14 +54,18 @@ export async function sendBulkSms(formData: FormData) {
   const basePrice = recipients.length * pages * SMS_UNIT_PRICE
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+    let userId = trustedUserId
+    if (!userId) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+      userId = user.id
+    }
 
     const admin = createAdminClient()
-    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
     const price = await applyServiceMarkup("bulk-sms", "Bulk SMS", basePrice)
@@ -70,7 +79,7 @@ export async function sendBulkSms(formData: FormData) {
 
     return finalizeGsubzPurchase(
       {
-        userId: user.id,
+        userId,
         category: "BULK_SMS",
         serviceId: "bulk-sms",
         serviceName: "Bulk SMS",

@@ -55,7 +55,17 @@ export async function POST(request: NextRequest) {
     key_hash: keyHash,
     key_preview: keyPreview,
     is_active: true,
-    permissions: ['data', 'airtime'],
+    permissions: [
+      'data',
+      'airtime',
+      'cable',
+      'electricity',
+      'exam-pins',
+      'esim',
+      'social',
+      'bulk-sms',
+      'recharge-pins',
+    ],
     created_at: new Date().toISOString(),
   })
 

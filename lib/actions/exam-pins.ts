@@ -46,8 +46,12 @@ export async function getExamPinPrices(raw = false): Promise<ExamBoardOption[]> 
  * The pin text comes back in the provider's `api_response` and is returned to
  * the caller so the UI can show it immediately; it is also stored on the
  * transaction row for later retrieval.
+ *
+ * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
+ *   authenticated v1 endpoint), the user is treated as authenticated as that
+ *   id and the cookie/session lookup is skipped.
  */
-export async function purchaseExamPin(formData: FormData) {
+export async function purchaseExamPin(formData: FormData, trustedUserId?: string) {
   const board = String(formData.get("board") || "").toLowerCase()
   const phone = String(formData.get("phone") || "").trim()
   const requestID = `EXAM${Date.now()}${Math.floor(Math.random() * 1000)}`
@@ -57,11 +61,15 @@ export async function purchaseExamPin(formData: FormData) {
   if (!isValidPhone(phone)) return { success: false, message: "Enter a valid phone number" }
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+    let userId = trustedUserId
+    if (!userId) {
+      const supabase = await createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return { success: false, message: "You must be logged in to make a purchase" }
+      userId = user.id
+    }
 
     const gsubz = getGsubz()
 
@@ -80,7 +88,7 @@ export async function purchaseExamPin(formData: FormData) {
     const price = await applyServiceMarkup("exam-pins", config.label, basePrice)
 
     const admin = createAdminClient()
-    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", user.id).single()
+    const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
     const balanceBefore = Number(profile.wallet_balance)
@@ -92,7 +100,7 @@ export async function purchaseExamPin(formData: FormData) {
 
     return finalizeGsubzPurchase(
       {
-        userId: user.id,
+        userId,
         category: "EXAM_PINS",
         serviceId: config.serviceId,
         serviceName: config.label,

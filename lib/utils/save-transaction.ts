@@ -113,8 +113,9 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
     
     const extras: Array<{ label: string; value: string }> = []
     
-    // Add recipient/smartcard info
-    if (payload.phone) {
+    // Add recipient/smartcard info. Bulk SMS stores a recipient *count* in
+    // `phone`, so it is described by the metadata rows below instead.
+    if (payload.phone && payload.category !== 'BULK_SMS') {
       const recipientLabel = payload.category === 'CABLE' ? 'Smartcard' : 'Recipient'
       extras.push({ label: recipientLabel, value: payload.phone })
     }
@@ -131,6 +132,30 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       : null
     if (receiptToken) {
       extras.push({ label: 'Electricity Token', value: receiptToken })
+    }
+
+    // Service-specific details so the receipt reads like the dashboard receipt
+    // for every category (eSIM country, SMS sender, social link, exam pin).
+    const meta = payload.metadata || {}
+    switch (payload.category) {
+      case 'EXAM_PINS':
+        if (meta.board) extras.push({ label: 'Exam Board', value: String(meta.board).toUpperCase() })
+        if (meta.pin) extras.push({ label: 'Result Checker Pin', value: String(meta.pin) })
+        break
+      case 'ESIM':
+        if (meta.country) extras.push({ label: 'Country', value: String(meta.country) })
+        if (meta.packageCode) extras.push({ label: 'Package Code', value: String(meta.packageCode) })
+        break
+      case 'BULK_SMS':
+        if (meta.sender) extras.push({ label: 'Sender ID', value: String(meta.sender) })
+        if (meta.recipients) extras.push({ label: 'Recipients', value: String(meta.recipients) })
+        if (meta.pages) extras.push({ label: 'Pages', value: String(meta.pages) })
+        break
+      case 'SOCIAL':
+        if (meta.service) extras.push({ label: 'Service', value: String(meta.service) })
+        if (meta.quantity) extras.push({ label: 'Quantity', value: String(meta.quantity) })
+        if (meta.link) extras.push({ label: 'Link', value: String(meta.link) })
+        break
     }
 
     // Add balance info
