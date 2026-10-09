@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, LayoutGrid, Wallet, History, User, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Logo } from "./logo"
 
 interface DesktopSidebarProps {
   isOpen: boolean
@@ -50,11 +51,11 @@ export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
         )}
       >
         {/* Close button - mobile only */}
-        <div className="md:hidden p-4 border-b border-slate-200 flex items-center justify-between">
-          <span className="font-bold text-lg text-slate-900">Mozosubz</span>
+        <div className="md:hidden p-4 border-b border-[var(--border)] flex items-center justify-between">
+          <Logo />
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg transition"
+            className="p-2 rounded-lg text-[var(--text-2)] hover:bg-[var(--surface)] transition"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
@@ -62,12 +63,9 @@ export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
         </div>
 
         {/* Logo - desktop only */}
-        <div className="hidden md:block p-6 border-b border-slate-200">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
-              M
-            </div>
-            <span className="font-bold text-lg text-slate-900">Mozosubz</span>
+        <div className="hidden md:block p-6 border-b border-[var(--border)]">
+          <Link href="/dashboard" aria-label="Mozosubz home">
+            <Logo />
           </Link>
         </div>
 
@@ -80,11 +78,12 @@ export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
                 key={tab.name}
                 href={tab.href}
                 onClick={onClose}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200",
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200",
                   active
-                    ? "bg-blue-100 text-blue-600"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "bg-[var(--primary-light)] text-[var(--primary)] font-semibold"
+                    : "text-[var(--text-2)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
                 )}
               >
                 <tab.icon className="w-5 h-5" />
@@ -95,7 +94,7 @@ export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 text-xs text-slate-500">
+        <div className="p-4 border-t border-[var(--border)] text-xs text-[var(--text-3)]">
           <p>© 2026 Mozosubz</p>
         </div>
       </aside>

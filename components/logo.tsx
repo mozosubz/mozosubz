@@ -23,8 +23,8 @@ export function Logo() {
           <path d="M44 68L44 36L57 52L70 36L70 68" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </svg>
       </div>
-      {/* Logo wordmark - Space Grotesk 700, color #0b1120 */}
-      <span className="font-[var(--font-space-grotesk)] text-[20px] font-bold text-[#0b1120] tracking-[-0.5px]">
+      {/* Logo wordmark - Space Grotesk 700, themed so it stays legible in dark mode */}
+      <span className="font-[var(--font-space-grotesk)] text-[20px] font-bold text-[var(--text-1)] tracking-[-0.5px]">
         mozosubz
       </span>
     </div>

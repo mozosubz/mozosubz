@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, AlertCircle, Check, MessageSquare, Info } from 'lucide-react'
-import { sendBulkSms } from '@/lib/actions/bulk-sms'
+import { sendBulkSms, getBulkSmsRate } from '@/lib/actions/bulk-sms'
 import { getWalletBalance } from '@/lib/actions/wallet'
 import { ConfirmSheet } from '@/components/confirm-sheet'
 import { ProcessingOverlay } from '@/components/processing-overlay'
 
-const SMS_UNIT_PRICE = 4
-const PAGE_CHARS = 160
-const MAX_MESSAGE_CHARS = 905
+// Fallbacks used only until the server rate loads.
+const DEFAULT_UNIT_PRICE = 4
+const DEFAULT_PAGE_CHARS = 160
+const DEFAULT_MAX_MESSAGE_CHARS = 905
 
 function parseRecipients(raw: string): string[] {
   return raw
@@ -24,6 +25,9 @@ export default function BulkSmsPage() {
   const [recipients, setRecipients] = useState('')
   const [message, setMessage] = useState('')
   const [balance, setBalance] = useState<number | null>(null)
+  const [unitPrice, setUnitPrice] = useState(DEFAULT_UNIT_PRICE)
+  const [pageChars, setPageChars] = useState(DEFAULT_PAGE_CHARS)
+  const [maxMessageChars, setMaxMessageChars] = useState(DEFAULT_MAX_MESSAGE_CHARS)
 
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -36,10 +40,14 @@ export default function BulkSmsPage() {
     let active = true
     ;(async () => {
       try {
-        const wallet = await getWalletBalance()
-        if (active) setBalance(wallet?.balance ?? 0)
+        const [wallet, rate] = await Promise.all([getWalletBalance(), getBulkSmsRate()])
+        if (!active) return
+        setBalance(wallet?.balance ?? 0)
+        setUnitPrice(rate.unitPrice)
+        setPageChars(rate.pageChars)
+        setMaxMessageChars(rate.maxMessageChars)
       } catch {
-        if (active) setError('Failed to load wallet balance. Please refresh.')
+        if (active) setError('Failed to load the current rate. Please refresh.')
       }
     })()
     return () => {
@@ -48,15 +56,15 @@ export default function BulkSmsPage() {
   }, [])
 
   const recipientList = parseRecipients(recipients)
-  const pages = Math.max(1, Math.ceil(message.length / PAGE_CHARS))
-  const total = recipientList.length * pages * SMS_UNIT_PRICE
+  const pages = Math.max(1, Math.ceil(message.length / pageChars))
+  const total = Math.round(recipientList.length * pages * unitPrice * 100) / 100
 
   const senderValid = /^[A-Za-z]{3,11}$/.test(sender)
   const canSubmit =
     senderValid &&
     recipientList.length > 0 &&
     message.trim().length > 0 &&
-    message.length <= MAX_MESSAGE_CHARS &&
+    message.length <= maxMessageChars &&
     balance !== null &&
     balance >= total &&
     total > 0 &&
@@ -111,16 +119,9 @@ export default function BulkSmsPage() {
         <div className="mb-5">
           <h1 className="text-lg font-bold text-[var(--text-1)]">Message many at once</h1>
           <p className="text-xs text-[var(--text-3)] mt-1">
-            Send one message to up to 5,000 numbers. Billed at ₦{SMS_UNIT_PRICE} per 160-character page.
+            Send one message to up to 5,000 numbers. Billed at ₦{unitPrice} per {pageChars}-character page.
           </p>
         </div>
-
-        {error && (
-          <div className="flex gap-2.5 p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
 
         <div className="form-group mb-4">
           <label className="form-label text-xs" htmlFor="sms-sender">
@@ -165,8 +166,8 @@ export default function BulkSmsPage() {
             <label className="form-label text-xs mb-0" htmlFor="sms-message">
               Message
             </label>
-            <span className={`text-[11px] ${message.length > MAX_MESSAGE_CHARS ? 'text-[#dc2626]' : 'text-[var(--text-3)]'}`}>
-              {message.length}/{MAX_MESSAGE_CHARS}
+            <span className={`text-[11px] ${message.length > maxMessageChars ? 'text-[#dc2626]' : 'text-[var(--text-3)]'}`}>
+              {message.length}/{maxMessageChars}
             </span>
           </div>
           <textarea
@@ -200,7 +201,7 @@ export default function BulkSmsPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-[var(--text-3)]">Rate</span>
-              <span className="font-semibold text-[var(--text-1)]">₦{SMS_UNIT_PRICE} / page</span>
+              <span className="font-semibold text-[var(--text-1)]">₦{unitPrice} / page</span>
             </div>
             <div className="border-t border-[var(--border)] pt-2.5 flex justify-between">
               <span className="text-[var(--text-3)]">Total</span>
@@ -212,6 +213,13 @@ export default function BulkSmsPage() {
                 ₦{(balance ?? 0).toLocaleString()}
               </span>
             </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex gap-2.5 p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 

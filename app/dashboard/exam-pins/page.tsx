@@ -112,13 +112,6 @@ export default function ExamPinsPage() {
           </p>
         </div>
 
-        {error && (
-          <div className="flex gap-2.5 p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
-
         <p className="form-label text-xs mb-2">Select exam board</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-5">
           {loading
@@ -199,6 +192,13 @@ export default function ExamPinsPage() {
                 ₦{(balance ?? 0).toLocaleString()}
               </span>
             </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex gap-2.5 p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 

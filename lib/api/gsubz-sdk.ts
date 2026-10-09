@@ -120,8 +120,11 @@ export function gsubzFailureMessage(outcome: GsubzOutcome): string {
     case 401:
       return "That plan is no longer available. Please pick another."
     case 402:
-    case 406:
       return "This service is temporarily unavailable. Please try again shortly — you have not been charged."
+    case 406:
+      // Invalid arguments — for bulk SMS this is usually the content rules.
+      // The provider's message says exactly what to fix, so surface it.
+      return outcome.apiResponse || "Some details were rejected. Please check them and try again."
     case 404:
       return "We could not find that customer or plan. Please check the details and try again."
     case 429:

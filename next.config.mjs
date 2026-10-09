@@ -13,12 +13,18 @@ const nextConfig = {
       {
         source: "/:path*",
         headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
           {
             key: "Content-Security-Policy-Report-Only",
+            // script-src must allow 'unsafe-inline': Next.js emits inline
+            // hydration/bootstrap scripts, and without it every page load
+            // reports a violation. A nonce is the only way to drop
+            // 'unsafe-inline' here, which would force every route dynamic.
             value:
-              "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co https://*.supabase.in; report-uri /api/csp-report",
+              "default-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co https://*.supabase.in; report-uri /api/csp-report",
           },
         ],
       },

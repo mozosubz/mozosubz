@@ -27,6 +27,26 @@ function parseRecipients(raw: string): string[] {
 }
 
 /**
+ * The customer-facing rate for one 160-character page, with the admin markup
+ * already applied. The page reads this so the amount it displays is the amount
+ * the wallet is actually charged.
+ */
+export async function getBulkSmsRate(): Promise<{
+  unitPrice: number
+  pageChars: number
+  maxRecipients: number
+  maxMessageChars: number
+}> {
+  const unitPrice = await applyServiceMarkup("bulk-sms", "Bulk SMS", SMS_UNIT_PRICE)
+  return {
+    unitPrice,
+    pageChars: SMS_PAGE_CHARS,
+    maxRecipients: MAX_RECIPIENTS,
+    maxMessageChars: MAX_MESSAGE_CHARS,
+  }
+}
+
+/**
  * @param trustedUserId  Optional. When provided (e.g. from a Connect Key
  *   authenticated v1 endpoint), the user is treated as authenticated as that
  *   id and the cookie/session lookup is skipped.
@@ -52,7 +72,7 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
   }
 
   const pages = Math.max(1, Math.ceil(msg.length / SMS_PAGE_CHARS))
-  const basePrice = recipients.length * pages * SMS_UNIT_PRICE
+  const units = recipients.length * pages
 
   try {
     let userId = trustedUserId
@@ -69,18 +89,22 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
+    // Bulk SMS has no plan catalogue — it is billed per 160-character page per
+    // recipient, so the markup is applied to the UNIT rate and then multiplied
+    // out. Marking up the total instead would scale the markup with volume.
     // API (Connect Key) callers use the enable flag and markup from the admin
     // API pricing page; the dashboard markup does not apply to them.
-    let price: number
+    let unitPrice: number
     if (apiPricing) {
       const settings = await resolveApiServiceSettings(API_SERVICE_KEYS.bulkSms)
       if (!settings.enabled) {
         return { success: false, message: "Bulk SMS is not available for API users.", errorCode: "SERVICE_DISABLED" }
       }
-      price = applyApiMarkup(basePrice, settings.markup)
+      unitPrice = applyApiMarkup(SMS_UNIT_PRICE, settings.markup)
     } else {
-      price = await applyServiceMarkup("bulk-sms", "Bulk SMS", basePrice)
+      unitPrice = await applyServiceMarkup("bulk-sms", "Bulk SMS", SMS_UNIT_PRICE)
     }
+    const price = Math.round(unitPrice * units * 100) / 100
     const balanceBefore = Number(profile.wallet_balance)
     if (balanceBefore < price) {
       return { success: false, message: "Insufficient wallet balance" }

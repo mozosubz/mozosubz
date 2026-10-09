@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Copy, Check, Download, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Download, AlertCircle, X } from 'lucide-react'
 import Link from 'next/link'
 import { ConfirmSheet } from '@/components/confirm-sheet'
 import { ProcessingOverlay } from '@/components/processing-overlay'
@@ -62,22 +62,20 @@ export default function RechargePinsPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
 
   useEffect(() => {
-    const loadBalance = async () => {
+    let active = true
+    ;(async () => {
       try {
         const walletData = await getWalletBalance()
-        if (walletData?.balance === 0) {
-          // Still loading, don't show error yet
-          if (loading) return
-        }
-        setBalance(walletData?.balance || 0)
-      } catch (err) {
-        // Only show error if balance fails to load
-        setError('Failed to load wallet balance. Please refresh.')
+        if (active) setBalance(walletData?.balance ?? 0)
+      } catch {
+        if (active) setError('Failed to load wallet balance. Please refresh.')
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
+    })()
+    return () => {
+      active = false
     }
-    loadBalance()
   }, [])
 
   const selectedNetworkName = NETWORKS.find(n => n.id === selectedNetwork)?.name || ''
@@ -142,7 +140,7 @@ export default function RechargePinsPage() {
       setSuccessData({
         pins: result.pins || [],
         network: selectedNetworkName,
-        value: selectedValue,
+        value: selectedValue ?? 0,
         quantity: quantityNum,
         totalCost,
         transactionId: result.transactionId,
@@ -228,14 +226,6 @@ Keep this safe. Do not share these pins with anyone.`
           ))}
         </div>
 
-        {/* Error Banner */}
-        {error && (
-          <div className="flex gap-2.5 p-3 rounded-lg bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4 flex-shrink-0">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
-
         {/* Pin Value Selection */}
         <div className="form-group mb-4">
           <label className="form-label text-xs">Pin Value</label>
@@ -304,6 +294,14 @@ Keep this safe. Do not share these pins with anyone.`
           </div>
         )}
 
+        {/* Error Banner */}
+        {error && (
+          <div className="flex gap-2.5 p-3 rounded-lg bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4 flex-shrink-0">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Continue Button */}
         <button
           onClick={handleContinue}
@@ -334,14 +332,20 @@ Keep this safe. Do not share these pins with anyone.`
       {/* Success Overlay */}
       {showSuccess && successData && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
-          <div className="w-full sm:w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
+          <div className="w-full sm:w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[var(--surface)] rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Pins Generated Successfully!</h2>
-              <button onClick={() => setShowSuccess(false)} className="text-2xl leading-none">✕</button>
+              <h2 className="text-lg font-bold text-[var(--text-1)]">Pins Generated Successfully!</h2>
+              <button
+                onClick={() => setShowSuccess(false)}
+                className="p-1.5 rounded-lg text-[var(--text-3)] hover:bg-[var(--bg)] transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Summary */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-2">
+            <div className="bg-[var(--primary-light)] border border-[var(--border)] rounded-lg p-3 text-sm space-y-2">
               <div className="flex justify-between">
                 <span className="text-[var(--text-3)]">Network</span>
                 <span className="font-semibold">{successData.network}</span>
@@ -354,9 +358,9 @@ Keep this safe. Do not share these pins with anyone.`
                 <span className="text-[var(--text-3)]">Quantity</span>
                 <span className="font-semibold">{successData.quantity} pins</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-blue-200">
+              <div className="flex justify-between pt-2 border-t border-[var(--border)]">
                 <span className="text-[var(--text-3)]">Total Charged</span>
-                <span className="font-bold text-blue-600">₦{successData.totalCost.toLocaleString()}</span>
+                <span className="font-bold text-[var(--primary)]">₦{successData.totalCost.toLocaleString()}</span>
               </div>
             </div>
 
@@ -383,7 +387,7 @@ Keep this safe. Do not share these pins with anyone.`
                       onClick={() => handleCopyPin(p.pin, i)}
                       className={`flex-shrink-0 p-1.5 rounded transition text-xs font-semibold ${
                         copiedIndex === i
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-[#f0fdf4] text-[#16a34a]'
                           : 'bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/20'
                       }`}
                     >
