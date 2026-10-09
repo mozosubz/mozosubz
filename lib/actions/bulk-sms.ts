@@ -156,6 +156,29 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
       outcome,
     )
 
+    // GSUBZ quirk (observed 2026-10-09): /api/sms/ answers 406
+    // INVALID_ARGUMENTS_DUPLICATE_REQUEST_ID even when the requestID is brand
+    // new — their own /api/verify/ has no record of the ID — while still
+    // delivering the messages and charging nothing. A bare "failed" confuses
+    // customers who receive the SMS, so say exactly what happened instead.
+    if (
+      !result.success &&
+      !result.pending &&
+      Number(outcome.code) === 406 &&
+      String(outcome.description).includes("DUPLICATE_REQUEST_ID")
+    ) {
+      console.warn("[v0] GSUBZ SMS duplicate-rejection on a fresh requestID:", {
+        requestID,
+        recipients: recipients.length,
+        providerBody: outcome.raw,
+      })
+      return {
+        ...result,
+        message:
+          "The provider flagged this send as a duplicate, but the message may still have been delivered and you were not charged. If your recipients received it, you are all set — otherwise please try again in a few minutes.",
+      }
+    }
+
     if (result.success && refund > 0) {
       const refunded = await atomicRefundWallet(userId, refund)
       if (!refunded.success) {
