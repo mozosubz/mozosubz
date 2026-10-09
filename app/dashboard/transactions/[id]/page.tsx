@@ -206,7 +206,14 @@ export default function TransactionDetailPage() {
 
   const formattedDate = formatReceiptDate(transaction.created_at);
   const formattedTime = formatReceiptTime(transaction.created_at);
-  
+
+  // Bulk SMS purchase details (stored in metadata by the bulk-sms action)
+  const smsSender = typeof meta.sender === 'string' ? meta.sender : '';
+  const smsRecipients = Array.isArray(meta.recipientNumbers) && meta.recipientNumbers.length > 0
+    ? meta.recipientNumbers.join(', ')
+    : '';
+  const smsMessage = typeof meta.message === 'string' ? meta.message : '';
+
   // Extract network name
   const networkName = getNetworkName(transaction.description || '');
   const cableProvider = getCableProviderName(transaction.description || '');
@@ -282,7 +289,7 @@ export default function TransactionDetailPage() {
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Plan</span>
-                      <span className="text-sm font-semibold text-foreground">{transaction.plan_details || planName}</span>
+                      <span className="text-sm font-semibold text-foreground">{transaction.plan_details || extractPlanDetails(transaction.description)}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 px-4">
                       <span className="text-xs text-muted-foreground font-medium">Recipient</span>

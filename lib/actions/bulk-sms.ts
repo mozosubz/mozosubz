@@ -145,6 +145,8 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string, ap
         requestID,
         meta: {
           recipients: recipients.length,
+          recipientNumbers: recipients,
+          message: msg,
           pages,
           sender: from,
           sent,
