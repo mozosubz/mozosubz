@@ -7,7 +7,6 @@ import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transactio
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { resolveProviderError } from "@/lib/utils/provider-error"
 import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
-import { applyServiceMarkup } from "@/lib/pricing/markup"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -68,7 +67,7 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
     }
 
     const userAmount = Number(amount)
-    const chargeAmount = await applyServiceMarkup("airtime", "Airtime", userAmount)
+    const chargeAmount = userAmount
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance
@@ -204,7 +203,7 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
       console.log(`[v0] Airtime purchase timed out — saving PENDING | requestID=${requestID}`)
 
       const numAmount = parseFloat(amount)
-      const pendingChargeAmount = await applyServiceMarkup("airtime", "Airtime", numAmount)
+      const pendingChargeAmount = numAmount
       const networkNameMap: Record<string, string> = { mtn: "MTN", glo: "Glo", airtel: "Airtel", etisalat: "9mobile" }
       const networkName = networkNameMap[network?.toLowerCase()] || network || "Airtime"
 

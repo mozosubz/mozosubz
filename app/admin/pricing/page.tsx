@@ -70,8 +70,6 @@ const CATEGORY_SERVICE_ID: Record<CategoryId, string> = {
  */
 const STATIC_PLANS: Partial<Record<CategoryId, GsubzPlan[]>> = {
   sms: [{ displayName: 'Bulk SMS', value: 'bulk-sms', price: '0' }],
-    { displayName: '₦500 Pin', value: '500', price: '500' },
-  ],
 }
 
 const NETWORKS = [

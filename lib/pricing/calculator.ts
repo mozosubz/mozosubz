@@ -26,7 +26,8 @@ export interface ServicePrice {
   display_name: string
 }
 
-// Available services excluding airtime and recharge pins
+// Available services excluding airtime, electricity and recharge pins, which
+// are priced by the amount the customer enters rather than a fixed plan.
 export const AVAILABLE_SERVICES = [
   { id: 'mtn', name: 'MTN', type: 'DATA' },
   { id: 'airtel', name: 'Airtel', type: 'DATA' },
@@ -35,7 +36,6 @@ export const AVAILABLE_SERVICES = [
   { id: 'dstv', name: 'DSTV', type: 'CABLE' },
   { id: 'gotv', name: 'GOTV', type: 'CABLE' },
   { id: 'startimes', name: 'Startimes', type: 'CABLE' },
-  { id: 'electricity', name: 'Electricity', type: 'ELECTRICITY' },
 ]
 
 // Server-side pricing calculation (for transactions)

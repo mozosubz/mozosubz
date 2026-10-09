@@ -7,7 +7,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { resolveProviderError } from "@/lib/utils/provider-error"
 import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
-import { applyServiceMarkup } from "@/lib/pricing/markup"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -67,7 +66,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
     if (!meterNumber || meterNumber.trim().length < 6) {
       return { success: false, message: "Invalid meter number" }
     }
-    const chargeAmount = await applyServiceMarkup("electricity", "Electricity", purchaseAmount)
+    const chargeAmount = purchaseAmount
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance
@@ -198,7 +197,7 @@ export async function payElectricity(formData: FormData, trustedUserId?: string)
         const { data: profile } = await adminClient.from("profiles").select("wallet_balance").eq("id", pendingUserId).single()
         const bal = Number(profile?.wallet_balance ?? 0)
         const numAmount = parseFloat(amount)
-        const pendingChargeAmount = await applyServiceMarkup("electricity", "Electricity", numAmount)
+        const pendingChargeAmount = numAmount
       const pendingServiceId = resolveElectricityServiceId(disco)
       if (!pendingServiceId) {
         return { success: false, message: "Unsupported electricity provider" }
