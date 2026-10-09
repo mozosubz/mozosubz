@@ -280,6 +280,59 @@ export async function bulkUpdateApiPricingRules(
   }
 }
 
+/**
+ * Upserts per-plan API pricing where each plan carries its own markup. Used by
+ * the "other services" section (exam pins, eSIM, social), where a single shared
+ * markup would be wrong.
+ */
+export async function saveApiPlanPricing(
+  serviceId: string,
+  plans: Array<{
+    planName: string
+    basePrice: number
+    markupType: 'fixed' | 'percentage'
+    markupValue: number
+  }>
+): Promise<{ success: boolean; error?: string; saved?: number }> {
+  try {
+    const guard = await requireAdmin()
+    if (!guard.ok) return { success: false, error: guard.error }
+
+    const admin = createAdminClient()
+    const now = new Date().toISOString()
+
+    const uniquePlans = Array.from(
+      new Map(
+        plans
+          .filter((plan) => plan.planName.trim())
+          .map((plan) => [plan.planName.trim().toLowerCase(), { ...plan, planName: plan.planName.trim() }])
+      ).values()
+    )
+
+    if (uniquePlans.length === 0) return { success: true, saved: 0 }
+
+    const { error } = await admin.from('api_pricing_rules').upsert(
+      uniquePlans.map((plan) => ({
+        service_id: serviceId,
+        plan_name: plan.planName,
+        base_price: plan.basePrice,
+        markup_type: plan.markupType,
+        markup_value: plan.markupValue,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      })),
+      { onConflict: 'service_id,plan_name' }
+    )
+
+    if (error) return { success: false, error: error.message }
+    revalidatePath('/admin/api-pricing')
+    return { success: true, saved: uniquePlans.length }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
+
 export async function bulkCreateApiPricingRules(
   serviceId: string,
   plans: Array<{ planName: string; basePrice: number }>,

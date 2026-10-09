@@ -12,8 +12,8 @@ import { purchaseExamPin } from '@/lib/actions/exam-pins'
  *
  * board values: waec | neco | nabteb
  *
- * The price is the live provider price plus the exam-pins markup configured in
- * the admin pricing page. Rate limited: 50 requests per minute per API key.
+ * The price comes from the admin API pricing page (api_pricing_rules), not the
+ * dashboard markup. Rate limited: 50 requests per minute per API key.
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
   formData.set('board', String(board))
   formData.set('phone', String(phone))
 
-  const result = await purchaseExamPin(formData, userId)
+  const result = await purchaseExamPin(formData, userId, true)
 
   if (result.success) {
     console.log(
@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(`[Exam Pins API] ✗ FAILED | ${result.message}`)
+  const status = result.errorCode === 'PLAN_NOT_ENABLED' ? 404 : 400
   return NextResponse.json(
     {
       success: false,
@@ -113,6 +114,6 @@ export async function POST(request: NextRequest) {
       transaction_id: result.transaction?.id,
       balance_after: result.transaction?.balance,
     },
-    { status: 400 }
+    { status }
   )
 }

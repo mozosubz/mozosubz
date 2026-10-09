@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
 import { applyServiceMarkup } from "@/lib/pricing/markup"
+import { resolveApiPlanPrice } from "@/lib/pricing/api-pricing"
 
 /**
  * Social catalogue priced for the customer. Pass `raw` to get the provider's
@@ -31,7 +32,7 @@ export async function listSocialServices(raw = false): Promise<SocialService[]> 
  *   authenticated v1 endpoint), the user is treated as authenticated as that
  *   id and the cookie/session lookup is skipped.
  */
-export async function purchaseSocial(formData: FormData, trustedUserId?: string) {
+export async function purchaseSocial(formData: FormData, trustedUserId?: string, apiPricing = false) {
   const serviceValue = String(formData.get("service") || "").trim()
   const link = String(formData.get("link") || "").trim()
   const quantity = Number.parseInt(String(formData.get("quantity") || "0"), 10)
@@ -72,8 +73,19 @@ export async function purchaseSocial(formData: FormData, trustedUserId?: string)
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       return { success: false, message: "This service is temporarily unavailable." }
     }
-    const markedUpUnit = await applyServiceMarkup("social", service.display_name, unitPrice)
-    const price = Math.round(markedUpUnit * quantity * 100) / 100
+    // API (Connect Key) callers pay the per-unit price set on the admin API
+    // pricing page, not the dashboard markup.
+    let unit: number
+    if (apiPricing) {
+      const apiUnit = await resolveApiPlanPrice("social", service.display_name)
+      if (apiUnit === null) {
+        return { success: false, message: "This service is not available for API users.", errorCode: "PLAN_NOT_ENABLED" }
+      }
+      unit = apiUnit
+    } else {
+      unit = await applyServiceMarkup("social", service.display_name, unitPrice)
+    }
+    const price = Math.round(unit * quantity * 100) / 100
 
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()

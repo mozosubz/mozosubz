@@ -7,6 +7,7 @@ import { atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transac
 import { sendEmail } from "@/lib/email/client"
 import { renderShell, escapeHtml, formatNaira, formatDateTime } from "@/lib/email/templates/shell"
 import { revalidatePath } from "next/cache"
+import { applyApiMarkup, resolveApiServiceSettings, API_SERVICE_KEYS } from "@/lib/pricing/api-pricing"
 
 /**
  * Generate recharge pins.
@@ -23,6 +24,7 @@ export async function generateRechargePins(
   data: { network: string; value: string; number: string },
   trustedUserId?: string,
   trustedUserEmail?: string,
+  apiPricing = false,
 ) {
   try {
     const supabase = await createClient()
@@ -70,7 +72,16 @@ export async function generateRechargePins(
     }
 
     const unitPrice = pinVal
-    const totalCost = unitPrice * pinQty
+    // API (Connect Key) callers use the enable flag and markup from the admin
+    // API pricing page; the dashboard charges pins at face value.
+    let totalCost = unitPrice * pinQty
+    if (apiPricing) {
+      const settings = await resolveApiServiceSettings(API_SERVICE_KEYS.rechargePins)
+      if (!settings.enabled) {
+        return { success: false, error: "Recharge pins are not available for API users.", errorCode: "SERVICE_DISABLED" }
+      }
+      totalCost = applyApiMarkup(unitPrice * pinQty, settings.markup)
+    }
 
     if (!profile || Number(profile.wallet_balance) < totalCost) {
       return {

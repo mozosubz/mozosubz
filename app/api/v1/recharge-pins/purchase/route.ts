@@ -14,8 +14,9 @@ import { generateRechargePins } from '@/lib/actions/recharge-pins'
  * value: pin denomination (100 | 200 | 400 | 500)
  * number: quantity (1–50)
  *
- * Pins are charged at face value — no markup. Rate limited: 50 requests per
- * minute per API key.
+ * Pins are charged at face value plus the markup set on the admin API pricing
+ * page, which also controls whether the service is enabled for API users.
+ * Rate limited: 50 requests per minute per API key.
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -74,6 +75,8 @@ export async function POST(request: NextRequest) {
   const result = await generateRechargePins(
     { network: String(network), value: String(value), number: String(number) },
     userId,
+    undefined,
+    true,
   )
 
   if (result.success) {
@@ -95,8 +98,9 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(`[Recharge Pins API] ✗ FAILED | ${result.error}`)
+  const status = result.errorCode === 'SERVICE_DISABLED' ? 503 : 400
   return NextResponse.json(
-    { success: false, error: result.error, error_code: 'PURCHASE_FAILED' },
-    { status: 400 }
+    { success: false, error: result.error, error_code: result.errorCode || 'PURCHASE_FAILED' },
+    { status }
   )
 }

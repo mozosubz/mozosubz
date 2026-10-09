@@ -10,8 +10,8 @@ import { purchaseSocial } from '@/lib/actions/social'
  * Body: { service: string, link: string, quantity: number }
  * Requires X-Connect-Key header.
  *
- * `service` is the value from the social catalogue. The unit price is the live
- * provider price plus the social markup configured in the admin pricing page.
+ * `service` is the value from the social catalogue. The unit price comes from
+ * the admin API pricing page (api_pricing_rules), not the dashboard markup.
  * Rate limited: 50 requests per minute per API key.
  */
 export async function POST(request: NextRequest) {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
   formData.set('link', String(link))
   formData.set('quantity', String(quantity))
 
-  const result = await purchaseSocial(formData, userId)
+  const result = await purchaseSocial(formData, userId, true)
 
   if (result.success) {
     console.log(
@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(`[Social API] ✗ FAILED | ${result.message}`)
+  const status = result.errorCode === 'PLAN_NOT_ENABLED' ? 404 : 400
   return NextResponse.json(
     {
       success: false,
@@ -113,6 +114,6 @@ export async function POST(request: NextRequest) {
       transaction_id: result.transaction?.id,
       balance_after: result.transaction?.balance,
     },
-    { status: 400 }
+    { status }
   )
 }

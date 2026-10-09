@@ -12,7 +12,8 @@ import { sendBulkSms } from '@/lib/actions/bulk-sms'
  *
  * `from` is the 3–11 letter sender ID, `to` is one or more recipient numbers
  * (array or comma/space separated string). The price is the per-page rate plus
- * the bulk-sms markup configured in the admin pricing page.
+ * the bulk-sms markup set on the admin API pricing page, which also controls
+ * whether the service is enabled for API users.
  * Rate limited: 50 requests per minute per API key.
  */
 export async function POST(request: NextRequest) {
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
   formData.set('to', toValue)
   formData.set('msg', String(msg))
 
-  const result = await sendBulkSms(formData, userId)
+  const result = await sendBulkSms(formData, userId, true)
 
   if (result.success) {
     console.log(
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(`[Bulk SMS API] ✗ FAILED | ${result.message}`)
+  const status = result.errorCode === 'SERVICE_DISABLED' ? 503 : 400
   return NextResponse.json(
     {
       success: false,
@@ -118,6 +120,6 @@ export async function POST(request: NextRequest) {
       transaction_id: result.transaction?.id,
       balance_after: result.transaction?.balance,
     },
-    { status: 400 }
+    { status }
   )
 }

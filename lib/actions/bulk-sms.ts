@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
 import { applyServiceMarkup } from "@/lib/pricing/markup"
+import { applyApiMarkup, resolveApiServiceSettings, API_SERVICE_KEYS } from "@/lib/pricing/api-pricing"
 
 /**
  * GSUBZ does not publish an SMS price through the plans endpoint, so the
@@ -30,7 +31,7 @@ function parseRecipients(raw: string): string[] {
  *   authenticated v1 endpoint), the user is treated as authenticated as that
  *   id and the cookie/session lookup is skipped.
  */
-export async function sendBulkSms(formData: FormData, trustedUserId?: string) {
+export async function sendBulkSms(formData: FormData, trustedUserId?: string, apiPricing = false) {
   const from = String(formData.get("from") || "").trim()
   const toRaw = String(formData.get("to") || "")
   const msg = String(formData.get("msg") || "").trim()
@@ -68,7 +69,18 @@ export async function sendBulkSms(formData: FormData, trustedUserId?: string) {
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
     if (!profile) return { success: false, message: "Profile not found. Please contact support." }
 
-    const price = await applyServiceMarkup("bulk-sms", "Bulk SMS", basePrice)
+    // API (Connect Key) callers use the enable flag and markup from the admin
+    // API pricing page; the dashboard markup does not apply to them.
+    let price: number
+    if (apiPricing) {
+      const settings = await resolveApiServiceSettings(API_SERVICE_KEYS.bulkSms)
+      if (!settings.enabled) {
+        return { success: false, message: "Bulk SMS is not available for API users.", errorCode: "SERVICE_DISABLED" }
+      }
+      price = applyApiMarkup(basePrice, settings.markup)
+    } else {
+      price = await applyServiceMarkup("bulk-sms", "Bulk SMS", basePrice)
+    }
     const balanceBefore = Number(profile.wallet_balance)
     if (balanceBefore < price) {
       return { success: false, message: "Insufficient wallet balance" }

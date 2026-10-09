@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
 import { applyServiceMarkup } from "@/lib/pricing/markup"
+import { resolveApiPlanPrice } from "@/lib/pricing/api-pricing"
 
 /** Public catalogue — no API key required, so it is safe to call freely. */
 export async function listEsimCountries(query?: string): Promise<EsimCountry[]> {
@@ -49,7 +50,7 @@ export async function listEsimPackages(locationCode: string, raw = false): Promi
  *   authenticated v1 endpoint), the user is treated as authenticated as that
  *   id and the cookie/session lookup is skipped.
  */
-export async function purchaseEsim(formData: FormData, trustedUserId?: string) {
+export async function purchaseEsim(formData: FormData, trustedUserId?: string, apiPricing = false) {
   const packageCode = String(formData.get("packageCode") || "").trim()
   const locationCode = String(formData.get("locationCode") || "").trim()
   const requestID = `ESIM${Date.now()}${Math.floor(Math.random() * 1000)}`
@@ -86,7 +87,17 @@ export async function purchaseEsim(formData: FormData, trustedUserId?: string) {
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
       return { success: false, message: "This eSIM package is temporarily unavailable." }
     }
-    const price = await applyServiceMarkup("esim", pkg.name, basePrice)
+    // API (Connect Key) callers pay the price set on the admin API pricing page.
+    let price: number
+    if (apiPricing) {
+      const apiPrice = await resolveApiPlanPrice("esim", pkg.name)
+      if (apiPrice === null) {
+        return { success: false, message: "This eSIM package is not available for API users.", errorCode: "PLAN_NOT_ENABLED" }
+      }
+      price = apiPrice
+    } else {
+      price = await applyServiceMarkup("esim", pkg.name, basePrice)
+    }
 
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()

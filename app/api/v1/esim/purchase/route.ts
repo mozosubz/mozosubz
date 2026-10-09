@@ -10,8 +10,8 @@ import { purchaseEsim } from '@/lib/actions/esim'
  * Body: { package_code: string, location_code: string }
  * Requires X-Connect-Key header.
  *
- * The price is the live provider price plus the eSIM markup configured in the
- * admin pricing page. Activation is asynchronous — poll the dashboard for the
+ * The price comes from the admin API pricing page (api_pricing_rules), not the
+ * dashboard markup. Activation is asynchronous — poll the dashboard for the
  * QR code. Rate limited: 50 requests per minute per API key.
  */
 export async function POST(request: NextRequest) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   formData.set('packageCode', String(package_code))
   formData.set('locationCode', String(location_code))
 
-  const result = await purchaseEsim(formData, userId)
+  const result = await purchaseEsim(formData, userId, true)
 
   if (result.success) {
     console.log(
@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(`[eSIM API] ✗ FAILED | ${result.message}`)
+  const status = result.errorCode === 'PLAN_NOT_ENABLED' ? 404 : 400
   return NextResponse.json(
     {
       success: false,
@@ -111,6 +112,6 @@ export async function POST(request: NextRequest) {
       transaction_id: result.transaction?.id,
       balance_after: result.transaction?.balance,
     },
-    { status: 400 }
+    { status }
   )
 }

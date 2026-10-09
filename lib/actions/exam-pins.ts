@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { finalizeGsubzPurchase } from "@/lib/utils/gsubz-purchase"
 import { isValidPhone } from "@/lib/utils/input-validation"
 import { applyServiceMarkup } from "@/lib/pricing/markup"
+import { resolveApiPlanPrice } from "@/lib/pricing/api-pricing"
 
 const EXAM_BOARDS: Record<string, { serviceId: string; plan: string; label: string }> = {
   waec: { serviceId: "waec", plan: "WAEC", label: "WAEC Result Checker Pin" },
@@ -51,7 +52,7 @@ export async function getExamPinPrices(raw = false): Promise<ExamBoardOption[]> 
  *   authenticated v1 endpoint), the user is treated as authenticated as that
  *   id and the cookie/session lookup is skipped.
  */
-export async function purchaseExamPin(formData: FormData, trustedUserId?: string) {
+export async function purchaseExamPin(formData: FormData, trustedUserId?: string, apiPricing = false) {
   const board = String(formData.get("board") || "").toLowerCase()
   const phone = String(formData.get("phone") || "").trim()
   const requestID = `EXAM${Date.now()}${Math.floor(Math.random() * 1000)}`
@@ -85,7 +86,19 @@ export async function purchaseExamPin(formData: FormData, trustedUserId?: string
     if (!Number.isFinite(basePrice) || basePrice <= 0) {
       return { success: false, message: "This exam pin is temporarily unavailable." }
     }
-    const price = await applyServiceMarkup("exam-pins", config.label, basePrice)
+    // API (Connect Key) callers pay the price set on the admin API pricing page,
+    // not the dashboard markup.
+    let price: number
+    if (apiPricing) {
+      // The admin API pricing page stores the board label as the plan name.
+      const apiPrice = await resolveApiPlanPrice(config.serviceId, config.label)
+      if (apiPrice === null) {
+        return { success: false, message: "This exam pin is not available for API users.", errorCode: "PLAN_NOT_ENABLED" }
+      }
+      price = apiPrice
+    } else {
+      price = await applyServiceMarkup("exam-pins", config.label, basePrice)
+    }
 
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()

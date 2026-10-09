@@ -13,6 +13,7 @@ import {
   bulkCreateApiPricingRules,
 } from '@/lib/actions/api-pricing'
 import { getApiElectricityAccess, setApiElectricityAccess } from '@/lib/actions/api-pricing-access'
+import ApiPricingOtherServices from '@/components/admin/api-pricing-other-services'
 import { useConfirm, useToast } from '@/components/app-dialog'
 import {
   Plus,
@@ -550,6 +551,9 @@ export default function ApiPricingPage() {
   const totalRules = Object.values(overview).reduce((sum, c) => sum + c.total, 0)
   const totalDuplicates = Object.values(overview).reduce((sum, c) => sum + c.duplicates, 0)
   const servicesWithPricing = Object.values(overview).filter((c) => c.active > 0).length
+  // Include services priced from the "Other API services" section (exam pins,
+  // eSIM, social) so the coverage stat can never exceed its denominator.
+  const totalServices = new Set([...Object.keys(SERVICE_MAP), ...Object.keys(overview)]).size
 
   const avgMargin =
     rules.length > 0
@@ -614,7 +618,7 @@ export default function ApiPricingPage() {
           { label: 'Total API rules', value: totalRules.toLocaleString(), icon: <Zap size={14} /> },
           {
             label: 'Services priced',
-            value: `${servicesWithPricing}/${Object.keys(SERVICE_MAP).length}`,
+            value: `${servicesWithPricing}/${totalServices}`,
             icon: <Check size={14} />,
           },
           {
@@ -2299,6 +2303,8 @@ export default function ApiPricingPage() {
           </div>
         </div>
       )}
+
+      <ApiPricingOtherServices />
     </div>
   )
 }
