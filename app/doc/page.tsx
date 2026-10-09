@@ -606,7 +606,7 @@ export default function DocPage() {
               <div className="p-6 rounded-lg bg-primary/5 border border-primary/20">
                 <h3 className="text-lg font-bold text-foreground mb-3">Getting Started</h3>
                 <p className="text-text-2 text-sm mb-4">
-                  The Mozosubz V1 API allows you to purchase data and airtime programmatically. All requests require authentication using your API Connect Key.
+                  The Mozosubz V1 API allows you to purchase data, airtime, cable TV, electricity, exam pins, recharge pins, eSIM packages and bulk SMS, and to place social media orders programmatically. All requests require authentication using your API Connect Key.
                 </p>
                 <div className="space-y-2 text-sm">
                   <p><strong className="text-foreground">Base URL:</strong> <code className="bg-background px-2 py-1 rounded text-primary border border-border text-xs">{API_BASE}</code></p>
@@ -875,6 +875,142 @@ export default function DocPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Endpoint 6: Send Bulk SMS */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">6. Send Bulk SMS</h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/bulk-sms/purchase</code>
+                    </div>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">bulk-sms</code> or <code className="text-primary">all</code> permission, and the service must be enabled on the Admin API Pricing page. If disabled, the API returns HTTP 503 with <code className="text-primary">SERVICE_DISABLED</code>.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ from: "Mozosubz", to: ["08012345678", "2348012345678"], msg: "Hello from Mozosubz" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">All fields are required. <code className="text-primary">from</code> is the sender ID: 3–11 letters with no spaces, numbers or symbols; bank, payment, telecom and government names are rejected. <code className="text-primary">to</code> accepts an array or a comma/space-separated string; 080…, 234… and +234… formats all work. Invalid or duplicate numbers are skipped and not charged.</p>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">Billing is per page per recipient: the first 160 characters are one page and each further 153 characters is another (70/67 for messages containing emoji or other unicode). Nigerian networks block messages mentioning banks, payment companies, international brands, OTP wording, and runs of 4 or more digits — write amounts like 5,000 rather than 5000. Numbers on the DND list are not delivered and are not refunded.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Success response:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ success: true, transaction_id: "V1-SMS-7B2E4F9A1C3D", sender: "Mozosubz", recipients: 2, amount: 12, balance_after: 19500, status: "SUCCESS", message: "Bulk SMS sent successfully" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">The charge is the per-page rate plus the bulk SMS API markup set on the Admin API Pricing page — it has no plan catalogue and is priced completely separately from regular user pricing.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs leading-relaxed">
+                    The provider reports <code className="text-success">successful</code> even when some recipients fail — those numbers are refunded automatically, so the charged amount can be lower than the quoted total. A provider timeout returns <code className="text-success">TIMEOUT_PENDING_VERIFICATION</code> with <code className="text-success">pending: true</code>; check the transaction before retrying.
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 7: Purchase Exam Pin */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">7. Purchase Exam Pin</h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/exam-pins/purchase</code>
+                    </div>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">exam-pins</code> or <code className="text-primary">all</code> permission. Each board must have an active rule on the Admin API Pricing page; otherwise the API returns HTTP 404 with <code className="text-primary">PLAN_NOT_ENABLED</code>.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ board: "waec", phone: "08012345678" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">Both fields are required. <code className="text-primary">board</code> accepts <code className="text-primary">waec</code>, <code className="text-primary">neco</code> or <code className="text-primary">nabteb</code> (case-insensitive). <code className="text-primary">phone</code> is the Nigerian number to associate with the purchase — no other recipient details are needed.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Success response:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ success: true, transaction_id: "V1-EXAM-7B2E4F9A1C3D", board: "waec", phone: "08012345678", amount: 3500, pin: "123456789012", serial: "987654321098", balance_after: 16000, status: "SUCCESS", message: "WAEC result checker pin purchased successfully" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">The price comes from the active exam-pins rule on the Admin API Pricing page (base price plus its fixed or percentage API markup), never from regular user pricing.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs leading-relaxed">
+                    The pin and its serial number are returned immediately on success. A provider timeout returns <code className="text-success">TIMEOUT_PENDING_VERIFICATION</code> with <code className="text-success">pending: true</code> — the pin is attached to the transaction once verification completes, so check the transaction before retrying.
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 8: Generate Recharge Pins */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">8. Generate Recharge Pins</h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/recharge-pins/purchase</code>
+                    </div>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">recharge-pins</code> or <code className="text-primary">all</code> permission, and the service must be enabled on the Admin API Pricing page. If disabled, the API returns HTTP 503 with <code className="text-primary">SERVICE_DISABLED</code>.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ network: "mtn", value: 500, number: 10 }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">All fields are required. <code className="text-primary">network</code> accepts <code className="text-primary">mtn</code>, <code className="text-primary">glo</code>, <code className="text-primary">airtel</code> or <code className="text-primary">9mobile</code>. <code className="text-primary">value</code> is the pin denomination: 100, 200, 400 or 500. <code className="text-primary">number</code> is the quantity, 1–50; the provider requires at least 10 pins for values below ₦500.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Success response:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ success: true, transaction_id: "V1-RPIN-7B2E4F9A1C3D", network: "MTN", value: 500, quantity: 10, pins: [{ pin: "1234-5678-9012", sn: "987654321" }], amount: 5000, status: "SUCCESS", message: "10 MTN ₦500 pins generated successfully" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">Each pin includes its serial number (<code className="text-primary">sn</code>). The charge is face value (value × quantity) plus the recharge-pins API markup set on the Admin API Pricing page.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs leading-relaxed">
+                    Pins are returned in the response and saved to the transaction. A provider timeout returns <code className="text-success">TIMEOUT_PENDING_VERIFICATION</code> with <code className="text-success">pending: true</code>; check the transaction before retrying.
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 9: Purchase eSIM */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">9. Purchase eSIM</h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/esim/purchase</code>
+                    </div>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">esim</code> or <code className="text-primary">all</code> permission. Each package must have an active rule on the Admin API Pricing page; otherwise the API returns HTTP 404 with <code className="text-primary">PLAN_NOT_ENABLED</code>.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ package_code: "ESIM-NG-1GB-30D", location_code: "NG" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">Both fields are required and come from the eSIM catalogue. No phone number is needed — the eSIM is issued as a QR code, not tied to an existing line.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Success response:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ success: true, transaction_id: "V1-ESIM-7B2E4F9A1C3D", package_code: "ESIM-NG-1GB-30D", location_code: "NG", amount: 950, balance_after: 18550, status: "SUCCESS", message: "eSIM purchase successful" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">The price comes from the active eSIM rule on the Admin API Pricing page. The final price is confirmed at purchase and may differ slightly from the listed catalogue price.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs leading-relaxed">
+                    Activation is asynchronous: the QR code is attached to the transaction once the eSIM is issued, usually instantly. Some packages are non-refundable and cannot be cancelled once bought. A provider timeout returns <code className="text-success">TIMEOUT_PENDING_VERIFICATION</code> with <code className="text-success">pending: true</code>; check the transaction before retrying.
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 10: Order Social Media */}
+              <div className="border-l-4 border-accent pl-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">10. Order Social Media Services</h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-background border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-600">POST</span>
+                      <code className="text-primary font-mono text-sm">/api/v1/social/purchase</code>
+                    </div>
+                    <p className="text-text-3 text-xs">Requires the <code className="text-primary">social</code> or <code className="text-primary">all</code> permission. Each service must have an active rule on the Admin API Pricing page; otherwise the API returns HTTP 404 with <code className="text-primary">PLAN_NOT_ENABLED</code>.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Request body:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ service: "instagram-followers", link: "https://instagram.com/example", quantity: 1000 }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2 leading-relaxed">All fields are required. <code className="text-primary">service</code> is the catalogue value for the offering. <code className="text-primary">link</code> is the profile or post URL the order should be delivered to. <code className="text-primary">quantity</code> must be within the service&apos;s min/max range.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-sm mb-2">Success response:</h4>
+                    <pre className="bg-background p-3 rounded-lg border border-border text-primary font-mono text-xs overflow-x-auto">{JSON.stringify({ success: true, transaction_id: "V1-SOC-7B2E4F9A1C3D", service: "instagram-followers", link: "https://instagram.com/example", quantity: 1000, amount: 2500, balance_after: 16050, status: "SUCCESS", message: "Order placed successfully" }, null, 2)}</pre>
+                    <p className="text-text-3 text-xs mt-2">The unit price comes from the active social rule on the Admin API Pricing page (base price plus its fixed or percentage API markup), multiplied by the quantity.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-success text-xs leading-relaxed">
+                    Placing the order hands it to the provider — delivery is handled by them and starts shortly; it is not instant. A provider timeout returns <code className="text-success">TIMEOUT_PENDING_VERIFICATION</code> with <code className="text-success">pending: true</code>; check the transaction before retrying.
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Error Codes */}
@@ -942,6 +1078,7 @@ export default function DocPage() {
                     { code: 'INVALID_RECIPIENT', http: '400', desc: 'Provider rejected the number as invalid or barred.', retry: false },
                     { code: 'DUPLICATE_TRANSACTION', http: '400', desc: 'Provider flagged this as a repeat. Wait before retrying.', retry: true },
                     { code: 'DELIVERY_FAILED', http: '400', desc: 'Provider accepted then failed to deliver. Safe to retry.', retry: true },
+                    { code: 'SERVICE_DISABLED', http: '503', desc: 'Bulk SMS and recharge pins only. The service is not enabled for API users right now.', retry: false },
                     { code: 'SERVICE_UNAVAILABLE', http: '400', desc: 'Provider is temporarily unable to process this service.', retry: true },
                     { code: 'PROVIDER_TIMEOUT', http: '400', desc: 'Provider timed out. Verify before retrying.', retry: true },
                     { code: 'PROVIDER_UNREACHABLE', http: '502', desc: 'We could not reach the provider at all.', retry: true },
