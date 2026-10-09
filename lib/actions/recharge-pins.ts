@@ -58,7 +58,8 @@ export async function generateRechargePins(
     const pinVal = Number(data.value)
     const pinQty = Number(data.number)
 
-    // SECURITY: Validate network, pin value, and quantity against allowed bounds
+    // SECURITY: Validate network, pin value, and quantity against allowed bounds.
+    // The provider requires at least 10 pins for values below ₦500.
     const ALLOWED_VALUES = [100, 200, 400, 500]
     const ALLOWED_NETWORKS = ["mtn", "glo", "airtel", "9mobile", "etisalat"]
     if (!ALLOWED_NETWORKS.includes(data.network.toLowerCase())) {
@@ -67,8 +68,12 @@ export async function generateRechargePins(
     if (!ALLOWED_VALUES.includes(pinVal)) {
       return { success: false, error: "Invalid pin denomination" }
     }
-    if (!Number.isInteger(pinQty) || pinQty < 1 || pinQty > 50) {
-      return { success: false, error: "Invalid quantity (must be between 1 and 50)" }
+    const minQty = pinVal < 500 ? 10 : 1
+    if (!Number.isInteger(pinQty) || pinQty < minQty || pinQty > 50) {
+      return {
+        success: false,
+        error: `Invalid quantity (minimum ${minQty} for ₦${pinVal} pins, maximum 50)`,
+      }
     }
 
     const unitPrice = pinVal

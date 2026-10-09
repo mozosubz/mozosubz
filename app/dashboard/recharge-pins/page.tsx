@@ -30,7 +30,8 @@ const PIN_VALUES = [
   { value: 100, min: 10, max: 50 },
   { value: 200, min: 10, max: 25 },
   { value: 400, min: 10, max: 15 },
-  { value: 500, min: 10, max: 10 },
+  // The provider only requires 10 pins minimum for values below ₦500.
+  { value: 500, min: 1, max: 10 },
 ]
 
 export default function RechargePinsPage() {
@@ -52,7 +53,7 @@ export default function RechargePinsPage() {
   // Success state
   const [showSuccess, setShowSuccess] = useState(false)
   const [successData, setSuccessData] = useState<{
-    pins: Array<{ pin: string }>
+    pins: Array<{ pin: string; sn?: string }>
     network: string
     value: number
     quantity: number
@@ -165,7 +166,7 @@ export default function RechargePinsPage() {
     if (!successData?.pins) return
     
     const pinsText = successData.pins
-      .map((p, i) => `${i + 1}. ${p.pin}`)
+      .map((p, i) => `${i + 1}. Pin: ${p.pin}${p.sn ? ` | Serial: ${p.sn}` : ''}`)
       .join('\n')
     
     const content = `${successData.network.toUpperCase()} Recharge Pins
@@ -205,6 +206,14 @@ Keep this safe. Do not share these pins with anyone.`
       </div>
 
       <div className="flex-1 px-3 sm:px-4 overflow-y-auto flex flex-col pb-32">
+        <div className="mb-5">
+          <h1 className="text-lg font-bold text-[var(--text-1)]">Recharge card pins</h1>
+          <p className="text-xs text-[var(--text-3)] mt-1">
+            Generate recharge card pins in ₦100, ₦200, ₦400 or ₦500 denominations to load or resell. Each pin comes
+            with its serial number, and a copy is emailed to you. At least 10 pins are required for values below ₦500.
+          </p>
+        </div>
+
         {/* Network Tabs - Compact */}
         <div className="flex gap-1.5 mb-5 overflow-x-auto pb-2 -mx-3 px-3 sm:-mx-4 sm:px-4">
           {NETWORKS.map((n) => (
@@ -381,7 +390,12 @@ Keep this safe. Do not share these pins with anyone.`
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-[var(--text-3)] font-semibold flex-shrink-0">{i + 1}.</span>
-                      <span className="font-mono font-bold text-[var(--text-1)] break-all">{p.pin}</span>
+                      <div className="min-w-0">
+                        <p className="font-mono font-bold text-[var(--text-1)] break-all">{p.pin}</p>
+                        {p.sn && (
+                          <p className="font-mono text-[10px] text-[var(--text-3)] break-all">SN: {p.sn}</p>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => handleCopyPin(p.pin, i)}

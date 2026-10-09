@@ -149,7 +149,9 @@ export default function BulkSmsPage() {
               setError(null)
             }}
           />
-          <p className="text-[11px] text-[var(--text-3)] mt-1">3–11 letters, no spaces or numbers.</p>
+          <p className="text-[11px] text-[var(--text-3)] mt-1">
+            3–11 letters, no spaces, numbers or symbols. Bank, payment, telecom and government names are not allowed.
+          </p>
         </div>
 
         <div className="form-group mb-4">
@@ -169,6 +171,10 @@ export default function BulkSmsPage() {
               setError(null)
             }}
           />
+          <p className="text-[11px] text-[var(--text-3)] mt-1">
+            Separate numbers with commas or new lines. 080…, 234… and +234… formats all work. Invalid or repeated
+            numbers are skipped and not charged.
+          </p>
         </div>
 
         <div className="form-group mb-4">
@@ -195,7 +201,9 @@ export default function BulkSmsPage() {
         <div className="flex gap-2.5 p-3 rounded-xl bg-[var(--primary-light)] text-[var(--primary)] text-[11px] mb-4">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>
-            Networks block messages about banks, OTPs and bare digit runs. Write amounts like 5,000 rather than 5000.
+            Networks block messages mentioning banks, payment companies, international brands like WhatsApp or
+            Facebook, OTP wording, and runs of 4 or more digits — write amounts like 5,000 rather than 5000. Numbers
+            on the DND list are not delivered and are not refunded.
           </span>
         </div>
 

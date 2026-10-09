@@ -277,6 +277,9 @@ export default function SocialPage() {
                   setError(null)
                 }}
               />
+              <p className="text-[11px] text-[var(--text-3)] mt-1">
+                The profile or post URL the order should be delivered to.
+              </p>
               {link && !linkValid && <p className="text-[11px] text-[#dc2626] mt-1">Enter a valid link</p>}
             </div>
 
@@ -335,7 +338,9 @@ export default function SocialPage() {
               </span>
               <div>
                 <h2 className="text-base font-bold text-[var(--text-1)]">Order placed</h2>
-                <p className="text-xs text-[var(--text-3)]">Delivery starts shortly.</p>
+                <p className="text-xs text-[var(--text-3)]">
+                  Order received by the provider. Delivery is handled by them and starts shortly.
+                </p>
               </div>
             </div>
 

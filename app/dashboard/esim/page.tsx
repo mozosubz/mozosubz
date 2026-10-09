@@ -164,7 +164,9 @@ export default function EsimPage() {
         <div className="mb-5">
           <h1 className="text-lg font-bold text-[var(--text-1)]">Travel data, no roaming</h1>
           <p className="text-xs text-[var(--text-3)] mt-1">
-            Pick a country and a data package. Your QR code is issued right after payment.
+            Pick a country and a data package — no phone number needed. The QR code arrives as soon as the eSIM is
+            issued, usually instantly. The final price is confirmed at purchase and may differ slightly from the
+            listed price.
           </p>
         </div>
 
@@ -267,6 +269,20 @@ export default function EsimPage() {
                           {p.duration > 1 ? 's' : ''}
                         </p>
                         <p className="text-[11px] text-[var(--text-3)] mt-0.5 truncate">{p.name}</p>
+                        {(!p.refundable || p.topUp) && (
+                          <p className="text-[10px] mt-1 flex gap-1.5">
+                            {!p.refundable && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-[#fef2f2] text-[#dc2626] font-semibold">
+                                Non-refundable
+                              </span>
+                            )}
+                            {p.topUp && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] font-semibold">
+                                Top-up supported
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                       <span className="text-sm font-bold text-[var(--primary)] flex-shrink-0">
                         ₦{Number(p.price).toLocaleString()}
@@ -293,6 +309,11 @@ export default function EsimPage() {
                     ₦{(balance ?? 0).toLocaleString()}
                   </span>
                 </div>
+                {!selected.refundable && (
+                  <p className="text-[11px] text-[#dc2626] pt-1">
+                    This package is non-refundable — it cannot be cancelled once bought.
+                  </p>
+                )}
               </div>
             )}
 

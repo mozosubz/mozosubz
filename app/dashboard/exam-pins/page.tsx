@@ -10,6 +10,7 @@ import { getWalletBalance } from '@/lib/actions/wallet'
 
 interface ExamResult {
   pin: string
+  serial: string
   board: string
   amount: number
   transactionId: string
@@ -69,8 +70,11 @@ export default function ExamPinsPage() {
         return
       }
 
+      // The provider returns the pin and its serial number as "pin<=>serial".
+      const [rawPin, rawSerial] = String(res.transaction?.pin ?? '').split('<=>')
       setResult({
-        pin: String(res.transaction?.pin ?? ''),
+        pin: rawPin || String(res.transaction?.pin ?? ''),
+        serial: rawSerial ?? '',
         board: board.label,
         amount: price,
         transactionId: String(res.transaction?.id ?? ''),
@@ -108,7 +112,8 @@ export default function ExamPinsPage() {
         <div className="mb-5">
           <h1 className="text-lg font-bold text-[var(--text-1)]">Result checker pins</h1>
           <p className="text-xs text-[var(--text-3)] mt-1">
-            Buy WAEC, NECO or NABTEB scratch cards instantly. The pin is shown right after payment.
+            Buy WAEC, NECO or NABTEB result checker pins. Each pin comes with its serial number and is shown right
+            after payment — just the phone number is needed.
           </p>
         </div>
 
@@ -253,6 +258,12 @@ export default function ExamPinsPage() {
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
+              {result.serial && (
+                <>
+                  <p className="text-[11px] font-semibold text-[var(--text-3)] mb-1.5 mt-3">SERIAL NUMBER</p>
+                  <span className="font-mono text-sm font-semibold text-[var(--text-2)] break-all">{result.serial}</span>
+                </>
+              )}
             </div>
 
             <div className="text-xs space-y-2">
