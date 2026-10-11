@@ -145,12 +145,12 @@ export default async function AdminDashboard() {
               </div>
             </div>
             <div className="stat-value">
-              <Sensitive length={6}>₦{revenueData.trueMargin.toLocaleString()}</Sensitive>
+              <Sensitive length={6}>₦{revenueData.trueMargin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Sensitive>
             </div>
             <p className="stat-trend">
-              Charged ₦{revenueData.chargedTotal.toLocaleString()} − provider ₦{revenueData.providerCostTotal.toLocaleString()}
+              Charged ₦{revenueData.chargedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} − provider ₦{revenueData.providerCostTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               {revenueData.chargedTotal > 0 && (
-                <> · covers ₦{revenueData.marginCovered.toLocaleString()} of purchases</>
+                <> · covers ₦{revenueData.marginCovered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} of purchases</>
               )}
             </p>
           </div>

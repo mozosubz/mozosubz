@@ -308,7 +308,7 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full md:max-w-2xl md:mx-auto lg:max-w-3xl">
+      <div className="w-full md:max-w-2xl md:mx-auto lg:max-w-5xl xl:max-w-6xl">
         {/* Sticky Header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border/50">
           <div className="flex items-center gap-3 px-4 md:px-6 lg:px-8 py-4">
@@ -324,8 +324,9 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
         </div>
 
         <div className="px-4 md:px-6 lg:px-8 py-6 pb-20 md:pb-8">
+          <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-8 lg:items-start">
           {/* Avatar */}
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-8 lg:mb-0 lg:sticky lg:top-24">
             <div className="relative w-32 h-32 mb-6">
               <div className="w-32 h-32 rounded-full bg-[#1a56db] flex items-center justify-center text-white text-5xl font-bold overflow-hidden shadow-lg">
                 {profile?.avatar_url ? (
@@ -385,7 +386,7 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
           )}
 
           {/* Menu Card */}
-          <div className="bg-white border border-black/6 rounded-xl overflow-hidden mb-6">
+          <div className="bg-white border border-black/6 rounded-xl overflow-hidden mb-6 lg:mb-0 lg:shadow-sm">
             {/* Edit Profile */}
             <div>
               <button
@@ -629,6 +630,7 @@ export function ProfileClient({ initialUser, initialProfile }: ProfileClientProp
               </div>
               <span className="text-sm font-semibold flex-1 text-left text-[#dc2626]">Logout</span>
             </button>
+          </div>
           </div>
         </div>
       </div>

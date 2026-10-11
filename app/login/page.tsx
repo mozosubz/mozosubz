@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import { signInAction } from "@/lib/actions/auth"
 import { Loader2, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 
@@ -20,6 +21,30 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+
+  // FIX (2026-10-11): a session cookie left behind by a revoked/expired
+  // session (single-device login revokes the previous refresh token) made
+  // /login and /dashboard redirect to each other forever — ERR_TOO_MANY_
+  // REDIRECTS, no way back to the form. On mount, if a local session exists
+  // but the server rejects it, clear the cookies and stay on the form.
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session || !active) return
+        const { error } = await supabase.auth.getUser()
+        if (error) {
+          await supabase.auth.signOut()
+          if (active) setNotice("Your previous session expired. Please sign in again.")
+        }
+      } catch {
+        // Never block the login form on a session check failure.
+      }
+    })()
+    return () => { active = false }
+  }, [])
 
   // Show a friendly banner when the existing session manager redirected here
   // because the account was opened on another device.
