@@ -79,9 +79,16 @@ export async function purchaseSocial(formData: FormData, trustedUserId?: string,
     if (apiPricing) {
       const apiUnit = await resolveApiPlanPrice("social", service.display_name)
       if (apiUnit === null) {
-        return { success: false, message: "This service is not available for API users.", errorCode: "PLAN_NOT_ENABLED" }
+        // FIX (2026-10-11): used to hard-fail with PLAN_NOT_ENABLED, which made
+        // every social service unbuyable for API users because api_pricing_rules
+        // had no social rows (5,105 catalogue entries can't be pre-seeded).
+        // Fall back to the standard markup so the service works everywhere; the
+        // admin can still set explicit per-service API prices later.
+        console.warn(`[social] no api_pricing_rules row for "${service.display_name}" — falling back to standard markup`)
+        unit = await applyServiceMarkup("social", service.display_name, unitPrice)
+      } else {
+        unit = apiUnit
       }
-      unit = apiUnit
     } else {
       unit = await applyServiceMarkup("social", service.display_name, unitPrice)
     }

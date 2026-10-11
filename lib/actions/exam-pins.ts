@@ -93,9 +93,16 @@ export async function purchaseExamPin(formData: FormData, trustedUserId?: string
       // The admin API pricing page stores the board label as the plan name.
       const apiPrice = await resolveApiPlanPrice(config.serviceId, config.label)
       if (apiPrice === null) {
-        return { success: false, message: "This exam pin is not available for API users.", errorCode: "PLAN_NOT_ENABLED" }
+        // FIX (2026-10-11): used to hard-fail with PLAN_NOT_ENABLED, which made
+        // exam pins unbuyable for API users because api_pricing_rules had no
+        // exam-pins rows. Fall back to the standard markup (the live provider
+        // price above) so the service works everywhere; the admin can still set
+        // explicit API prices on the API pricing page.
+        console.warn(`[exam-pins] no api_pricing_rules row for "${config.label}" — falling back to standard markup`)
+        price = await applyServiceMarkup("exam-pins", config.label, basePrice)
+      } else {
+        price = apiPrice
       }
-      price = apiPrice
     } else {
       price = await applyServiceMarkup("exam-pins", config.label, basePrice)
     }
