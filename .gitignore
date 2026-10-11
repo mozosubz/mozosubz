@@ -7,8 +7,10 @@ __v0_jsx-dev-runtime.ts
 .vercel/
 next.user-config.*
 
-# Environment variables
-.env*.local
+# Environment variables — ignore ALL .env files (a vercel-pull artifact was
+# committed here once and leaked the full production secret set).
+.env*
+!.env.bot.example
 
 # Common ignores
 node_modules
