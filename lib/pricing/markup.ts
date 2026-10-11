@@ -15,27 +15,44 @@ export interface MarkupRule {
   markup_value: number
 }
 
-/** Cached active pricing rules for one service_id. */
+/**
+ * Cached active pricing rules for one service_id.
+ *
+ * FIX (2026-10-11): `unstable_cache` used to be constructed INSIDE this function,
+ * so every call created a fresh cached wrapper — which meant a brand-new cache
+ * entry every time and a brand-new Supabase query every time. The social
+ * catalogue page calls applyServiceMarkup once per service (5,105 services),
+ * so it fired 5,105 DB queries and the server action timed out — the dashboard
+ * social page loaded with an empty catalogue. The wrapper is now built once per
+ * serviceId and reused, so the first call queries the DB and everything after
+ * hits the Next.js data cache.
+ */
+const rulesCache = new Map<string, (serviceId: string) => Promise<MarkupRule[]>>()
+
 export async function getCachedPricingRules(serviceId: string): Promise<MarkupRule[]> {
   const { unstable_cache } = await import("next/cache")
-  const getCached = unstable_cache(
-    async () => {
-      const { createClient } = await import("@supabase/supabase-js")
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
-      const { data } = await supabase
-        .from("pricing_rules")
-        .select("plan_name, base_price, markup_type, markup_value")
-        .eq("service_id", serviceId)
-        .eq("is_active", true)
-      return (data || []) as MarkupRule[]
-    },
-    [`pricing-rules-${serviceId}`],
-    { revalidate: 1800, tags: ["pricing-rules", `pricing-rules-${serviceId}`] }
-  )
-  return getCached()
+  let getCached = rulesCache.get(serviceId)
+  if (!getCached) {
+    getCached = unstable_cache(
+      async () => {
+        const { createClient } = await import("@supabase/supabase-js")
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        const { data } = await supabase
+          .from("pricing_rules")
+          .select("plan_name, base_price, markup_type, markup_value")
+          .eq("service_id", serviceId)
+          .eq("is_active", true)
+        return (data || []) as MarkupRule[]
+      },
+      [`pricing-rules-${serviceId}`],
+      { revalidate: 1800, tags: ["pricing-rules", `pricing-rules-${serviceId}`] }
+    ) as unknown as (serviceId: string) => Promise<MarkupRule[]>
+    rulesCache.set(serviceId, getCached)
+  }
+  return getCached(serviceId)
 }
 
 /** Markup amount (naira) for a base price under a rule. */

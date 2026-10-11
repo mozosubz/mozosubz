@@ -28,6 +28,10 @@ export interface SaveTransactionPayload {
   phone: string
   balanceBefore: number
   balanceAfter: number
+  /** What the provider (GSUBZ) actually charged us for this purchase —
+   *  amountPaid from the provider response, or initialBalance-finalBalance.
+   *  Used for true per-transaction margin: amount - providerCost. */
+  providerCost?: number | null
   description: string
   status: TransactionStatus
   apiResponse?: Record<string, any>
@@ -83,6 +87,7 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       api_response: payload.apiResponse ? JSON.stringify(payload.apiResponse) : null,
       plan_details: payload.planDetails || null,
       metadata: payload.metadata || null,
+      provider_cost: payload.providerCost ?? null,
       created_at: new Date().toISOString(),
     }
 

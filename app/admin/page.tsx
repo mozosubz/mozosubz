@@ -49,6 +49,10 @@ export default async function AdminDashboard() {
       allTime: 0,
       depositFeeRevenue: 0,
       markupRevenue: 0,
+      trueMargin: 0,
+      chargedTotal: 0,
+      providerCostTotal: 0,
+      marginCovered: 0,
       todayGrowth: 0,
       weekGrowth: 0,
       monthGrowth: 0,
@@ -131,6 +135,24 @@ export default async function AdminDashboard() {
               <Sensitive length={6}>₦{revenueData.markupRevenue.toLocaleString()}</Sensitive>
             </div>
             <p className="stat-trend">{markupPct.toFixed(1)}% of total</p>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-header">
+              <h3 className="stat-title">True Margin</h3>
+              <div className="stat-icon stat-icon-success">
+                <TrendingUp size={18} />
+              </div>
+            </div>
+            <div className="stat-value">
+              <Sensitive length={6}>₦{revenueData.trueMargin.toLocaleString()}</Sensitive>
+            </div>
+            <p className="stat-trend">
+              Charged ₦{revenueData.chargedTotal.toLocaleString()} − provider ₦{revenueData.providerCostTotal.toLocaleString()}
+              {revenueData.chargedTotal > 0 && (
+                <> · covers ₦{revenueData.marginCovered.toLocaleString()} of purchases</>
+              )}
+            </p>
           </div>
         </div>
 

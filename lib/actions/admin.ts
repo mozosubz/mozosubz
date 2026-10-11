@@ -252,6 +252,19 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
     payment_method: 'ADMIN',
   })
 
+  if (txError) {
+    console.error('[v0] Admin credit ledger write failed:', txError)
+    return { error: 'Credit applied but ledger entry failed — reconcile immediately' }
+  }
+
+  await adminSupabase.from('admin_logs').insert({
+    admin_id: adminUserId,
+    action: 'WALLET_CREDIT',
+    target_user: userId,
+    amount,
+    details: { reason: reason || 'Wallet funded via admin credit', balance_before: balanceBefore, balance_after: newBalance },
+  })
+
   revalidatePath('/admin/users')
   revalidatePath('/admin/transactions')
   
@@ -307,6 +320,40 @@ export async function debitUserWallet(userId: string, amount: number, reason: st
     console.error('[v0] Error updating wallet:', updateError)
     return { error: updateError.message }
   }
+
+  // FIX (bounty): debits used to move money with NO transaction record and NO
+  // admin log, so ₦89,944.68 left user wallets invisibly and the admin
+  // transactions page could never see it. Mirror creditUserWallet: write the
+  // ledger entry and the admin log entry, atomically with the balance change.
+  const { error: txError } = await adminSupabase.from('transactions').insert({
+    user_id: userId,
+    transaction_id: `ADMIN_${Date.now()}`,
+    category: 'ADMIN_DEBIT',
+    service_id: 'admin_debit',
+    service_name: 'Admin Debit',
+    amount,
+    phone: '',
+    status: 'SUCCESS',
+    description: reason || 'Wallet debited via admin',
+    balance_before: balanceBefore,
+    balance_after: newBalance,
+    api_response: JSON.stringify({ admin_id: adminUserId }),
+    created_at: new Date().toISOString(),
+    payment_method: 'ADMIN',
+  })
+
+  if (txError) {
+    console.error('[v0] Admin debit ledger write failed:', txError)
+    return { error: 'Debit applied but ledger entry failed — reconcile immediately' }
+  }
+
+  await adminSupabase.from('admin_logs').insert({
+    admin_id: adminUserId,
+    action: 'WALLET_DEBIT',
+    target_user: userId,
+    amount,
+    details: { reason: reason || 'Wallet debited via admin', balance_before: balanceBefore, balance_after: newBalance },
+  })
 
   revalidatePath('/admin/users')
   revalidatePath('/admin/transactions')

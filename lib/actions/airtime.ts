@@ -7,6 +7,7 @@ import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transactio
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { resolveProviderError } from "@/lib/utils/provider-error"
 import { scheduleVerifyPending } from "@/lib/utils/schedule-verify"
+import { applyServiceMarkup } from "@/lib/pricing/markup"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -67,7 +68,11 @@ export async function purchaseAirtime(formData: FormData, trustedUserId?: string
     }
 
     const userAmount = Number(amount)
-    const chargeAmount = userAmount
+    // FIX (2026-10-11): airtime used to be sold at face value with no markup,
+    // so every airtime sale earned exactly ₦0 (and revenue reporting ignored
+    // the category entirely). Apply the same service markup as data/cable —
+    // the customer buys ₦X of airtime and is charged the marked-up rate.
+    const chargeAmount = await applyServiceMarkup("airtime", network.toLowerCase(), userAmount)
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance

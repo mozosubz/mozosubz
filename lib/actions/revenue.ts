@@ -10,6 +10,13 @@ export interface RevenueData {
   allTime: number
   depositFeeRevenue: number
   markupRevenue: number
+  /** Charged-to-customers minus what the provider charged us, across every
+   *  purchase with a recorded provider_cost. The number that cannot drift. */
+  trueMargin: number
+  chargedTotal: number
+  providerCostTotal: number
+  /** Portion of chargedTotal that has a recorded provider cost. */
+  marginCovered: number
   todayGrowth: number
   weekGrowth: number
   monthGrowth: number
@@ -54,16 +61,19 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
     // Fetch all deposit transactions (these generate deposit fees)
     const { data: deposits } = await supabase
       .from('transactions')
-      .select('id, amount, status, created_at')
+      .select('id, amount, status, created_at, payment_reference')
       .eq('category', 'WALLET_FUND')
       .eq('status', 'SUCCESS')
       .gte('created_at', startDate.toISOString())
 
-    // Fetch all data/airtime/cable purchases (these generate markups)
+    // Every purchase category earns margin (markup over provider cost).
+    // FIX (2026-10-11): this used to be ['DATA','CABLE'] only, so airtime,
+    // electricity, bulk SMS, social and exam-pin sales were invisible here.
+    const PURCHASE_CATEGORIES = ['DATA', 'AIRTIME', 'CABLE', 'ELECTRICITY', 'BULK_SMS', 'SOCIAL', 'EXAM_PINS', 'ESIM', 'RECHARGE_PINS']
     const { data: purchases } = await supabase
       .from('transactions')
-      .select('id, amount, status, created_at, category, service_id, plan_details')
-      .in('category', ['DATA', 'CABLE'])
+      .select('id, amount, provider_cost, status, created_at, category, service_id, plan_details')
+      .in('category', PURCHASE_CATEGORIES)
       .eq('status', 'SUCCESS')
       .gte('created_at', startDate.toISOString())
 
@@ -78,9 +88,35 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
     const percentageFee = depositRules?.percentage_fee || 1.5
     const thresholdAmount = depositRules?.threshold_amount || 2500
 
-    // Calculate deposit fee revenue
+    // Deposit fee revenue from what was ACTUALLY charged, not a re-derivation
+    // from today's rules (rules change; history must not). The fee really
+    // charged lives on the monnify_transactions row: processing_fee, or
+    // amount - net_amount when the provider reports it that way.
+    const { data: feeRows } = await supabase
+      .from('monnify_transactions')
+      .select('payment_reference, amount, net_amount, processing_fee, status')
+      .eq('status', 'SUCCESS')
+      .gte('created_at', startDate.toISOString())
+
+    const feeByRef = new Map<string, number>()
+    ;(feeRows || []).forEach((row) => {
+      const ref = (row as { payment_reference?: string }).payment_reference
+      const processingFee = Number((row as { processing_fee?: number }).processing_fee || 0)
+      const amount = Number((row as { amount?: number }).amount || 0)
+      const net = Number((row as { net_amount?: number }).net_amount || 0)
+      const fee = processingFee > 0 ? processingFee : Math.max(amount - net, 0)
+      if (ref) feeByRef.set(ref, fee)
+    })
+
     let depositFeeRevenue = 0
     deposits?.forEach((deposit) => {
+      const ref = (deposit as { payment_reference?: string }).payment_reference
+      const actual = ref ? feeByRef.get(ref) : undefined
+      if (actual !== undefined) {
+        depositFeeRevenue += actual
+        return
+      }
+      // No provider row (admin credit etc.) — fall back to the rule of the day.
       let fee = baseFee
       if (deposit.amount >= thresholdAmount) {
         fee = baseFee + (deposit.amount * percentageFee) / 100
@@ -88,41 +124,57 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
       depositFeeRevenue += fee
     })
 
-    // For markup revenue, only count purchases with active pricing rules that have markup
+    // Markup revenue and TRUE MARGIN.
+    // Markup = what the pricing rules say we add over base.
+    // Margin = what we charged minus what the provider actually charged us —
+    // recorded per transaction (provider_cost from the provider's amountPaid
+    // or balance delta), so this number cannot drift from reality.
     let markupRevenue = 0
+    let providerCostTotal = 0
+    let chargedTotal = 0
+    let marginCovered = 0
     if (purchases && purchases.length > 0) {
-      // Get all active pricing rules with plan names
       const { data: pricingRules } = await supabase
         .from('pricing_rules')
-        .select('service_id, plan_name, markup_type, markup_value')
+        .select('service_id, plan_name, base_price, markup_type, markup_value')
         .eq('is_active', true)
 
       purchases.forEach((purchase) => {
-        // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
-        const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
-        
-        // Find pricing rule matching network prefix AND plan name
-        const pricingRule = pricingRules?.find(rule => 
-          rule.service_id && 
-          networkPrefix &&
-          rule.service_id.toLowerCase() === networkPrefix &&
-          rule.plan_name &&
-          purchase.plan_details &&
-          rule.plan_name.toLowerCase() === purchase.plan_details.toLowerCase() &&
-          rule.markup_value > 0
+        const amount = Number(purchase.amount || 0)
+        chargedTotal += amount
+        const providerCost =
+          purchase.provider_cost === null || purchase.provider_cost === undefined
+            ? null
+            : Number(purchase.provider_cost)
+        if (providerCost !== null && Number.isFinite(providerCost)) {
+          providerCostTotal += providerCost
+          marginCovered += amount
+        }
+
+        // Match on the FULL service id (mtn_sme — the old code matched the
+        // "mtn" prefix, which never matched a rule, so markup revenue was
+        // always ~0) and the exact plan name.
+        const rule = pricingRules?.find(
+          (r) =>
+            r.service_id &&
+            purchase.service_id &&
+            r.service_id.toLowerCase() === purchase.service_id.toLowerCase() &&
+            r.plan_name &&
+            purchase.plan_details &&
+            r.plan_name.toLowerCase() === purchase.plan_details.toLowerCase(),
         )
-        
-        if (pricingRule) {
-          let markup = 0
-          if (pricingRule.markup_type === 'fixed') {
-            markup = pricingRule.markup_value
-          } else if (pricingRule.markup_type === 'percentage') {
-            markup = purchase.amount * (pricingRule.markup_value / 100)
-          }
-          markupRevenue += markup
+        if (rule) {
+          const base = Number(rule.base_price || 0)
+          const markup =
+            rule.markup_type === 'fixed'
+              ? Number(rule.markup_value || 0)
+              : base * (Number(rule.markup_value || 0) / 100)
+          if (markup > 0) markupRevenue += markup
         }
       })
     }
+
+    const trueMargin = chargedTotal - providerCostTotal
 
     const totalRevenue = depositFeeRevenue + markupRevenue
 
@@ -136,6 +188,10 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
       allTime: dateRange === 'all' ? totalRevenue : 0,
       depositFeeRevenue,
       markupRevenue,
+      trueMargin,
+      chargedTotal,
+      providerCostTotal,
+      marginCovered,
       todayGrowth: ((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 || 0,
       weekGrowth: 0,
       monthGrowth: 0,

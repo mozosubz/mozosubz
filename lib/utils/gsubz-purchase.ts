@@ -67,8 +67,19 @@ export async function finalizeGsubzPurchase(
       ? deduct.newBalance ?? ctx.balanceBefore - ctx.amount
       : ctx.balanceBefore
 
+    // Provider cost for margin reporting: what GSUBZ actually debited us.
+    // amountPaid is the documented field ("amount deducted from wallet at your
+    // API price"); fall back to the balance delta when the provider omits it.
+    const providerCost =
+      typeof outcome.amountPaid === "number" && outcome.amountPaid > 0
+        ? outcome.amountPaid
+        : typeof outcome.raw?.initialBalance === "number" && typeof outcome.raw?.finalBalance === "number"
+          ? Number(outcome.raw.initialBalance) - Number(outcome.raw.finalBalance)
+          : null
+
     await saveTransaction({
       userId: ctx.userId,
+      providerCost,
       transactionId,
       category: ctx.category,
       serviceId: ctx.serviceId,
