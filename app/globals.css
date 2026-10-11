@@ -267,6 +267,59 @@ body {
 }
 
   /* Mozosubz App Shell */
+
+/* ────────────────────────────────────────────────────────────────────────────
+   DESKTOP REWORK (2026-10-11) — everything below is inside min-width
+   breakpoints only, so the phone UI is byte-for-byte unchanged.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@media (min-width: 1024px) {
+  /* Dashboard: two columns — actions left, money right. On mobile the
+     .dash-grid is a plain block, so the stacked order is unchanged. */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas:
+      "greet   wallet"
+      "services wallet"
+      "services tx";
+    gap: 28px 32px;
+    align-items: start;
+  }
+  .dash-greeting { grid-area: greet; }
+  .dash-wallet { grid-area: wallet; position: sticky; top: 24px; }
+  .dash-services { grid-area: services; }
+  .dash-tx { grid-area: tx; margin-top: 28px; }
+
+  /* Wider, calmer reading measure on desktop */
+  .app-content main,
+  .app-content .max-w-4xl,
+  .app-content .max-w-5xl {
+    max-width: 1120px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .app-shell { grid-template-columns: 264px 1fr; }
+  .app-shell-sidebar { width: 264px !important; }
+}
+
+/* Desktop type scale for the shell chrome — phone sizes untouched */
+@media (min-width: 1024px) {
+  .topbar { padding: 20px 32px; }
+  .topbar-title { font-size: 20px; }
+  .wallet-card { padding: 36px; }
+  .app-content { padding-bottom: 0; }
+}
+
+/* Desktop cards get real elevation instead of mobile's flat borders */
+@media (min-width: 1024px) {
+  .dash-services section,
+  .dash-tx section {
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+  }
+}
+
 @layer utilities {
   /* App shell container - mobile first, desktop grid layout */
   .app-shell {

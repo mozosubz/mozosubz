@@ -277,7 +277,8 @@ export function DashboardClient({
       </header>
 
       {/* Main Content */}
-      <main className="px-4 sm:px-6 lg:px-8 py-6 w-full max-w-5xl mx-auto">
+      <main className="px-4 sm:px-6 lg:px-8 py-6 w-full max-w-5xl lg:max-w-[1120px] mx-auto">
+        <div className="dash-grid">
         {banner && (
           <div
             role="status"
@@ -300,13 +301,13 @@ export function DashboardClient({
           </div>
         )}
 
-        <div className="mb-4">
+        <div className="dash-greeting mb-4 lg:mb-0">
           <p className="text-xs text-[var(--text-3)]">Welcome back</p>
-          <h1 className="text-xl font-bold text-[var(--text-1)] capitalize">{firstName}</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-1)] capitalize">{firstName}</h1>
         </div>
 
         {/* Wallet Card — real balance on first paint, no skeleton */}
-        <div className="mb-6">
+        <div className="dash-wallet mb-6 lg:mb-0">
           <WalletCard
             balance={walletBalance}
             userId={userId}
@@ -317,12 +318,12 @@ export function DashboardClient({
         </div>
 
         {/* Services Grid */}
-        <div className="mb-6">
+        <div className="dash-services mb-6 lg:mb-0">
           <ServiceGrid />
         </div>
 
         {/* Recent Transactions — real list on first paint */}
-        <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+        <section className="dash-tx rounded-3xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
             <h2 className="text-sm font-bold text-[var(--text-1)]">Recent Transactions</h2>
             <Link
@@ -336,6 +337,7 @@ export function DashboardClient({
             <TransactionList transactions={transactions} />
           </div>
         </section>
+        </div>
       </main>
     </div>
   )
