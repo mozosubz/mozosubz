@@ -260,8 +260,7 @@ export function DashboardClient({
     <div className="bg-[var(--bg)] w-full min-h-full">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)] px-4 sm:px-6 lg:px-8 py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <Logo />
+        <div className="flex items-center justify-end gap-3">
           {isAdmin && (
             <Link
               href="/admin"
@@ -322,21 +321,6 @@ export function DashboardClient({
           <ServiceGrid />
         </div>
 
-        {/* Recent Transactions — real list on first paint */}
-        <section className="dash-tx rounded-3xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-            <h2 className="text-sm font-bold text-[var(--text-1)]">Recent Transactions</h2>
-            <Link
-              href="/dashboard/transactions"
-              className="text-xs font-semibold text-[var(--primary)] flex items-center gap-1 hover:gap-1.5 transition-all"
-            >
-              See all <ChevronRight size={14} />
-            </Link>
-          </div>
-          <div className="p-2">
-            <TransactionList transactions={transactions} />
-          </div>
-        </section>
         </div>
       </main>
     </div>

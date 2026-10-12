@@ -277,19 +277,10 @@ body {
   /* Dashboard: two columns — actions left, money right. On mobile the
      .dash-grid is a plain block, so the stacked order is unchanged. */
   .dash-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
-    grid-template-areas:
-      "greet   wallet"
-      "services wallet"
-      "services tx";
-    gap: 28px 32px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
   }
-  .dash-greeting { grid-area: greet; }
-  .dash-wallet { grid-area: wallet; position: sticky; top: 24px; }
-  .dash-services { grid-area: services; }
-  .dash-tx { grid-area: tx; margin-top: 28px; }
 
   /* Wider, calmer reading measure on desktop */
   .app-content main,
