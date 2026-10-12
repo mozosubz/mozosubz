@@ -276,8 +276,8 @@ export function DashboardClient({
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="px-4 sm:px-6 lg:px-8 py-6 w-full max-w-5xl lg:max-w-[1120px] mx-auto">
+      {/* Main Content — reference layout: one generous column */}
+      <main className="px-4 sm:px-6 lg:px-8 py-6 w-full max-w-3xl lg:max-w-[860px] mx-auto">
         <div className="dash-grid">
         {banner && (
           <div
@@ -301,13 +301,13 @@ export function DashboardClient({
           </div>
         )}
 
-        <div className="dash-greeting mb-4 lg:mb-0">
-          <p className="text-xs text-[var(--text-3)]">Welcome back</p>
-          <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-1)] capitalize">{firstName}</h1>
+        <div className="dash-greeting mb-5 lg:mb-6">
+          <p className="text-[13px] text-[var(--text-3)]">Welcome back</p>
+          <h1 className="text-2xl lg:text-[28px] font-bold text-[var(--text-1)] capitalize">{firstName}</h1>
         </div>
 
         {/* Wallet Card — real balance on first paint, no skeleton */}
-        <div className="dash-wallet mb-6 lg:mb-0">
+        <div className="dash-wallet mb-6 lg:mb-0 [&_.wallet-card]:lg:shadow-xl [&_.wallet-card]:lg:rounded-[28px]">
           <WalletCard
             balance={walletBalance}
             userId={userId}

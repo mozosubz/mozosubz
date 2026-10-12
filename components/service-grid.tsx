@@ -17,14 +17,14 @@ export function ServiceGrid() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2">
+      <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-4 gap-2 sm:gap-3">
         {SERVICES.map((service) => {
           const Icon = service.icon
           return (
             <Link
               key={service.name}
               href={service.href}
-              className="group flex flex-col items-center gap-2 rounded-2xl p-2.5 transition hover:bg-[var(--bg)] active:scale-95"
+              className="group flex flex-col items-center gap-2.5 rounded-2xl p-3 transition hover:bg-[var(--bg)] active:scale-95"
             >
               <span
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 ${SERVICE_TONES[service.tone]}`}

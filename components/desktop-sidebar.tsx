@@ -69,8 +69,8 @@ export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
           </Link>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        {/* Navigation — icon squares with soft tints, active row on light blue */}
+        <nav className="flex-1 px-4 py-5 space-y-1.5">
           {tabs.map((tab) => {
             const active = isActive(tab.href)
             return (
@@ -80,13 +80,20 @@ export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
                 onClick={onClose}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors duration-200",
                   active
-                    ? "bg-[var(--primary-light)] text-[var(--primary)] font-semibold"
+                    ? "bg-[#eef4ff] text-[#1a56db] font-semibold"
                     : "text-[var(--text-2)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
                 )}
               >
-                <tab.icon className="w-5 h-5" />
+                <span
+                  className={cn(
+                    "w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 transition-colors",
+                    active ? "bg-[#dbe7ff]" : "bg-[var(--surface)]"
+                  )}
+                >
+                  <tab.icon className="w-[18px] h-[18px]" />
+                </span>
                 <span className="text-sm font-medium">{tab.name}</span>
               </Link>
             )
