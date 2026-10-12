@@ -310,6 +310,13 @@ body {
   .topbar-title { font-size: 20px; }
   .wallet-card { padding: 36px; }
   .app-content { padding-bottom: 0; }
+  /* Wallet balance gets real presence on desktop */
+  .wallet-card .wallet-amount,
+  .wallet-card .text-3xl { font-size: 2.6rem; line-height: 1.05; }
+  .wallet-card .account-label { font-size: 11px; color: rgba(255, 255, 255, 0.72); }
+  /* Muted shell text needs more contrast at desktop sizes */
+  .topbar-greeting p:first-child { color: var(--text-2); }
+  .dash-greeting p { color: var(--text-2); }
 }
 
 /* Desktop cards get real elevation instead of mobile's flat borders */
@@ -512,7 +519,7 @@ body {
   /* Account info */
   .account-label {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.6);
     margin-bottom: 2px;
   }
   .account-number {
