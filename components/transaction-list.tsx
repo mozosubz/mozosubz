@@ -150,12 +150,13 @@ export function TransactionList({ transactions }: TransactionListProps) {
               <Icon className={`w-6 h-6 ${iconColor}`} />
             </div>
 
-            {/* Middle: Service Name & Subtitle */}
+            {/* Middle: Service Name & Subtitle — long plan names get an
+                ellipsis with the full text on hover instead of a silent clip */}
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">
+              <p className="font-semibold text-sm truncate" title={serviceName}>
                 {serviceName}
               </p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-muted-foreground truncate" title={subtitle}>
                 {subtitle}
               </p>
             </div>
