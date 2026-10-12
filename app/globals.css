@@ -284,9 +284,6 @@ body {
 
   /* Pages keep their own intentional widths — the dashboard is a narrow,
      reference-style column and must not be stretched by the shell */
-  .app-content main {
-    max-width: 100%;
-  }
   .app-content .max-w-4xl {
     max-width: 896px;
   }
