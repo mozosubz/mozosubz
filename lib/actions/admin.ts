@@ -461,9 +461,9 @@ export async function banUser(userId: string, reason: string) {
     return { error: updateError.message }
   }
 
-  // Warm connect-key caches would otherwise keep serving this user's keys for
-  // up to 5 minutes on this instance; other instances re-check on their next
-  // cache miss against the profiles row.
+  // Belt-and-braces: the connect-key verifier re-checks the ban on every
+  // request, but dropping this instance's cached contexts refreshes all of
+  // this user's key metadata immediately too.
   clearConnectKeyCacheForUser(userId)
 
   await adminSupabase.from('admin_logs').insert({

@@ -49,7 +49,6 @@ export function DashboardClient({
   const [banner, setBanner] = useState<
     | { kind: "confirmed"; title: string; subtitle: string }
     | { kind: "welcome"; title: string; subtitle: string }
-    | { kind: "deposit"; title: string; subtitle: string }
     | null
   >(null)
 
@@ -59,20 +58,13 @@ export function DashboardClient({
     return () => cleanup()
   }, [])
 
-  // One-time top-of-page banners (?confirmed=1 / ?welcome=1 / ?deposit=success)
+  // One-time top-of-page banners (?confirmed=1 / ?welcome=1)
   useEffect(() => {
     const confirmed = searchParams.get("confirmed") === "1"
     const welcome = searchParams.get("welcome") === "1"
-    const depositSuccess = searchParams.get("deposit") === "success"
-    if (!confirmed && !welcome && !depositSuccess) return
+    if (!confirmed && !welcome) return
 
-    if (depositSuccess) {
-      setBanner({
-        kind: "deposit",
-        title: "Payment received — wallet funded",
-        subtitle: "Your new balance is shown below. Thank you!",
-      })
-    } else if (confirmed) {
+    if (confirmed) {
       setBanner({
         kind: "confirmed",
         title: "Email confirmed — welcome to Mozosubz!",
@@ -87,7 +79,8 @@ export function DashboardClient({
     }
 
     router.replace("/dashboard", { scroll: false })
-    const id = setTimeout(() => setBanner(null), 5000)
+    // Owner-tuned: the one-time banner clears itself after 4 seconds.
+    const id = setTimeout(() => setBanner(null), 4000)
     return () => clearTimeout(id)
   }, [searchParams, router])
 

@@ -34,19 +34,18 @@ const BACHS_CHECKOUT_ORIGIN = process.env.NEXT_PUBLIC_BACHS_CHECKOUT_ORIGIN || "
 // is confirmed by polling /api/payments/verify. The poll starts as soon as the
 // overlay opens (the sandbox checkout does not always relay the completion
 // event to the page) and accelerates once a completion event does arrive.
-// Cadence stays under the endpoint's 8 requests/minute limit: ~6.7/min while
-// waiting, then a short 2s burst after checkout.completed.
-const VERIFY_MAX_TRIES = 45
-const VERIFY_SLOW_INTERVAL_MS = 9_000
-const VERIFY_FAST_INTERVAL_MS = 2_000
-const VERIFY_FAST_TRIES = 12
+// 3s cadence = at most 20 requests/min, under the endpoint's 40/min budget;
+// the realtime watch usually beats it anyway.
+const VERIFY_MAX_TRIES = 100
+const VERIFY_SLOW_INTERVAL_MS = 3_000
+const VERIFY_FAST_INTERVAL_MS = 1_500
+const VERIFY_FAST_TRIES = 20
 
 type CheckoutStatus =
   | "idle"
   | "opening"
   | "paying"
   | "verifying"
-  | "success"
   | "failed"
   | "expired"
   | "pending-review"
@@ -154,7 +153,6 @@ export function DepositClient({ initialRules }: DepositClientProps) {
   const [error, setError] = useState("")
   const [processing, setProcessing] = useState(false)
   const [status, setStatus] = useState<CheckoutStatus>("idle")
-  const [creditedAmount, setCreditedAmount] = useState(0)
 
   const rulesRef = useRef<DepositRules | null>(initialRules)
   const realtimeConnectedRef = useRef<boolean>(false)
@@ -167,6 +165,7 @@ export function DepositClient({ initialRules }: DepositClientProps) {
   const bachsInitializedRef = useRef(false)
   const bachsBaseUrlRef = useRef<string | null>(null)
   const watchCleanupRef = useRef<(() => void) | null>(null)
+  const leavingRef = useRef(false)
 
   // Keep state and ref in lockstep — overlay event handlers are plain
   // closures and need the current status without waiting for a re-render.
@@ -320,17 +319,16 @@ export function DepositClient({ initialRules }: DepositClientProps) {
 
   /**
    * The single "wallet funded" path — shared by the realtime watch, the
-   * verify poll and the one-shot close check. Stops everything, paints the
-   * success state, then hands the buyer to the dashboard with a fresh
-   * balance a beat later.
+   * verify poll and the one-shot close check. Zero-delay handoff: the moment
+   * the credit is detected the buyer goes straight to the dashboard, whose
+   * server render already shows the new balance. No intermediate success
+   * banner, no artificial pause.
    */
   const markSuccessAndLeave = () => {
-    if (unmountedRef.current || statusRef.current === "success") return
+    if (unmountedRef.current || leavingRef.current) return
+    leavingRef.current = true
     pollingRef.current = false
-    updateStatus("success")
-    window.setTimeout(() => {
-      if (!unmountedRef.current) window.location.href = "/dashboard?deposit=success"
-    }, 900)
+    window.location.href = "/dashboard"
   }
 
   /**
@@ -548,7 +546,6 @@ export function DepositClient({ initialRules }: DepositClientProps) {
 
     setError("")
     setProcessing(true)
-    setCreditedAmount(calculation.netAmount)
     completedRef.current = false
     updateStatus("opening")
 
@@ -704,15 +701,6 @@ export function DepositClient({ initialRules }: DepositClientProps) {
                   <p className="text-xs text-gray-400 mt-1">This usually takes a few seconds.</p>
                 </div>
               </div>
-            )}
-
-            {status === "success" && (
-              <>
-                <p className="text-sm font-semibold text-black">
-                  ₦{creditedAmount.toLocaleString()} added to your wallet
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Refreshing your balance…</p>
-              </>
             )}
 
             {status === "failed" && (

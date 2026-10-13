@@ -88,9 +88,13 @@ export const RATE_LIMIT_CONFIG = {
   TRANSACTION_BUY: { interval: 60000, maxRequests: 30, keyPrefix: "rl:tx:buy" },
   TRANSACTION_VERIFY: { interval: 60000, maxRequests: 50, keyPrefix: "rl:tx:verify" },
 
-  // Payment endpoints (very strict - 8 each)
+  // Payment endpoints (strict)
   PAYMENT_INITIATE: { interval: 60000, maxRequests: 8, keyPrefix: "rl:payment:init" },
-  PAYMENT_VERIFY: { interval: 60000, maxRequests: 8, keyPrefix: "rl:payment:verify" },
+  // 40/min (was 8): the deposit page polls this while a checkout is open so
+  // the wallet shows as funded within ~3s of the provider confirming — the
+  // endpoint is authenticated, ownership-checked and idempotent, so the
+  // tighter budget only ever slowed the buyer's own confirmation down.
+  PAYMENT_VERIFY: { interval: 60000, maxRequests: 40, keyPrefix: "rl:payment:verify" },
 
   // Admin endpoints (very strict)
   ADMIN_ACTION: { interval: 60000, maxRequests: 20, keyPrefix: "rl:admin:action" },

@@ -21,10 +21,10 @@ interface CacheEntry {
 }
 
 const keyCache = new Map<string, CacheEntry>()
-// Short TTL on purpose: the cached context skips the per-request ban check, so
-// this bounds how long a banned account's keys can keep working on OTHER warm
-// instances after an admin bans them (banUser clears this instance's cache
-// immediately). One DB read per key per minute is still trivial.
+// Short TTL on purpose: the cached context skips the connect_keys DB read,
+// and this bounds how stale key metadata (name/permissions) can get. Bans are
+// NOT subject to this TTL — the verifier re-checks the profile on every
+// request, cache hit or miss.
 const CACHE_TTL = 60 * 1000 // 1 minute
 
 function getCachedContext(keyHash: string): CachedContext | undefined {
@@ -108,13 +108,19 @@ export async function verifyConnectKey(
 
   const keyHash = hashConnectKey(key)
 
-  // Serve from cache when available (avoids a DB round-trip per request)
+  // Serve from cache when available (avoids the connect_keys DB round-trip).
+  // The ban check below still runs on every request — cached or not — so an
+  // admin ban takes effect on the very next API call, on every instance.
   const cached = getCachedContext(keyHash)
   if (cached) {
     // Re-check expiry even on cache hit
     if (cached.expiresAt && new Date(cached.expiresAt) < new Date()) {
       keyCache.delete(keyHash)
       return fail(request, 'API key has expired', 401)
+    }
+    if (await isUserBanned(cached.userId)) {
+      keyCache.delete(keyHash)
+      return { success: false, error: 'This account has been suspended', status: 403 }
     }
     return { success: true, context: cached }
   }
@@ -148,9 +154,8 @@ export async function verifyConnectKey(
     }
 
     // ── Account ban check ───────────────────────────────────────────────────
-    // A banned account's keys stop working everywhere. Checked on every cache
-    // miss (banUser also clears this instance's cache so the change is
-    // immediate here; other instances converge within the 5-minute TTL).
+    // Runs on every request (cache hit or miss): a banned account's keys stop
+    // working on the very next call, everywhere. One indexed PK read.
     if (await isUserBanned(connectKey.user_id)) {
       keyCache.delete(keyHash)
       return { success: false, error: 'This account has been suspended', status: 403 }
