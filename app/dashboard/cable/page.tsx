@@ -177,7 +177,7 @@ export default function CablePage() {
 
   return (
     <div className="min-h-screen bg-background overflow-y-auto flex flex-col">
-      <div className="w-full flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 flex flex-col">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 flex flex-col max-w-2xl w-full mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 pt-4">
           <button

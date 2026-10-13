@@ -206,7 +206,7 @@ Keep this safe. Do not share these pins with anyone.`
         </Link>
       </div>
 
-      <div className="flex-1 px-3 sm:px-4 overflow-y-auto flex flex-col pb-32">
+      <div className="flex-1 px-3 sm:px-6 overflow-y-auto flex flex-col pb-32 max-w-2xl w-full mx-auto">
         <div className="mb-5">
           <h1 className="text-lg font-bold text-[var(--text-1)]">Recharge card pins</h1>
           <p className="text-xs text-[var(--text-3)] mt-1">

@@ -172,7 +172,7 @@ export default function AirtimePage() {
         </Link>
       </div>
 
-      <div className="flex-1 px-4 overflow-y-auto flex flex-col">
+      <div className="flex-1 px-4 sm:px-6 overflow-y-auto flex flex-col max-w-2xl w-full mx-auto">
         {/* Network Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {networks.map((n) => (
