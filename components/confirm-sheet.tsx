@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { createPortal } from "react-dom"
 import { Loader2, X } from "lucide-react"
 import { NetworkLogo } from "@/lib/utils/network-logo"
 
@@ -50,8 +51,12 @@ export function ConfirmSheet({ show, title, network, page = 'airtime', details, 
   }, [show, loading, onCancel])
 
   if (!show) return null
+  if (typeof document === "undefined") return null
 
-  return (
+  // Rendered into <body>, the way the admin modals are (ModalPortal), so no
+  // page-level wrapper can ever become the containing block for this fixed
+  // overlay.
+  return createPortal(
     <>
       <div className="sheet-overlay open" onClick={loading ? undefined : onCancel} />
       <div className="bottom-sheet open" role="dialog" aria-modal="true" aria-label={title}>
@@ -102,6 +107,7 @@ export function ConfirmSheet({ show, title, network, page = 'airtime', details, 
           </button>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   )
 }

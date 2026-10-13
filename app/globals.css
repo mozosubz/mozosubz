@@ -382,7 +382,11 @@ body {
     -ms-overflow-style: none;
     scrollbar-width: none;
     will-change: scroll-position;
-    contain: layout style paint;
+    /* NO `contain: paint|layout` here: it turns .app-content into the
+       containing block for every position:fixed descendant, so modals and
+       overlays anchored inside it (ConfirmSheet, result dialogs, the deposit
+       overlay) tracked the scroll area instead of the viewport — exactly the
+       "modal not fixed" bug. Fixed overlays must anchor to the viewport. */
     width: 100%;
   }
 
