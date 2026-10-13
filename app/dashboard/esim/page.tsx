@@ -47,7 +47,112 @@ export default function EsimPage() {
         if (active) setLoadingCountries(false)
       }
     })()
-    return (
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Poll the order while the provider provisions the eSIM.
+  useEffect(() => {
+    if (!requestID) return
+    let active = true
+    let attempts = 0
+    const tick = async () => {
+      if (!active) return
+      attempts += 1
+      const fresh = await getEsimOrder(requestID)
+      if (!active) return
+      if (fresh) {
+        setOrder(fresh)
+        if (fresh.esimStatus !== 'provisioning') {
+          setPolling(false)
+          return
+        }
+      }
+      if (attempts >= 12) {
+        setPolling(false)
+        return
+      }
+      setTimeout(tick, 5000)
+    }
+    setPolling(true)
+    const id = setTimeout(tick, 3000)
+    return () => {
+      active = false
+      clearTimeout(id)
+    }
+  }, [requestID])
+
+  const filteredCountries = useMemo(() => {
+    const q = countryQuery.trim().toLowerCase()
+    if (!q) return countries
+    return countries.filter((c) => c.country.toLowerCase().includes(q))
+  }, [countries, countryQuery])
+
+  const selectCountry = async (c: EsimCountry) => {
+    setCountry(c)
+    setSelected(null)
+    setPackages([])
+    setError(null)
+    setLoadingPackages(true)
+    try {
+      setPackages(await listEsimPackages(c.locationCodes))
+    } catch {
+      setError('Failed to load packages for this country.')
+    } finally {
+      setLoadingPackages(false)
+    }
+  }
+
+  const price = selected?.price ?? 0
+  const canSubmit = !!selected && price > 0 && balance !== null && balance >= price && !submitting
+
+  const handleConfirm = async () => {
+    if (!country || !selected) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.set('packageCode', selected.packageCode)
+      formData.set('locationCode', country.locationCodes)
+
+      const res = await purchaseEsim(formData)
+      setShowConfirm(false)
+
+      if (!res.success) {
+        setError(res.message)
+        return
+      }
+
+      setRequestID(String(res.transaction?.requestID ?? ''))
+      setOrder({
+        orderID: 0,
+        packageCode: selected.packageCode,
+        packageName: selected.name,
+        country: selected.country,
+        amountPaid: price,
+        amountRefunded: 0,
+        esimStatus: 'provisioning',
+      })
+
+      const wallet = await getWalletBalance()
+      setBalance(wallet?.balance ?? 0)
+    } catch {
+      setShowConfirm(false)
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const closeResult = () => {
+    setOrder(null)
+    setRequestID(null)
+    setPolling(false)
+    setSelected(null)
+  }
+
+  return (
     <div className="min-h-screen bg-[var(--bg)] overflow-y-auto flex flex-col">
       <div className="topbar">
         <Link href="/dashboard" className="flex items-center gap-2">
