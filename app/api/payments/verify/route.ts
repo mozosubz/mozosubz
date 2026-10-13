@@ -151,7 +151,38 @@ export async function POST(request: NextRequest) {
     // The wallet is only ever credited on SUCCESS — never on any other status.
     const internalStatus = mapBachsStatus(bachsPayment.status ?? '', bachsPayment.substatus ?? null)
 
+    // Keep the admin-facing provider columns truthful even when the credit
+    // comes from polling rather than a webhook: record the provider's own
+    // status (and charge id once one exists).
+    const providerUpdate: Record<string, unknown> = {
+      provider_status: (bachsPayment.status ?? '').toUpperCase() || undefined,
+    }
+    if (bachsPayment.chargeId) providerUpdate.bachs_charge_id = bachsPayment.chargeId
+
+    const { error: providerUpdateError } = await admin
+      .from('monnify_transactions')
+      .update(providerUpdate)
+      .eq('payment_reference', paymentReference)
+
+    if (providerUpdateError) {
+      console.error('[VERIFY_API] Failed to persist provider status:', providerUpdateError.message)
+    }
+
     if (internalStatus !== 'SUCCESS') {
+      // Terminal provider verdicts (expired/failed) also close the local row,
+      // guarded so an already-credited row can never be downgraded.
+      if (internalStatus === 'FAILED' || internalStatus === 'EXPIRED') {
+        const { error: statusError } = await admin
+          .from('monnify_transactions')
+          .update({ status: internalStatus })
+          .eq('payment_reference', paymentReference)
+          .neq('status', 'SUCCESS')
+
+        if (statusError) {
+          console.error('[VERIFY_API] Could not move status to', internalStatus, statusError.message)
+        }
+      }
+
       return NextResponse.json(
         {
           success: false,
