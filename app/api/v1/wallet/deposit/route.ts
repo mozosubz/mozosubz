@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyConnectKey } from '@/lib/middleware/verify-connect-key'
 import { createAdminClient } from '@/lib/supabase/admin'
-import {
-  initTransaction,
-  initializePayment,
-  getMonnifyAccessToken,
-} from '@/lib/actions/monnify'
+import { createBachsCheckoutSession } from '@/lib/actions/bachs'
+import { isBachsConfigured } from '@/lib/api/bachs-config'
+import { attachBachsCheckout } from '@/lib/actions/transactions'
 import { generatePaymentReference } from '@/lib/utils/payment-reference'
 import { getDepositRules } from '@/lib/actions/deposit-rules'
 import { calculateDepositFee } from '@/lib/utils/deposit-fee'
@@ -17,8 +15,8 @@ import { checkRateLimit, RATE_LIMIT_CONFIG } from '@/lib/utils/rate-limit'
  *
  * Body: { amount: number, description?: string }
  *
- * Initializes a wallet deposit payment using Monnify.
- * Returns payment link that user can click to pay from browser.
+ * Initializes a wallet deposit payment using Bachs.
+ * Returns a hosted checkout URL that the user opens (and completes payment on).
  * Requires X-Connect-Key header.
  * Rate limited: 50 requests per minute per API key
  */
@@ -50,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { amount, description } = body
+    const { amount } = body
 
     const numAmount = parseFloat(String(amount))
     if (!Number.isFinite(numAmount) || numAmount <= 0) {
@@ -60,9 +58,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-
-    // Pre-warm Monnify token
-    void getMonnifyAccessToken()
+    // Gate on the provider first: without a Bachs key there is no checkout to create.
+    if (!isBachsConfigured()) {
+      console.error('[Wallet Deposit] Bachs not configured')
+      return NextResponse.json(
+        { success: false, error: 'Deposits are temporarily unavailable. Please try again shortly.' },
+        { status: 503 }
+      )
+    }
 
     const supabase = createAdminClient()
 
@@ -121,63 +124,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Start Monnify transaction in parallel
-    const initTxResult = await initTransaction(
-      numAmount,
-      description || 'Wallet deposit',
-      paymentReference,
+    // Create the Bachs checkout session — the same session shape the main
+    // deposit flow uses, so the webhook can correlate it by checkout id.
+    const bachsResult = await createBachsCheckoutSession({
+      amount: numAmount,
+      currency: 'NGN',
+      reference: paymentReference,
+      email: profile.email,
+      name: profile.full_name || 'User',
       userId,
-      profile.email,
-      profile.full_name || 'User'
-    )
+      successUrl: 'https://mozosubz.xyz/dashboard?deposit=success',
+      cancelUrl: 'https://mozosubz.xyz/dashboard/deposit?deposit=cancelled',
+    })
 
-    if (!initTxResult.success) {
-      console.error('[Wallet Deposit] Failed to init monnify transaction:', initTxResult.error)
+    if (!bachsResult.success || !bachsResult.session) {
+      console.error('[Wallet Deposit] Bachs checkout-session failed:', bachsResult.error)
       return NextResponse.json(
-        { success: false, error: 'Failed to create transaction' },
-        { status: 500 }
-      )
-    }
-
-    if (!initTxResult.success || !initTxResult.transactionReference) {
-      console.error('[Wallet Deposit] Monnify init-transaction failed:', initTxResult.error)
-      return NextResponse.json(
-        { success: false, error: initTxResult.error || 'Failed to initialize payment' },
+        { success: false, error: bachsResult.error || 'Failed to initialize payment' },
         { status: 400 }
       )
     }
 
-    const monnifyTransactionRef = initTxResult.transactionReference
+    const session = bachsResult.session
 
-    // Initialize payment
-    const initPayResult = await initializePayment(monnifyTransactionRef)
-    if (!initPayResult.success) {
-      console.error('[Wallet Deposit] Monnify init-payment failed:', initPayResult.error)
-      return NextResponse.json(
-        { success: false, error: initPayResult.error || 'Failed to initialize payment' },
-        { status: 400 }
-      )
-    }
+    // Persist the Bachs checkout details — must complete before we respond,
+    // the webhook needs these fields to credit the wallet.
+    const attachResult = await attachBachsCheckout(paymentReference, {
+      checkoutId: session.checkoutId,
+      checkoutUrl: session.checkoutUrl,
+      providerStatus: session.status,
+    })
 
-    // Update transaction with Monnify data using admin client directly
-    const { data: updated, error: updateError } = await supabase
-      .from('monnify_transactions')
-      .update({
-        transaction_reference: monnifyTransactionRef,
-        account_number: initPayResult.accountNumber,
-        bank_name: initPayResult.bankName,
-        account_name: initPayResult.accountName,
-        bank_code: initPayResult.bankCode,
-        ussd_code: initPayResult.ussdCode,
-        monnify_response: initPayResult,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('payment_reference', paymentReference)
-      .select('id, payment_reference')
-      .maybeSingle()
-
-    if (updateError || !updated) {
-      console.error('[Wallet Deposit] Failed to update monnify_transactions:', updateError)
+    if (!attachResult.success) {
+      console.error('[Wallet Deposit] Failed to attach Bachs checkout data:', attachResult.error)
       return NextResponse.json(
         { success: false, error: 'Failed to update payment details in database' },
         { status: 500 }
@@ -191,11 +170,8 @@ export async function POST(request: NextRequest) {
         success: true,
         deposit_amount: numAmount,
         receiving_amount: netAmount,
-        bank_details: {
-          account_number: initPayResult.accountNumber,
-          account_name: initPayResult.accountName,
-          bank_name: initPayResult.bankName,
-        },
+        checkout_url: session.checkoutUrl,
+        checkout_id: session.checkoutId,
         payment_reference: paymentReference,
       },
       { status: 200 }

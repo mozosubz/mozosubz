@@ -296,17 +296,65 @@ export async function updateTransactionWithMonnifyData(
 }
 
 /**
+ * Attach Bachs checkout-session data to an existing transaction row.
+ * Called by the Bachs branch of /api/deposit/start right after the session is
+ * created, so the webhook can find the row by bachs_checkout_id. Uses the admin
+ * client because the row must be tagged even when no user session is involved.
+ */
+export async function attachBachsCheckout(
+  paymentReference: string,
+  data: { checkoutId: string; checkoutUrl: string; providerStatus?: string }
+) {
+  try {
+    const supabase = createAdminClient()
+
+    // .select() verifies the update matched a row instead of silently no-oping.
+    const { data: updated, error } = await supabase
+      .from('monnify_transactions')
+      .update({
+        provider: 'bachs',
+        bachs_checkout_id: data.checkoutId,
+        bachs_checkout_url: data.checkoutUrl,
+        provider_status: data.providerStatus ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('payment_reference', paymentReference)
+      .select('id')
+      .maybeSingle()
+
+    if (error) {
+      console.error('[TRANSACTION_UPDATE] Error attaching Bachs checkout:', error)
+      return { success: false, error: error.message }
+    }
+
+    // CRITICAL: If updated is null, it means the WHERE clause matched 0 rows
+    if (!updated) {
+      console.error('[TRANSACTION_UPDATE] ❌ Bachs attach matched 0 rows:', { paymentReference })
+      return { success: false, error: 'Update matched 0 rows - payment_reference not found' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('[TRANSACTION_UPDATE] Exception:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
  * Verify and credit payment - updates wallet balance and logs transaction
  * CRITICAL: Set monnify_transactions.status = SUCCESS immediately after payment confirmation
  * to prevent duplicate processing from polling
+ *
+ * Trusted callers: (1) the Bachs webhook, after X-Bachs-Signature verification,
+ * and (2) /api/payments/verify, after the route confirms ownership.
  */
 export async function verifyAndCreditPayment(paymentReference: string) {
   try {
     // SECURITY: Use admin client (bypass RLS) — this function is only called from
     // trusted backend paths:
-    //   1) Monnify webhook, after HMAC-SHA512 signature verification.
+    //   1) The Bachs webhook, after X-Bachs-Signature verification.
     //   2) /api/payments/verify, after the route confirms the auth user owns the row
-    //      AND Monnify itself reports paymentStatus === 'PAID'.
+    //      AND Bachs itself reports the payment as succeeded.
     // Without admin, the webhook (which has no user session/cookies) hits RLS and
     // always returns "Transaction not found", even though the row exists.
     const supabase = createAdminClient()
@@ -390,7 +438,9 @@ export async function verifyAndCreditPayment(paymentReference: string) {
           amount: creditAmount,
           phone: '',
           status: 'SUCCESS',
-          description: `Wallet funded via bank transfer from ${transaction.bank_name}`,
+          description: transaction.bank_name
+            ? `Wallet funded via bank transfer from ${transaction.bank_name}`
+            : `Wallet funded via checkout (${transaction.transaction_reference || 'online'})`,
           balance_before: balanceBefore,
           balance_after: balanceAfter,
           api_response: JSON.stringify({

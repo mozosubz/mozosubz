@@ -48,7 +48,7 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
         })
 
         // `amount` is the amount actually credited to the wallet after the
-        // provider fee; the original Monnify charge is stored separately.
+        // provider fee; the original provider charge is stored separately.
         // This keeps the KPI aligned with the wallet balance and ledger.
 
         const totalAmount = walletFundTransactions.reduce((sum: number, t: any) => {
@@ -241,13 +241,13 @@ export function UserDetailComprehensive({ userId, onClose }: UserDetailModalProp
               )}
               {user.monnify_account_number && (
                 <div className="detail-item">
-                  <label>Monnify Account</label>
+                  <label>Deposit Account</label>
                   <p className="text-mono">{user.monnify_account_number}</p>
                 </div>
               )}
               {user.monnify_bank_name && (
                 <div className="detail-item">
-                  <label>Monnify Bank</label>
+                  <label>Bank Name</label>
                   <p>{user.monnify_bank_name}</p>
                 </div>
               )}

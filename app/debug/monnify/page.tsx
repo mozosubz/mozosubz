@@ -23,7 +23,7 @@ export default function MonnifyDebugPage() {
 
   const testMonnifyAuth = async () => {
     setLoading(true)
-    setStatus('Testing Monnify authentication...')
+    setStatus('Testing Bachs deposits...')
     
     try {
       const response = await fetch('/api/debug/test-monnify-auth', {
@@ -41,7 +41,7 @@ export default function MonnifyDebugPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
-        <h1 className="text-2xl font-bold mb-6">Monnify Debug</h1>
+        <h1 className="text-2xl font-bold mb-6">Bachs Deposits Debug</h1>
         
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-4">Environment Variables</h2>

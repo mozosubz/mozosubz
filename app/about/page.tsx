@@ -126,9 +126,9 @@ export default function AboutPage() {
                 Startimes, all 12 DISCOs, and network recharge pins — is a single tap.
               </p>
               <p>
-                Deposits go through Monnify. Each one generates its own single-use bank account, locked to the exact
-                amount you entered. Transfer that amount, your wallet credits instantly, and the account is retired.
-                There&apos;s no shared account number and no stored payment instrument that can be debited on its own.
+                Deposits go through Bachs. Each one opens a secure single-use checkout locked to the exact amount you
+                entered. Pay that amount, your wallet credits automatically, and the checkout is retired.
+                There&apos;s no shared payment link and no stored payment instrument that can be debited on its own.
               </p>
               <p>
                 Data and cable plans are fetched live from the provider, so you always see what is actually available

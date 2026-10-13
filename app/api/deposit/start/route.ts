@@ -5,7 +5,14 @@ import {
   initializePayment,
   getMonnifyAccessToken,
 } from '@/lib/actions/monnify'
-import { createTransaction, updateTransactionWithMonnifyData } from '@/lib/actions/transactions'
+import { createBachsCheckoutSession } from '@/lib/actions/bachs'
+import { isBachsConfigured } from '@/lib/api/bachs-config'
+import {
+  createTransaction,
+  updateTransactionWithMonnifyData,
+  cancelTransaction,
+  attachBachsCheckout,
+} from '@/lib/actions/transactions'
 import { generatePaymentReference } from '@/lib/utils/payment-reference'
 import { getDepositRules } from '@/lib/actions/deposit-rules'
 import { calculateDepositFee } from '@/lib/utils/deposit-fee'
@@ -53,10 +60,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Provider switch: 'bachs' (default) uses the Bachs overlay checkout,
+    // 'monnify' keeps the legacy bank-transfer flow so we can roll back instantly.
+    const provider = process.env.PAYMENTS_PROVIDER || 'bachs'
 
     // Pre-warm the Monnify token while we fetch the deposit rules. Auth already
     // happened above, so by the time initTransaction needs the token it's cached.
-    void getMonnifyAccessToken()
+    // Bachs needs no auth handshake, so this only runs on the Monnify path.
+    if (provider === 'monnify') {
+      void getMonnifyAccessToken()
+    }
 
     const depositRules = await getDepositRules()
 
@@ -87,11 +100,109 @@ export async function POST(request: NextRequest) {
     const paymentReference = generatePaymentReference(user.id)
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString()
 
-    // Create the local transaction row AND start the Monnify transaction
-    // in parallel — they're independent. createTransaction returns
+    if (provider === 'monnify') {
+      // --- Monnify path (legacy) — kept verbatim so PAYMENTS_PROVIDER=monnify
+      // is an instant rollback to the old bank-transfer flow. ---
+
+      // Create the local transaction row AND start the Monnify transaction
+      // in parallel — they're independent. createTransaction returns
+      // { success, error }, so we still get a clean failure signal without
+      // the extra "verify row exists" round-trip the old code was doing.
+      const [createTxResult, initTxResult] = await Promise.all([
+        createTransaction(
+          paymentReference,
+          numAmount,
+          expiresAt,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          processingFee,
+          netAmount
+        ),
+        initTransaction(
+          numAmount,
+          description || 'Wallet deposit',
+          paymentReference,
+          user.id,
+          profile.email,
+          profile.full_name || 'User'
+        ),
+      ])
+
+      if (!createTxResult.success) {
+        console.error('[DEPOSIT_API] Failed to create transaction:', createTxResult.error)
+        return NextResponse.json(
+          { success: false, error: 'Failed to create transaction' },
+          { status: 500 }
+        )
+      }
+
+      if (!initTxResult.success || !initTxResult.transactionReference) {
+        console.error('[DEPOSIT_API] Monnify init-transaction failed:', initTxResult.error)
+        return NextResponse.json(
+          { success: false, error: initTxResult.error || 'Failed to initialize payment' },
+          { status: 400 }
+        )
+      }
+
+      const monnifyTransactionRef = initTxResult.transactionReference
+
+      // init-payment depends on init-transaction's reference. Token is
+      // already cached on the warm path, so no extra auth round-trip.
+      const initPayResult = await initializePayment(monnifyTransactionRef)
+      if (!initPayResult.success) {
+        console.error('[DEPOSIT_API] Monnify init-payment failed:', initPayResult.error)
+        return NextResponse.json(
+          { success: false, error: initPayResult.error || 'Failed to initialize payment' },
+          { status: 400 }
+        )
+      }
+
+      // Persist the Monnify details — must complete before we respond, the
+      // webhook needs these fields to credit the wallet.
+      const updateResult = await updateTransactionWithMonnifyData(paymentReference, {
+        transactionReference: monnifyTransactionRef,
+        accountNumber: initPayResult.accountNumber,
+        bankName: initPayResult.bankName,
+        accountName: initPayResult.accountName,
+        bankCode: initPayResult.bankCode,
+        ussdCode: initPayResult.ussdCode,
+        monnifyResponse: initPayResult,
+      })
+
+      if (!updateResult.success) {
+        console.error('[DEPOSIT_API] Failed to update transaction with Monnify data:', updateResult.error)
+        return NextResponse.json(
+          { success: false, error: 'Failed to update payment details in database' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        paymentReference,
+        transactionId: createTxResult.transactionId,
+        checkoutUrl: `/checkout/${paymentReference}`,
+      })
+    }
+
+    // --- Bachs path (default) ---
+    if (!isBachsConfigured()) {
+      console.error('[DEPOSIT_API] Bachs not configured')
+      return NextResponse.json(
+        { success: false, error: 'Deposits are temporarily unavailable. Please try again shortly.' },
+        { status: 400 }
+      )
+    }
+
+    // Create the local transaction row AND the Bachs checkout session in
+    // parallel — they're independent. createTransaction returns
     // { success, error }, so we still get a clean failure signal without
     // the extra "verify row exists" round-trip the old code was doing.
-    const [createTxResult, initTxResult] = await Promise.all([
+    const [createTxResult, bachsResult] = await Promise.all([
       createTransaction(
         paymentReference,
         numAmount,
@@ -105,14 +216,16 @@ export async function POST(request: NextRequest) {
         processingFee,
         netAmount
       ),
-      initTransaction(
-        numAmount,
-        description || 'Wallet deposit',
-        paymentReference,
-        user.id,
-        profile.email,
-        profile.full_name || 'User'
-      ),
+      createBachsCheckoutSession({
+        amount: numAmount,
+        currency: 'NGN',
+        reference: paymentReference,
+        email: profile.email,
+        name: profile.full_name || 'User',
+        userId: user.id,
+        successUrl: 'https://mozosubz.xyz/dashboard?deposit=success',
+        cancelUrl: 'https://mozosubz.xyz/dashboard/deposit?deposit=cancelled',
+      }),
     ])
 
     if (!createTxResult.success) {
@@ -123,41 +236,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!initTxResult.success || !initTxResult.transactionReference) {
-      console.error('[DEPOSIT_API] Monnify init-transaction failed:', initTxResult.error)
+    if (!bachsResult.success || !bachsResult.session) {
+      console.error('[DEPOSIT_API] Bachs checkout-session failed:', bachsResult.error)
+      // Roll back the just-created row so a session-less PENDING row can't be
+      // mistaken for a live deposit. Response stays driven by the Bachs error.
+      const cancelResult = await cancelTransaction(paymentReference)
+      if (!cancelResult.success) {
+        console.error('[DEPOSIT_API] Failed to cancel transaction after Bachs failure:', cancelResult.error)
+      }
       return NextResponse.json(
-        { success: false, error: initTxResult.error || 'Failed to initialize payment' },
+        { success: false, error: bachsResult.error || 'Failed to initialize payment' },
         { status: 400 }
       )
     }
 
-    const monnifyTransactionRef = initTxResult.transactionReference
+    const session = bachsResult.session
 
-    // init-payment depends on init-transaction's reference. Token is
-    // already cached on the warm path, so no extra auth round-trip.
-    const initPayResult = await initializePayment(monnifyTransactionRef)
-    if (!initPayResult.success) {
-      console.error('[DEPOSIT_API] Monnify init-payment failed:', initPayResult.error)
-      return NextResponse.json(
-        { success: false, error: initPayResult.error || 'Failed to initialize payment' },
-        { status: 400 }
-      )
-    }
-
-    // Persist the Monnify details — must complete before we respond, the
-    // webhook needs these fields to credit the wallet.
-    const updateResult = await updateTransactionWithMonnifyData(paymentReference, {
-      transactionReference: monnifyTransactionRef,
-      accountNumber: initPayResult.accountNumber,
-      bankName: initPayResult.bankName,
-      accountName: initPayResult.accountName,
-      bankCode: initPayResult.bankCode,
-      ussdCode: initPayResult.ussdCode,
-      monnifyResponse: initPayResult,
+    // Persist the Bachs checkout details — must complete before we respond,
+    // the webhook needs these fields to credit the wallet.
+    const attachResult = await attachBachsCheckout(paymentReference, {
+      checkoutId: session.checkoutId,
+      checkoutUrl: session.checkoutUrl,
+      providerStatus: session.status,
     })
 
-    if (!updateResult.success) {
-      console.error('[DEPOSIT_API] Failed to update transaction with Monnify data:', updateResult.error)
+    if (!attachResult.success) {
+      console.error('[DEPOSIT_API] Failed to attach Bachs checkout data:', attachResult.error)
       return NextResponse.json(
         { success: false, error: 'Failed to update payment details in database' },
         { status: 500 }
@@ -168,7 +272,8 @@ export async function POST(request: NextRequest) {
       success: true,
       paymentReference,
       transactionId: createTxResult.transactionId,
-      checkoutUrl: `/checkout/${paymentReference}`,
+      checkoutUrl: session.checkoutUrl,
+      checkoutId: session.checkoutId,
     })
   } catch (error) {
     console.error('[DEPOSIT_API] Error:', error)

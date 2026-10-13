@@ -163,7 +163,7 @@ export function Footer() {
 
         <div className="mt-10 pt-6 border-t border-slate-900 flex flex-col items-center justify-center gap-1 text-center">
           <p className="text-xs text-slate-500">© {year} Mozosubz. All rights reserved.</p>
-          <p className="text-xs text-slate-500">Payments secured by Monnify.</p>
+          <p className="text-xs text-slate-500">Payments secured by Bachs.</p>
         </div>
       </div>
     </footer>

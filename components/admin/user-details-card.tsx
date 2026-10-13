@@ -67,7 +67,7 @@ export function UserDetailsCard({ user }: UserDetailsCardProps) {
           </div>
 
           <div className="detail-item">
-            <label>Monnify Account</label>
+            <label>Deposit Account</label>
             <p className="text-mono">{user.monnify_account_number || '-'}</p>
           </div>
 

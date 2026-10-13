@@ -50,7 +50,7 @@ interface PerformanceData {
   Airtime: number
   Data: number
   Cable: number
-  Monnify: number
+  Payments: number
 }
 
 const GSUBZ_SERVICES: Array<{ service: string; type: 'DATA' | 'CABLE' }> = [
@@ -153,7 +153,9 @@ export default function MonitoringPage() {
           Airtime: endpointData.find((e) => e.name === 'Airtime Purchase')?.responseTime || 0,
           Data: endpointData.find((e) => e.name === 'Data Purchase')?.responseTime || 0,
           Cable: endpointData.find((e) => e.name === 'Cable Subscription')?.responseTime || 0,
-          Monnify: endpointData.find((e) => e.name === 'Monnify Webhook')?.responseTime || 0,
+          // Provider-neutral series label: the tracked endpoint is still the
+          // legacy 'Monnify Webhook' name defined in lib/actions/monitoring.ts.
+          Payments: endpointData.find((e) => e.name === 'Monnify Webhook')?.responseTime || 0,
         },
       ])
     } catch (error) {
@@ -352,7 +354,7 @@ export default function MonitoringPage() {
               <Line type="monotone" dataKey="Airtime" stroke="#3b82f6" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Data" stroke="#8b5cf6" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Cable" stroke="#10b981" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Monnify" stroke="#f59e0b" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Payments" stroke="#f59e0b" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

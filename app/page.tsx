@@ -680,8 +680,8 @@ export default function HomePage() {
             {[
               {
                 icon: Lock,
-                title: "One-time payment accounts",
-                desc: "Every deposit gets its own single-use bank account, powered by Monnify. Transfer the exact amount and your wallet credits — no card details, no shared account number.",
+                title: "One-time secure checkout",
+                desc: "Every deposit runs through a secure, single-use checkout powered by Bachs. Pay the exact amount and your wallet credits automatically — no card details stored, no shared payment link.",
               },
               {
                 icon: Clock,

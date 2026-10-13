@@ -144,7 +144,7 @@ export function TransactionDetailModal({
             />
             {transaction.transaction_reference && (
               <DetailRow
-                label="Monnify Reference"
+                label="Payment ref"
                 value={transaction.transaction_reference}
                 mono
                 copyable
@@ -270,7 +270,7 @@ export function TransactionDetailModal({
                 <RawResponseBlock title="API Response" value={transaction.api_response} />
               )}
               {transaction.monnify_response && (
-                <RawResponseBlock title="Monnify Response" value={transaction.monnify_response} />
+                <RawResponseBlock title="Provider Response" value={transaction.monnify_response} />
               )}
             </div>
           )}
