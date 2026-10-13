@@ -65,7 +65,7 @@ export default function SocialPage() {
   const categories = useMemo(() => {
     const seen = new Set<string>()
     for (const s of services) seen.add(cleanCategory(s.category))
-    return Array.from(seen)
+    return Array.from(seen).sort((a, b) => a.localeCompare(b))
   }, [services])
 
   const filtered = useMemo(() => {
