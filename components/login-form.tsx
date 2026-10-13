@@ -53,6 +53,14 @@ export function LoginForm() {
     }
   }, [searchParams])
 
+  // The dashboard layout signs banned accounts out and redirects here with
+  // ?banned=1 — explain why they can't get back in.
+  useEffect(() => {
+    if (searchParams.get("banned") === "1") {
+      setNotice("This account has been suspended. Contact support if you believe this is a mistake.")
+    }
+  }, [searchParams])
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)

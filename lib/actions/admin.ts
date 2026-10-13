@@ -11,6 +11,7 @@ import {
   TRANSACTION_SORT_OPTIONS,
   DEFAULT_TRANSACTION_SORT,
 } from '@/lib/utils/admin-sort'
+import { clearConnectKeyCacheForUser } from '@/lib/middleware/verify-connect-key'
 
 // SECURITY: every function below reads or writes through the service-role
 // client, which bypasses RLS entirely. Next.js Server Actions are exposed as
@@ -62,7 +63,7 @@ export async function getUsers(
 
     let query = supabase
       .from('profiles')
-      .select('id, full_name, email, phone_number, username, wallet_balance, is_admin, created_at')
+      .select('id, full_name, email, phone_number, username, wallet_balance, is_admin, is_banned, created_at')
 
     // Add search filters only if searchTerm exists and is not empty after trimming
     const trimmedSearch = searchTerm?.trim()
@@ -388,6 +389,141 @@ export async function toggleAdminRole(userId: string, isAdmin: boolean) {
     action: 'TOGGLE_ADMIN',
     target_user: userId,
     details: { isAdmin },
+  })
+
+  revalidatePath('/admin/users')
+  return { success: true }
+}
+
+/**
+ * Ban a user account.
+ *
+ * Effect: the user cannot sign in, is signed out of /dashboard on next load,
+ * and every API surface that authenticates them (deposit start/verify, all
+ * /api/v1 connect-key routes) rejects their requests.
+ *
+ * Guards: admins cannot be banned (demote first) and admins cannot ban
+ * themselves. The reason is required so admin_logs always explains why.
+ */
+export async function banUser(userId: string, reason: string) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { error: guard.error }
+  }
+
+  if (!isValidUUID(userId)) {
+    return { error: 'Invalid user ID format' }
+  }
+
+  const banReason = String(reason || '').trim()
+  if (banReason.length < 3) {
+    return { error: 'A ban reason is required (min 3 characters)' }
+  }
+  if (banReason.length > 500) {
+    return { error: 'Ban reason is too long (max 500 characters)' }
+  }
+
+  if (userId === guard.userId) {
+    return { error: 'You cannot ban your own account' }
+  }
+
+  const adminSupabase = createAdminClient()
+
+  // Read the target first: refuse admins (a ban on an admin would lock the
+  // panel out for them with no way back except SQL).
+  const { data: target, error: targetError } = await adminSupabase
+    .from('profiles')
+    .select('is_admin, is_banned')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (targetError || !target) {
+    return { error: 'User not found' }
+  }
+  if (target.is_admin) {
+    return { error: 'Remove admin privileges before banning this account' }
+  }
+  if (target.is_banned) {
+    return { error: 'This account is already banned' }
+  }
+
+  const { error: updateError } = await adminSupabase
+    .from('profiles')
+    .update({
+      is_banned: true,
+      banned_at: new Date().toISOString(),
+      ban_reason: banReason,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  // Warm connect-key caches would otherwise keep serving this user's keys for
+  // up to 5 minutes on this instance; other instances re-check on their next
+  // cache miss against the profiles row.
+  clearConnectKeyCacheForUser(userId)
+
+  await adminSupabase.from('admin_logs').insert({
+    admin_id: guard.userId,
+    action: 'USER_BAN',
+    target_user: userId,
+    details: { reason: banReason },
+  })
+
+  revalidatePath('/admin/users')
+  return { success: true }
+}
+
+// Lift a ban. The reason/timestamp are cleared; the admin_logs entry stays.
+export async function unbanUser(userId: string) {
+  const guard = await requireAdmin()
+  if (!guard.ok) {
+    return { error: guard.error }
+  }
+
+  if (!isValidUUID(userId)) {
+    return { error: 'Invalid user ID format' }
+  }
+
+  const adminSupabase = createAdminClient()
+
+  const { data: target, error: targetError } = await adminSupabase
+    .from('profiles')
+    .select('is_banned')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (targetError || !target) {
+    return { error: 'User not found' }
+  }
+  if (!target.is_banned) {
+    return { error: 'This account is not banned' }
+  }
+
+  const { error: updateError } = await adminSupabase
+    .from('profiles')
+    .update({
+      is_banned: false,
+      banned_at: null,
+      ban_reason: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  clearConnectKeyCacheForUser(userId)
+
+  await adminSupabase.from('admin_logs').insert({
+    admin_id: guard.userId,
+    action: 'USER_UNBAN',
+    target_user: userId,
+    details: {},
   })
 
   revalidatePath('/admin/users')

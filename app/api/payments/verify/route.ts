@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit, RATE_LIMIT_CONFIG, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
 import { logAPIRequest, getUserIPAddress } from '@/lib/utils/api-tracking'
+import { isUserBanned } from '@/lib/utils/bans'
 
 /**
  * POST /api/payments/verify
@@ -69,6 +70,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
+      )
+    }
+
+    // Banned accounts cannot verify/credit payments with a stale session token.
+    if (await isUserBanned(user.id)) {
+      console.error('[VERIFY_API] Banned account attempted verification:', user.id)
+      return NextResponse.json(
+        { success: false, error: 'This account has been suspended' },
+        { status: 403 }
       )
     }
 

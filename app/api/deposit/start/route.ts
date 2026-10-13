@@ -17,6 +17,7 @@ import { generatePaymentReference } from '@/lib/utils/payment-reference'
 import { getDepositRules } from '@/lib/actions/deposit-rules'
 import { calculateDepositFee } from '@/lib/utils/deposit-fee'
 import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
+import { isUserBanned } from '@/lib/utils/bans'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +47,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'User not authenticated' },
         { status: 401 }
+      )
+    }
+
+    // Banned accounts cannot start deposits, even with a still-valid session
+    // token (the dashboard layout signs them out on their next page load, but
+    // a stale token must not be able to move money before that).
+    if (await isUserBanned(user.id)) {
+      console.error('[DEPOSIT_API] Banned account attempted deposit:', user.id)
+      return NextResponse.json(
+        { success: false, error: 'This account has been suspended' },
+        { status: 403 }
       )
     }
 

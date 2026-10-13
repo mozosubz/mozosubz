@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { creditUserWallet, debitUserWallet, toggleAdminRole } from '@/lib/actions/admin'
-import { Crown, Eye, Plus, Minus } from 'lucide-react'
+import { creditUserWallet, debitUserWallet, toggleAdminRole, banUser, unbanUser } from '@/lib/actions/admin'
+import { Crown, Eye, Plus, Minus, Ban, ShieldOff } from 'lucide-react'
 import { WalletActionModal } from './wallet-action-modal'
+import { BanUserModal } from './ban-user-modal'
 import { UserDetailComprehensive } from './user-detail-comprehensive'
 import { useConfirm, useToast } from '@/components/app-dialog'
 
@@ -15,6 +16,7 @@ interface User {
   phone_number: string
   wallet_balance: number
   is_admin: boolean
+  is_banned: boolean
   created_at: string
 }
 
@@ -26,6 +28,7 @@ export function UserTable({ users }: UserTableProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [action, setAction] = useState<'credit' | 'debit' | null>(null)
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
+  const [banTarget, setBanTarget] = useState<User | null>(null)
   const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
@@ -54,6 +57,25 @@ export function UserTable({ users }: UserTableProps) {
     toast(granting ? 'Admin privileges granted' : 'Admin privileges removed', 'success')
     // router.refresh() re-fetches server data without a full page reload, which
     // would otherwise discard the current search term, sort order and page.
+    router.refresh()
+  }
+
+  const handleUnban = async (user: User) => {
+    const ok = await confirm({
+      title: 'Lift the ban?',
+      message: `${user.email} will be able to sign in and use their API keys again.`,
+      confirmLabel: 'Unban account',
+      tone: 'default',
+    })
+    if (!ok) return
+
+    const result = await unbanUser(user.id)
+    if (result && 'error' in result && result.error) {
+      toast(typeof result.error === 'string' ? result.error : 'Could not unban account', 'error')
+      return
+    }
+
+    toast('Account unbanned', 'success')
     router.refresh()
   }
 
@@ -86,7 +108,11 @@ export function UserTable({ users }: UserTableProps) {
                     ₦{user.wallet_balance.toLocaleString()}
                   </td>
                   <td>
-                    {user.is_admin ? (
+                    {user.is_banned ? (
+                      <span className="badge badge-danger" title="This account is suspended">
+                        <Ban size={12} /> Banned
+                      </span>
+                    ) : user.is_admin ? (
                       <span className="badge badge-admin">
                         <Crown size={12} /> Admin
                       </span>
@@ -139,6 +165,25 @@ export function UserTable({ users }: UserTableProps) {
                       >
                         <Crown size={15} />
                       </button>
+                      {user.is_admin ? null : user.is_banned ? (
+                        <button
+                          className="btn btn-icon btn-success"
+                          onClick={() => handleUnban(user)}
+                          title="Unban account"
+                          type="button"
+                        >
+                          <ShieldOff size={15} />
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-icon btn-danger"
+                          onClick={() => setBanTarget(user)}
+                          title="Ban account"
+                          type="button"
+                        >
+                          <Ban size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -158,7 +203,11 @@ export function UserTable({ users }: UserTableProps) {
                     {user.email}
                   </p>
                 </div>
-                {user.is_admin ? (
+                {user.is_banned ? (
+                  <span className="badge badge-danger">
+                    <Ban size={12} /> Banned
+                  </span>
+                ) : user.is_admin ? (
                   <span className="badge badge-admin">
                     <Crown size={12} /> Admin
                   </span>
@@ -226,6 +275,25 @@ export function UserTable({ users }: UserTableProps) {
                 >
                   <Crown size={14} />
                 </button>
+                {user.is_admin ? null : user.is_banned ? (
+                  <button
+                    className="btn btn-success btn-sm btn-icon"
+                    onClick={() => handleUnban(user)}
+                    type="button"
+                    title="Unban account"
+                  >
+                    <ShieldOff size={14} />
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-danger btn-sm btn-icon"
+                    onClick={() => setBanTarget(user)}
+                    type="button"
+                    title="Ban account"
+                  >
+                    <Ban size={14} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -241,6 +309,14 @@ export function UserTable({ users }: UserTableProps) {
             setAction(null)
           }}
           onAction={action === 'credit' ? creditUserWallet : debitUserWallet}
+        />
+      )}
+
+      {banTarget && (
+        <BanUserModal
+          user={banTarget}
+          onClose={() => setBanTarget(null)}
+          onBan={banUser}
         />
       )}
 

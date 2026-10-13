@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hashConnectKey, isValidKeyFormat } from '@/lib/utils/connect-key'
 import { checkRateLimit, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
+import { isUserBanned } from '@/lib/utils/bans'
 
 // ─── In-memory key cache ───────────────────────────────────────────────────────
 // Stores only the minimal context needed — never the raw key or full DB row.
@@ -34,6 +35,21 @@ function getCachedContext(keyHash: string): CachedContext | undefined {
 
 function setCachedContext(keyHash: string, context: CachedContext) {
   keyCache.set(keyHash, { context, timestamp: Date.now() })
+}
+
+/**
+ * Drop every cached context belonging to a user. Called when an account is
+ * banned or unbanned from /admin/users so this instance stops honouring (or
+ * immediately starts honouring) their keys; other instances pick the change
+ * up on their next cache miss (<= 5 minutes).
+ */
+export function clearConnectKeyCacheForUser(userId: string) {
+  if (!userId) return
+  for (const [keyHash, entry] of keyCache) {
+    if (entry.context.userId === userId) {
+      keyCache.delete(keyHash)
+    }
+  }
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -125,6 +141,15 @@ export async function verifyConnectKey(
 
     if (connectKey.expires_at && new Date(connectKey.expires_at) < new Date()) {
       return fail(request, 'API key has expired', 401)
+    }
+
+    // ── Account ban check ───────────────────────────────────────────────────
+    // A banned account's keys stop working everywhere. Checked on every cache
+    // miss (banUser also clears this instance's cache so the change is
+    // immediate here; other instances converge within the 5-minute TTL).
+    if (await isUserBanned(connectKey.user_id)) {
+      keyCache.delete(keyHash)
+      return { success: false, error: 'This account has been suspended', status: 403 }
     }
 
     // ── Rate limit (10,000 requests / day) ─────────────────────────────────

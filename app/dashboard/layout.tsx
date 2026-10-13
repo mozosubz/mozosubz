@@ -2,6 +2,7 @@ import type React from "react"
 import { createServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AppShell } from "@/components/app-shell"
+import { isUserBanned } from "@/lib/utils/bans"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerClient()
@@ -14,6 +15,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user || error) {
     redirect("/login")
+  }
+
+  // Banned accounts are signed out and sent to /login with a notice.
+  // Cookie writes are not allowed from a Server Component, so the sign-out
+  // happens in the GET handler of /api/auth/signout (a Route Handler) which
+  // then redirects back to /login?banned=1.
+  if (await isUserBanned(user.id)) {
+    redirect("/api/auth/signout?banned=1")
   }
 
   return <AppShell>{children}</AppShell>
