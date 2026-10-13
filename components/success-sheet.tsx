@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
-import { Check, X } from "lucide-react"
+import { X } from "lucide-react"
 import { NetworkLogo } from "@/lib/utils/network-logo"
 
 export interface SuccessDetailRow {
@@ -89,14 +89,9 @@ export function SuccessSheet({
           </button>
         </div>
         <div className="sheet-body">
-          <div className="flex items-start gap-3 mb-4">
-            <span className="w-10 h-10 rounded-full bg-[#f0fdf4] text-[#16a34a] flex items-center justify-center flex-shrink-0">
-              <Check className="w-5 h-5" strokeWidth={2.5} />
-            </span>
-            {subtitle && (
-              <p className="text-xs text-[var(--text-3)] leading-relaxed pt-1.5">{subtitle}</p>
-            )}
-          </div>
+          {subtitle && (
+            <p className="text-sm text-[var(--text-2)] leading-relaxed mb-4">{subtitle}</p>
+          )}
 
           {network && (
             <div className="flex flex-col items-center gap-0 mb-3 pb-3 border-b border-[var(--border)]">

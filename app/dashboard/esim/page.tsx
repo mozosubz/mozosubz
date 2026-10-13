@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Search, AlertCircle, Loader2, Globe, X, QrCode } from 'lucide-react'
+import { ArrowLeft, Search, AlertCircle, Loader2, Globe, QrCode } from 'lucide-react'
 import type { EsimCountry, EsimPackage, EsimOrder } from 'gsubz-sdk'
 import { listEsimCountries, listEsimPackages, purchaseEsim, getEsimOrder } from '@/lib/actions/esim'
 import { getWalletBalance } from '@/lib/actions/wallet'
@@ -47,112 +47,7 @@ export default function EsimPage() {
         if (active) setLoadingCountries(false)
       }
     })()
-    return () => {
-      active = false
-    }
-  }, [])
-
-  // Poll the order while the provider provisions the eSIM.
-  useEffect(() => {
-    if (!requestID) return
-    let active = true
-    let attempts = 0
-    const tick = async () => {
-      if (!active) return
-      attempts += 1
-      const fresh = await getEsimOrder(requestID)
-      if (!active) return
-      if (fresh) {
-        setOrder(fresh)
-        if (fresh.esimStatus !== 'provisioning') {
-          setPolling(false)
-          return
-        }
-      }
-      if (attempts >= 12) {
-        setPolling(false)
-        return
-      }
-      setTimeout(tick, 5000)
-    }
-    setPolling(true)
-    const id = setTimeout(tick, 3000)
-    return () => {
-      active = false
-      clearTimeout(id)
-    }
-  }, [requestID])
-
-  const filteredCountries = useMemo(() => {
-    const q = countryQuery.trim().toLowerCase()
-    if (!q) return countries
-    return countries.filter((c) => c.country.toLowerCase().includes(q))
-  }, [countries, countryQuery])
-
-  const selectCountry = async (c: EsimCountry) => {
-    setCountry(c)
-    setSelected(null)
-    setPackages([])
-    setError(null)
-    setLoadingPackages(true)
-    try {
-      setPackages(await listEsimPackages(c.locationCodes))
-    } catch {
-      setError('Failed to load packages for this country.')
-    } finally {
-      setLoadingPackages(false)
-    }
-  }
-
-  const price = selected?.price ?? 0
-  const canSubmit = !!selected && price > 0 && balance !== null && balance >= price && !submitting
-
-  const handleConfirm = async () => {
-    if (!country || !selected) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      const formData = new FormData()
-      formData.set('packageCode', selected.packageCode)
-      formData.set('locationCode', country.locationCodes)
-
-      const res = await purchaseEsim(formData)
-      setShowConfirm(false)
-
-      if (!res.success) {
-        setError(res.message)
-        return
-      }
-
-      setRequestID(String(res.transaction?.requestID ?? ''))
-      setOrder({
-        orderID: 0,
-        packageCode: selected.packageCode,
-        packageName: selected.name,
-        country: selected.country,
-        amountPaid: price,
-        amountRefunded: 0,
-        esimStatus: 'provisioning',
-      })
-
-      const wallet = await getWalletBalance()
-      setBalance(wallet?.balance ?? 0)
-    } catch {
-      setShowConfirm(false)
-      setError('An unexpected error occurred. Please try again.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const closeResult = () => {
-    setOrder(null)
-    setRequestID(null)
-    setPolling(false)
-    setSelected(null)
-  }
-
-  return (
+    return (
     <div className="min-h-screen bg-[var(--bg)] overflow-y-auto flex flex-col">
       <div className="topbar">
         <Link href="/dashboard" className="flex items-center gap-2">
@@ -166,170 +61,137 @@ export default function EsimPage() {
           <h1 className="text-lg font-bold text-[var(--text-1)]">Travel data, no roaming</h1>
           <p className="text-xs text-[var(--text-3)] mt-1">
             Pick a country and a data package — no phone number needed. The QR code arrives as soon as the eSIM is
-            issued, usually instantly. The final price is confirmed at purchase and may differ slightly from the
-            listed price.
+            issued, usually instantly.
           </p>
         </div>
 
-        {!country ? (
-          <>
-            {error && (
-              <div className="flex gap-2.5 p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="relative mb-3">
+        {/* Order form — one card, dropdowns for country and package (same layout as Social Media) */}
+        <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-4 space-y-4 mb-4">
+          <div>
+            <label className="form-label text-xs" htmlFor="esim-search">
+              Find a country
+            </label>
+            <div className="relative mb-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-3)]" />
               <input
+                id="esim-search"
                 type="text"
                 className="form-input h-11 text-sm pl-9"
-                placeholder="Search a country"
+                placeholder="Search e.g. United States"
                 value={countryQuery}
-                onChange={(e) => setCountryQuery(e.target.value)}
-              />
-            </div>
-
-            {loadingCountries ? (
-              <div className="space-y-2">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-14 rounded-xl bg-[var(--surface)] border border-[var(--border)] animate-pulse" />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden divide-y divide-[var(--border)]">
-                {filteredCountries.length === 0 ? (
-                  <p className="p-4 text-sm text-[var(--text-3)]">No countries match that search.</p>
-                ) : (
-                  filteredCountries.map((c) => (
-                    <button
-                      key={`${c.country}-${c.locationCodes}`}
-                      onClick={() => selectCountry(c)}
-                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[var(--bg)] transition"
-                    >
-                      <span className="flex items-center gap-3 min-w-0">
-                        <span className="w-8 h-8 rounded-lg bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center flex-shrink-0">
-                          <Globe className="w-4 h-4" />
-                        </span>
-                        <span className="text-sm font-semibold text-[var(--text-1)] truncate">{c.country}</span>
-                      </span>
-                      <span className="text-[11px] text-[var(--text-3)] flex-shrink-0">{c.plans} plans</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center">
-                  <Globe className="w-4 h-4" />
-                </span>
-                <span className="text-sm font-bold text-[var(--text-1)]">{country.country}</span>
-              </div>
-              <button
-                onClick={() => {
+                onChange={(e) => {
+                  setCountryQuery(e.target.value)
                   setCountry(null)
                   setSelected(null)
                   setPackages([])
                 }}
-                className="text-xs font-semibold text-[var(--primary)] flex items-center gap-1"
-              >
-                <X className="w-3.5 h-3.5" /> Change
-              </button>
+              />
             </div>
 
-            {loadingPackages ? (
-              <div className="space-y-2">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-16 rounded-xl bg-[var(--surface)] border border-[var(--border)] animate-pulse" />
-                ))}
-              </div>
-            ) : packages.length === 0 ? (
-              <p className="text-sm text-[var(--text-3)]">No packages available for this country right now.</p>
-            ) : (
-              <div className="space-y-2 mb-4">
-                {packages.map((p) => {
-                  const active = selected?.packageCode === p.packageCode
-                  return (
-                    <button
-                      key={p.packageCode}
-                      onClick={() => setSelected(p)}
-                      className={`w-full flex items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition ${
-                        active
-                          ? 'border-[var(--primary)] bg-[var(--primary-light)]'
-                          : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]/40'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-[var(--text-1)]">
-                          {formatData(p.dataGB)} · {p.duration} {p.durationUnit.toLowerCase()}
-                          {p.duration > 1 ? 's' : ''}
-                        </p>
-                        <p className="text-[11px] text-[var(--text-3)] mt-0.5 truncate">{p.name}</p>
-                        {(!p.refundable || p.topUp) && (
-                          <p className="text-[10px] mt-1 flex gap-1.5">
-                            {!p.refundable && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-[#fef2f2] text-[#dc2626] font-semibold">
-                                Non-refundable
-                              </span>
-                            )}
-                            {p.topUp && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] font-semibold">
-                                Top-up supported
-                              </span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-sm font-bold text-[var(--primary)] flex-shrink-0">
-                        ₦{Number(p.price).toLocaleString()}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <label className="form-label text-xs" htmlFor="esim-country">
+              Country
+            </label>
+            <select
+              id="esim-country"
+              className="form-input h-11 text-sm"
+              value={country?.locationCodes ?? ''}
+              disabled={loadingCountries || filteredCountries.length === 0}
+              onChange={(e) => {
+                const c = countries.find((x) => x.locationCodes === e.target.value)
+                if (c) void selectCountry(c)
+              }}
+            >
+              <option value="">
+                {loadingCountries
+                  ? 'Loading countries…'
+                  : filteredCountries.length === 0
+                    ? 'No countries match — try another search'
+                    : `Select a country (${filteredCountries.length.toLocaleString()} available)`}
+              </option>
+              {filteredCountries.map((c) => (
+                <option key={`${c.country}-${c.locationCodes}`} value={c.locationCodes}>
+                  {c.country} — {c.plans} plans
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {selected && (
-              <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-4 mb-4 text-sm space-y-2.5">
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-3)]">Package</span>
-                  <span className="font-semibold text-[var(--text-1)] text-right">{selected.name}</span>
+          <div>
+            <label className="form-label text-xs" htmlFor="esim-package">
+              Package
+            </label>
+            <select
+              id="esim-package"
+              className="form-input h-11 text-sm"
+              value={selected?.packageCode ?? ''}
+              disabled={!country || loadingPackages || packages.length === 0}
+              onChange={(e) => {
+                const pk = packages.find((x) => x.packageCode === e.target.value)
+                setSelected(pk ?? null)
+                setError(null)
+              }}
+            >
+              <option value="">
+                {!country
+                  ? 'Pick a country first'
+                  : loadingPackages
+                    ? 'Loading packages…'
+                    : packages.length === 0
+                      ? 'No packages available right now'
+                      : `Select a package (${packages.length} available)`}
+              </option>
+              {packages.map((pk) => (
+                <option key={pk.packageCode} value={pk.packageCode}>
+                  {pk.name} — ₦{pk.price.toLocaleString()}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-[var(--text-3)] mt-1">
+              The final price is confirmed at purchase and may differ slightly from the listed price.
+            </p>
+          </div>
+
+          {selected && (
+            <>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3">
+                <div className="flex items-start gap-2">
+                  <Globe className="w-4 h-4 text-[var(--primary)] flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text-1)] leading-snug">{selected.name}</p>
+                    <p className="text-[11px] text-[var(--text-3)] mt-0.5">
+                      {selected.country} · {formatData(selected.dataGB)} · {selected.duration} {selected.durationUnit}
+                      {selected.refundable ? ' · Refundable' : ''}
+                    </p>
+                  </div>
                 </div>
+              </div>
+
+              <div className="border-t border-[var(--border)] pt-3 text-sm space-y-2">
                 <div className="flex justify-between">
                   <span className="text-[var(--text-3)]">Price</span>
                   <span className="font-semibold text-[var(--text-1)]">₦{price.toLocaleString()}</span>
                 </div>
-                <div className="border-t border-[var(--border)] pt-2.5 flex justify-between">
+                <div className="flex justify-between">
                   <span className="text-[var(--text-3)]">Wallet balance</span>
                   <span className={`font-semibold ${balance !== null && balance < price ? 'text-[#dc2626]' : 'text-[var(--text-1)]'}`}>
                     ₦{(balance ?? 0).toLocaleString()}
                   </span>
                 </div>
-                {!selected.refundable && (
-                  <p className="text-[11px] text-[#dc2626] pt-1">
-                    This package is non-refundable — it cannot be cancelled once bought.
-                  </p>
-                )}
               </div>
-            )}
+            </>
+          )}
 
-            {error && (
-              <div className="flex gap-2.5 p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
+          {error && (
+            <div className="flex gap-2.5 p-3 rounded-xl bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
-            <button onClick={() => setShowConfirm(true)} disabled={!canSubmit} className="btn-primary h-11 text-sm">
-              {submitting ? 'Processing...' : 'Continue'}
-            </button>
-          </>
-        )}
+          <button onClick={() => setShowConfirm(true)} disabled={!canSubmit} className="btn-primary h-11 text-sm">
+            {submitting ? 'Processing...' : 'Continue'}
+          </button>
+        </div>
       </div>
 
       <ConfirmSheet
