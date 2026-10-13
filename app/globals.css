@@ -1555,12 +1555,10 @@ body {
   }
 }
 
-/* ── Confirm sheet finishing touches (no visual redesign) ─────────────────
-   1. Long values — a full order URL, a long service name — wrap inside
-      their row instead of overflowing the sheet sideways (flex children
-      need min-width:0 for that). The amount keeps its emphasis.
-   2. The mobile sheet is pinned to the exact bottom edge, actions padded
-      past the home-indicator safe area. */
+/* ── Confirm sheet finishing touch (no visual redesign) ──────────────────
+   Long values — a full order URL, a long service name — wrap inside their
+   row instead of overflowing the sheet sideways (flex children need
+   min-width:0 for that). The amount keeps its emphasis. */
 .sheet-body {
   min-width: 0;
 }
@@ -1584,19 +1582,5 @@ body {
 .bottom-sheet .sheet-title {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-@media (max-width: 768px) {
-  .bottom-sheet {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-  }
-
-  .sheet-actions {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  }
 }
 

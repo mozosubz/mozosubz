@@ -8,6 +8,8 @@ import { isDisposableEmail } from "@/lib/utils/disposable-email"
 import { after } from "next/server"
 import { sendLoginAlertEmail, sendWelcomeEmail } from "@/lib/email/server-flows"
 import { isUserBanned } from "@/lib/utils/bans"
+import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { EMAIL_RX, RESERVED_USERNAMES, USERNAME_RX } from "@/lib/utils/profile-validation"
 
 export async function signOut() {
@@ -97,9 +99,27 @@ export async function signInAction(
   }
 
   // Single-device login: revoke every OTHER refresh token for this user so
-  // other devices lose access on their next token refresh. The session
-  // manager on /dashboard picks up the SIGNED_OUT event and redirects them.
-  supabase.auth.signOut({ scope: "others" }).catch(() => {})
+  // other devices lose access on their next token refresh.
+  //
+  // Admin accounts are EXEMPT: the owner runs the admin login on several
+  // devices at once, and every new sign-in was silently killing the other
+  // devices' sessions — reported as random "logged out" on the admin account.
+  let adminAccount = isHardcodedAdmin(normalizedEmail)
+  if (!adminAccount && signedInUserId) {
+    try {
+      const { data: profile } = await createAdminClient()
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", signedInUserId)
+        .maybeSingle()
+      adminAccount = profile?.is_admin === true
+    } catch {
+      // On a lookup failure fall through to the normal single-device rule.
+    }
+  }
+  if (!adminAccount) {
+    supabase.auth.signOut({ scope: "others" }).catch(() => {})
+  }
 
   // Security alert email runs after the response is sent — never blocks login.
   if (signedInUserId) {
