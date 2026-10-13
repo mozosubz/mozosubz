@@ -117,6 +117,19 @@ export function gsubzFailureMessage(outcome: GsubzOutcome): string {
   if (outcome.pending) {
     return "Your request is taking longer than expected. We are verifying it in the background — your wallet will only be charged if it succeeds."
   }
+
+  // The provider reuses HTTP-ish codes for several distinct causes; the
+  // description is the precise reason and must be read first. Live example:
+  // code 402 with description AMOUNT_BELOW_MIN (a minimum-order rejection)
+  // is NOT the documented 402 INSUFFICIENT_BALANCE.
+  const description = (outcome.description || "").toUpperCase()
+  if (description.includes("BELOW_MIN")) {
+    return "This order is below the provider's minimum amount. Increase the quantity and try again — you have not been charged."
+  }
+  if (description.includes("INSUFFICIENT_BALANCE")) {
+    return "This service is temporarily unavailable. Please try again shortly — you have not been charged."
+  }
+
   switch (Number(outcome.code)) {
     case 401:
       return "That plan is no longer available. Please pick another."
