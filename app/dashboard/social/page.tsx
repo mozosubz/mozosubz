@@ -77,7 +77,8 @@ export default function SocialPage() {
 
   const quantityNum = Number.parseInt(quantity, 10) || 0
   const unitPrice = selected ? Number(selected.price) : 0
-  const total = selected ? Math.round(unitPrice * quantityNum * 100) / 100 : 0
+  // GSUBZ social prices are per 1,000 units; quantity is in units.
+  const total = selected ? Math.round(unitPrice * (quantityNum / 1000) * 100) / 100 : 0
 
   const quantityValid =
     !!selected && Number.isInteger(quantityNum) && quantityNum >= selected.min && quantityNum <= selected.max
@@ -213,7 +214,7 @@ export default function SocialPage() {
                   </div>
                   <span className="text-xs font-bold text-[var(--primary)] flex-shrink-0">
                     ₦{Number(s.price).toLocaleString()}
-                    <span className="block text-[10px] font-medium text-[var(--text-3)] text-right">per unit</span>
+                    <span className="block text-[10px] font-medium text-[var(--text-3)] text-right">per 1,000</span>
                   </span>
                 </button>
               )
@@ -230,7 +231,14 @@ export default function SocialPage() {
           <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-4 mb-4 space-y-3">
             <div className="flex items-start gap-2">
               <TrendingUp className="w-4 h-4 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-              <p className="text-sm font-semibold text-[var(--text-1)] leading-snug">{selected.display_name}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--text-1)] leading-snug">{selected.display_name}</p>
+                {selected.description && (
+                  <p className="text-[11px] text-[var(--text-3)] mt-0.5 whitespace-pre-line">
+                    {selected.description}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="form-group mb-0">
@@ -285,11 +293,13 @@ export default function SocialPage() {
 
             <div className="border-t border-[var(--border)] pt-3 text-sm space-y-2">
               <div className="flex justify-between">
-                <span className="text-[var(--text-3)]">Unit price</span>
+                <span className="text-[var(--text-3)]">Price per 1,000</span>
                 <span className="font-semibold text-[var(--text-1)]">₦{unitPrice.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[var(--text-3)]">Total</span>
+                <span className="text-[var(--text-3)]">
+                  Total for {quantityNum ? quantityNum.toLocaleString() : 0}
+                </span>
                 <span className="font-bold text-[var(--primary)]">₦{total.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">

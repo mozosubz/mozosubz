@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 import { NetworkLogo } from "@/lib/utils/network-logo"
 
 interface ConfirmSheetProps {
@@ -16,6 +16,13 @@ interface ConfirmSheetProps {
   loading?: boolean
 }
 
+/**
+ * Purchase confirmation. Mobile (<=768px) keeps the bottom-sheet treatment;
+ * from 769px it renders as the admin modal does — a fixed, centred 540px card
+ * over a dimmed, blurred backdrop (see the confirm-sheet block in
+ * app/globals.css). Same geometry and z-index feel as the admin transaction
+ * modal, just with this page's tokens.
+ */
 export function ConfirmSheet({ show, title, network, page = 'airtime', details, onConfirm, onCancel, loading }: ConfirmSheetProps) {
   // Lock body scroll and hide nav when sheet is open
   useEffect(() => {
@@ -32,14 +39,35 @@ export function ConfirmSheet({ show, title, network, page = 'airtime', details, 
     }
   }, [show])
 
+  // Escape closes the sheet (not while the purchase is in flight).
+  useEffect(() => {
+    if (!show) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [show, loading, onCancel])
+
   if (!show) return null
 
   return (
     <>
-      <div className="sheet-overlay open" onClick={onCancel} />
-      <div className="bottom-sheet open">
+      <div className="sheet-overlay open" onClick={loading ? undefined : onCancel} />
+      <div className="bottom-sheet open" role="dialog" aria-modal="true" aria-label={title}>
         <div className="sheet-handle" />
-        <div className="sheet-title">{title}</div>
+        <div className="sheet-head">
+          <div className="sheet-title">{title}</div>
+          <button
+            type="button"
+            className="sheet-close"
+            onClick={onCancel}
+            disabled={loading}
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
         <div className="sheet-body">
           {network && (
             <div className="flex flex-col items-center gap-0 mb-3 pb-3 border-b border-[var(--border)]">
@@ -69,7 +97,7 @@ export function ConfirmSheet({ show, title, network, page = 'airtime', details, 
               "Confirm & Pay"
             )}
           </button>
-          <button onClick={onCancel} className="btn-ghost w-full" style={{ height: '40px' }}>
+          <button onClick={onCancel} disabled={loading} className="btn-ghost w-full" style={{ height: '40px' }}>
             Cancel
           </button>
         </div>

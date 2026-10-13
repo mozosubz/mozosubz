@@ -92,7 +92,11 @@ export async function purchaseSocial(formData: FormData, trustedUserId?: string,
     } else {
       unit = await applyServiceMarkup("social", service.display_name, unitPrice)
     }
-    const price = Math.round(unit * quantity * 100) / 100
+    // GSUBZ social prices are per 1,000 units and `quantity` is in units — the
+    // official doc's own example charges ₦179 for plan "179" at quantity 1000.
+    // Multiplying the per-1,000 price by the raw quantity over-billed by 1000×
+    // and failed the balance check on every order.
+    const price = Math.round(unit * (quantity / 1000) * 100) / 100
 
     const admin = createAdminClient()
     const { data: profile } = await admin.from("profiles").select("wallet_balance").eq("id", userId).single()
