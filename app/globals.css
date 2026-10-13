@@ -1383,3 +1383,26 @@ body {
     color: #fff;
   }
 }
+
+/* ── Bachs overlay checkout: match the admin modal bottom-sheet ──────────
+   The Bachs SDK injects #bachs-checkout-overlay centered on every screen
+   size. Below 768px — the same breakpoint as .modal-overlay in
+   styles/admin.css — pin it to the bottom edge with rounded top corners,
+   exactly like the admin transaction modal on mobile. !important is needed
+   because the SDK injects its own <style> tag after this stylesheet. */
+@media (max-width: 768px) {
+  #bachs-checkout-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  #bachs-checkout-overlay .bachs-modal {
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  #bachs-checkout-overlay iframe {
+    min-height: min(620px, calc(92vh - 8px)) !important;
+  }
+}
