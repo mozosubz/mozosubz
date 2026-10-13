@@ -166,6 +166,7 @@ export function DepositClient({ initialRules }: DepositClientProps) {
   const unmountedRef = useRef(false)
   const bachsInitializedRef = useRef(false)
   const bachsBaseUrlRef = useRef<string | null>(null)
+  const watchCleanupRef = useRef<(() => void) | null>(null)
 
   // Keep state and ref in lockstep — overlay event handlers are plain
   // closures and need the current status without waiting for a re-render.
@@ -220,6 +221,10 @@ export function DepositClient({ initialRules }: DepositClientProps) {
     return () => {
       unmountedRef.current = true
       pollingRef.current = false
+      if (watchCleanupRef.current) {
+        watchCleanupRef.current()
+        watchCleanupRef.current = null
+      }
     }
   }, [])
 
@@ -313,6 +318,54 @@ export function DepositClient({ initialRules }: DepositClientProps) {
   const calculation = rules && numAmount > 0 ? calculateDepositFee(numAmount, rules) : null
   const showReceiveBox = numAmount > 0 && !error
 
+  /**
+   * The single "wallet funded" path — shared by the realtime watch, the
+   * verify poll and the one-shot close check. Stops everything, paints the
+   * success state, then hands the buyer to the dashboard with a fresh
+   * balance a beat later.
+   */
+  const markSuccessAndLeave = () => {
+    if (unmountedRef.current || statusRef.current === "success") return
+    pollingRef.current = false
+    updateStatus("success")
+    window.setTimeout(() => {
+      if (!unmountedRef.current) window.location.href = "/dashboard?deposit=success"
+    }, 900)
+  }
+
+  /**
+   * Instant confirmation: watch THIS deposit row over Supabase Realtime.
+   * The webhook credits by flipping `monnify_transactions.status` to
+   * SUCCESS (RLS lets the owner read their own row), so the page learns
+   * about the credit in milliseconds instead of waiting for the next poll.
+   * Polling stays as the safety net if realtime is unavailable.
+   */
+  const watchDeposit = (paymentReference: string): (() => void) => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`deposit-credit:${paymentReference}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "monnify_transactions",
+          filter: `payment_reference=eq.${paymentReference}`,
+        },
+        (payload) => {
+          const nextStatus = (payload as { new?: { status?: string } }).new?.status
+          if (nextStatus === "SUCCESS") {
+            markSuccessAndLeave()
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }
+
   // Poll the authoritative status until the wallet is credited (webhook
   // fulfilment) or the attempt budget runs out.
   const pollVerify = async (paymentReference: string) => {
@@ -331,13 +384,7 @@ export function DepositClient({ initialRules }: DepositClientProps) {
           // `credited` is the authoritative signal; `status === 'SUCCESS'`
           // is a belt-and-braces fallback for equivalent payloads.
           if (data?.credited === true || data?.status === "SUCCESS") {
-            if (unmountedRef.current) return
-            updateStatus("success")
-            // Let the success state paint, then take the buyer to the
-            // dashboard (fresh balance, no stale deposit form).
-            window.setTimeout(() => {
-              if (!unmountedRef.current) window.location.href = "/dashboard?deposit=success"
-            }, 1500)
+            markSuccessAndLeave()
             return
           }
         } catch {
@@ -416,10 +463,7 @@ export function DepositClient({ initialRules }: DepositClientProps) {
             void verifyOnce(paymentReference).then((credited) => {
               if (unmountedRef.current) return
               if (credited) {
-                updateStatus("success")
-                window.setTimeout(() => {
-                  if (!unmountedRef.current) window.location.href = "/dashboard?deposit=success"
-                }, 1500)
+                markSuccessAndLeave()
                 return
               }
               updateStatus("idle")
@@ -464,9 +508,12 @@ export function DepositClient({ initialRules }: DepositClientProps) {
         options: { autoCloseOnComplete: true },
       })
 
-      // Start verifying immediately — the webhook credits the wallet, and the
-      // sandbox checkout does not always relay checkout.completed to the page,
-      // so the success state must not depend on that event alone.
+      // Instant confirmation + safety net: the realtime watch flips the UI the
+      // moment the webhook credits the row; the verify poll covers the case
+      // where realtime is unavailable, and an initial poll run also catches a
+      // credit that landed before the channel subscribed.
+      if (watchCleanupRef.current) watchCleanupRef.current()
+      watchCleanupRef.current = watchDeposit(paymentReference)
       void pollVerify(paymentReference)
     } catch (overlayError) {
       // SDK blocked or misbehaving — the hosted checkout page still works,

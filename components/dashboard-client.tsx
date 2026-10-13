@@ -49,6 +49,7 @@ export function DashboardClient({
   const [banner, setBanner] = useState<
     | { kind: "confirmed"; title: string; subtitle: string }
     | { kind: "welcome"; title: string; subtitle: string }
+    | { kind: "deposit"; title: string; subtitle: string }
     | null
   >(null)
 
@@ -58,13 +59,20 @@ export function DashboardClient({
     return () => cleanup()
   }, [])
 
-  // One-time top-of-page banners (?confirmed=1 / ?welcome=1)
+  // One-time top-of-page banners (?confirmed=1 / ?welcome=1 / ?deposit=success)
   useEffect(() => {
     const confirmed = searchParams.get("confirmed") === "1"
     const welcome = searchParams.get("welcome") === "1"
-    if (!confirmed && !welcome) return
+    const depositSuccess = searchParams.get("deposit") === "success"
+    if (!confirmed && !welcome && !depositSuccess) return
 
-    if (confirmed) {
+    if (depositSuccess) {
+      setBanner({
+        kind: "deposit",
+        title: "Payment received — wallet funded",
+        subtitle: "Your new balance is shown below. Thank you!",
+      })
+    } else if (confirmed) {
       setBanner({
         kind: "confirmed",
         title: "Email confirmed — welcome to Mozosubz!",
