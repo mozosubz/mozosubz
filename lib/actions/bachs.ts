@@ -53,6 +53,22 @@ function pickResource(payload: unknown, key: string): Record<string, unknown> | 
   return root
 }
 
+// The payments list endpoint answers `{ "items": [ {...} ] }` (confirmed
+// against the live sandbox API). Extract the first record from `items`/`data`
+// arrays, or accept a flat payment object.
+function pickPaymentRecord(payload: unknown): Record<string, unknown> | null {
+  const root = asRecord(payload)
+  if (!root) return null
+  for (const listKey of ['items', 'data'] as const) {
+    const list = root[listKey]
+    if (Array.isArray(list)) {
+      const first = asRecord(list[0])
+      if (first) return first
+    }
+  }
+  return root
+}
+
 function providerErrorMessage(payload: unknown, fallback: string): string {
   const record = asRecord(payload)
   if (record) {
@@ -181,10 +197,15 @@ export async function createBachsCheckoutSession(input: {
 /**
  * Look up the authoritative status of a Bachs payment by checkout id.
  *
- * Tries GET /v1/payments?checkout_id=<id> first and falls back to
- * GET /v1/payments/<id> if the query form 404s. Bachs payment objects carry a
- * `status` and an optional `substatus`; the raw payload is returned alongside
- * the mapped fields for logging.
+ * Strategy (confirmed against the live sandbox API):
+ *  1. GET /v1/payments?checkout_id=<id> → `{ items: [payment, ...] }`. When a
+ *     payment exists this is the payment-level truth (lowercase status:
+ *     succeeded / failed / underpaid / ...).
+ *  2. If the list is empty (nothing paid yet) fall back to
+ *     GET /v1/checkout-sessions/<id>, whose `payment_status` (succeeded/...)
+ *     or `status` (open/completed/expired) describes the checkout itself.
+ * An empty payments list is NOT an error: it means "no payment yet", which
+ * maps to PENDING and never credits.
  */
 export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
   success: boolean
@@ -205,63 +226,117 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
   }
 
   const encoded = encodeURIComponent(checkoutId.trim())
-  const urls = [
-    `${BACHS_BASE_URL}/v1/payments?checkout_id=${encoded}`,
-    `${BACHS_BASE_URL}/v1/payments/${encoded}`,
-  ]
+
+  const authHeaders = {
+    Authorization: `Bearer ${BACHS_SECRET_KEY}`,
+    Accept: 'application/json',
+  }
 
   try {
-    let response: Response | null = null
-    let data: unknown = null
+    // 1. Payment-level lookup via the filtered list.
+    const listResponse = await fetchWithBachsTimeout(
+      `${BACHS_BASE_URL}/v1/payments?checkout_id=${encoded}`,
+      { method: 'GET', headers: authHeaders }
+    )
+    const listData = await safeJson(listResponse)
 
-    for (const url of urls) {
-      response = await fetchWithBachsTimeout(url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${BACHS_SECRET_KEY}`,
-          Accept: 'application/json',
-        },
-      })
-      data = await safeJson(response)
-      // Only a 404 on the query form is worth retrying as the path form.
-      if (response.status !== 404) break
-    }
+    if (listResponse.ok) {
+      const record = pickPaymentRecord(listData)
+      const status =
+        record && typeof record.status === 'string' && record.status.trim().length > 0
+          ? record.status
+          : null
+      // A record is a payment only when it carries a status and is not the
+      // empty-list envelope itself.
+      const isPayment = record !== null && status !== null && !Array.isArray((record as Record<string, unknown>).items)
 
-    if (!response) {
-      return { success: false, error: 'Bachs payment lookup failed' }
-    }
-
-    if (!response.ok) {
+      if (isPayment && record) {
+        return {
+          success: true,
+          status: status as string,
+          substatus: typeof record.substatus === 'string' ? record.substatus : null,
+          // Payment objects expose their own id (ch_...); charge_id may be
+          // absent from the list representation.
+          chargeId:
+            typeof record.charge_id === 'string'
+              ? record.charge_id
+              : typeof record.payment_id === 'string'
+                ? record.payment_id
+                : typeof record.id === 'string'
+                  ? record.id
+                  : undefined,
+          amount:
+            typeof record.amount === 'string' || typeof record.amount === 'number'
+              ? String(record.amount)
+              : undefined,
+          currency: typeof record.currency === 'string' ? record.currency : undefined,
+          raw: listData,
+        }
+      }
+    } else if (listResponse.status !== 404) {
       const message = providerErrorMessage(
-        data,
-        `Bachs payment lookup failed with status ${response.status}`
+        listData,
+        `Bachs payment lookup failed with status ${listResponse.status}`
       )
-      console.error('[BACHS] Payment lookup failed:', response.status, message, { checkoutId })
+      console.error('[BACHS] Payment list lookup failed:', listResponse.status, message, { checkoutId })
       return { success: false, error: message }
     }
 
-    const record = pickResource(data, 'status')
-    const status =
-      record && typeof record.status === 'string' && record.status.trim().length > 0
-        ? record.status
-        : null
+    // 2. No payment yet (or list endpoint unavailable) — read the checkout
+    // session itself. Its payment_status is authoritative for whether money
+    // was actually collected.
+    const sessionResponse = await fetchWithBachsTimeout(
+      `${BACHS_BASE_URL}/v1/checkout-sessions/${encoded}`,
+      { method: 'GET', headers: authHeaders }
+    )
+    const sessionData = await safeJson(sessionResponse)
 
-    if (!record || !status) {
-      console.error('[BACHS] Payment payload missing a usable status', { checkoutId })
-      return { success: false, error: 'Bachs payment payload is missing a status', raw: data }
+    if (!sessionResponse.ok) {
+      const message = providerErrorMessage(
+        sessionData,
+        `Bachs checkout session lookup failed with status ${sessionResponse.status}`
+      )
+      console.error('[BACHS] Checkout session lookup failed:', sessionResponse.status, message, { checkoutId })
+      return { success: false, error: message }
     }
+
+    const session = asRecord(sessionData)
+    if (!session) {
+      console.error('[BACHS] Checkout session payload was not a JSON object', { checkoutId })
+      return { success: false, error: 'Bachs returned an unreadable checkout session' }
+    }
+
+    const paymentStatus =
+      typeof session.payment_status === 'string' && session.payment_status.trim().length > 0
+        ? session.payment_status
+        : null
+    const sessionStatus =
+      typeof session.status === 'string' && session.status.trim().length > 0 ? session.status : null
+    const status = paymentStatus || sessionStatus
+
+    if (!status) {
+      console.error('[BACHS] Checkout session payload missing status and payment_status', { checkoutId })
+      return { success: false, error: 'Bachs checkout session payload is missing a status', raw: sessionData }
+    }
+
+    const charge = asRecord(session.charge)
+    const chargeId =
+      charge && typeof charge.payment_id === 'string'
+        ? charge.payment_id
+        : charge && typeof charge.charge_id === 'string'
+          ? charge.charge_id
+          : charge && typeof charge.id === 'string'
+            ? charge.id
+            : undefined
 
     return {
       success: true,
       status,
-      substatus: typeof record.substatus === 'string' ? record.substatus : null,
-      chargeId: typeof record.charge_id === 'string' ? record.charge_id : undefined,
-      amount:
-        typeof record.amount === 'string' || typeof record.amount === 'number'
-          ? String(record.amount)
-          : undefined,
-      currency: typeof record.currency === 'string' ? record.currency : undefined,
-      raw: data,
+      substatus: null,
+      chargeId,
+      amount: typeof session.amount === 'string' ? session.amount : undefined,
+      currency: typeof session.currency === 'string' ? session.currency : undefined,
+      raw: sessionData,
     }
   } catch (error) {
     if (isAbortError(error)) {

@@ -44,9 +44,12 @@ const NEGATIVE_MARKERS = [
 export async function POST(request: NextRequest) {
   try {
     // 1. RAW body first, before any parsing — the signature is computed over
-    // the exact bytes Bachs sent.
+    // the exact bytes Bachs sent. Current deliveries carry
+    // X-Bachs-Signature-V2 ("t=...,v1=..."); the legacy header name is kept
+    // as a fallback for manual replays.
     const raw = await request.text()
-    const signature = request.headers.get('x-bachs-signature')
+    const signature =
+      request.headers.get('x-bachs-signature-v2') ?? request.headers.get('x-bachs-signature')
 
     // Never process an unverified payload. Respond 200 so Bachs doesn't retry
     // garbage — there is nothing to gain from receiving it again.
@@ -95,8 +98,9 @@ export async function POST(request: NextRequest) {
 
     const providerStatus = data.status == null ? '' : String(data.status)
     const providerStatusUpper = providerStatus.trim().toUpperCase()
+    const paymentStatus = data.payment_status == null ? '' : String(data.payment_status).trim().toLowerCase()
     const substatus = typeof data.substatus === 'string' ? data.substatus : undefined
-    const chargeId = data.charge_id == null ? '' : String(data.charge_id).trim()
+    const chargeId = String(data.charge_id ?? data.payment_id ?? '').trim()
 
     // 2. Map the provider status to our internal vocabulary.
     const mapped = mapBachsStatus(providerStatus, substatus ?? '')
@@ -104,9 +108,14 @@ export async function POST(request: NextRequest) {
 
     // The event TYPE is authoritative for the two success events: when Bachs
     // says checkout.completed / collection.succeeded, the money is in unless
-    // the provider status explicitly says otherwise (e.g. underpaid/refunded).
+    // the provider status explicitly says otherwise (e.g. underpaid/refunded),
+    // or — for checkout.completed — the checkout collected no payment at all
+    // (payment_status "no_payment_required", i.e. a free/setup completion).
     const successEventType = eventType === 'collection.succeeded' || eventType === 'checkout.completed'
-    if (successEventType && !NEGATIVE_MARKERS.includes(providerStatusUpper)) {
+    const noPaymentRequired =
+      (eventType === 'checkout.completed' && paymentStatus === 'no_payment_required') ||
+      providerStatusUpper === 'NO_PAYMENT_REQUIRED'
+    if (successEventType && !noPaymentRequired && !NEGATIVE_MARKERS.includes(providerStatusUpper)) {
       internal = 'SUCCESS'
     }
 

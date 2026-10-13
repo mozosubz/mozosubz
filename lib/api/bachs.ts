@@ -15,6 +15,13 @@ export type BachsInternalStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED' |
  * Map a Bachs payment status (plus optional substatus) onto our internal
  * status vocabulary. Unrecognised statuses fall back to PENDING: the
  * fail-safe rule is that nothing is ever credited on an unknown status.
+ *
+ * Handles both vocabularies Bachs uses:
+ *  - payment/charge objects: lowercase (succeeded, failed, underpaid, ...)
+ *  - webhook event data.status: UPPERCASE charge state (SUCCEEDED, ACCEPTED, OVERPAID, FAILED)
+ *  - checkout session objects: open / completed / expired (+ payment_status)
+ * `completed` is deliberately NOT mapped to SUCCESS here — the webhook route
+ * promotes checkout.completed only when payment_status confirms a real payment.
  */
 export function mapBachsStatus(status: string, substatus?: string | null): BachsInternalStatus {
   const normalized = typeof status === 'string' ? status.trim().toLowerCase() : ''
@@ -22,8 +29,11 @@ export function mapBachsStatus(status: string, substatus?: string | null): Bachs
   switch (normalized) {
     case 'open':
       // Substatus may be awaiting_payment / awaiting_approval / last_attempt_failed.
-      return 'PENDING'
+      // An abandoned checkout is closed as EXPIRED; otherwise it is still open.
+      return substatus === 'abandoned' ? 'EXPIRED' : 'PENDING'
     case 'succeeded':
+    case 'paid':
+      // 'paid' is the checkout.completed payment_status value for a real payment.
       return 'SUCCESS'
     case 'accepted':
       // Under-/overpayment accepted as the final outcome; platform policy: credit.
@@ -34,29 +44,50 @@ export function mapBachsStatus(status: string, substatus?: string | null): Bachs
       return 'REVIEW'
     case 'failed':
       return 'FAILED'
+    case 'expired':
     case 'incomplete':
-      // Substatus is 'abandoned' or 'expired' — both close the local row as
-      // EXPIRED, so the substatus does not change the outcome here.
-      return substatus === 'expired' ? 'EXPIRED' : 'EXPIRED'
+      // Both close the local row as EXPIRED.
+      return 'EXPIRED'
     case 'refunded':
     case 'partially_refunded':
     case 'auto_refunded':
       return 'REFUNDED'
+    case 'no_payment_required':
+      // Free/setup completion — nothing was collected, nothing to credit.
+      return 'PENDING'
     default:
       // Fail-safe: never credit on an unknown status.
       return 'PENDING'
   }
 }
 
+// Timing-safe comparison of two hex digests; both sides are lowercased first
+// and length-checked (timingSafeEqual throws on length mismatch, and the
+// length of a digest leaks nothing useful to a forger).
+function timingSafeHexEqual(expected: string, received: string): boolean {
+  const a = Buffer.from(expected.toLowerCase(), 'utf8')
+  const b = Buffer.from(received.trim().toLowerCase(), 'utf8')
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+// Webhook timestamp tolerance, matching the Bachs docs (5 minutes).
+const BACHS_WEBHOOK_TOLERANCE_SECONDS = 300
+
 /**
- * Verify the `X-Bachs-Signature` webhook header against the RAW request body.
+ * Verify a Bachs webhook signature header against the RAW request body.
  *
- * The Bachs docs specify an HMAC header but not the digest algorithm, so we
- * accept EITHER HMAC-SHA512 (the default — Paystack-style) OR HMAC-SHA256 of
- * the raw body string keyed with BACHS_SECRET_KEY. The hex digest is compared
- * case-insensitively (both sides lowercased) and timing-safely.
+ * Current scheme (X-Bachs-Signature-V2, per docs.bachs.io):
+ *   header:  "t=1760000000,v1=abc...,v1=def..."
+ *   signed:  `${t}.${rawBody}` with HMAC-SHA256, hex digest, keyed by the
+ *            whsec_ signing secret string.
+ *   Accept when ANY v1 value matches (one per valid secret during rotation)
+ *   and |now - t| <= 300s.
  *
- * Never throws: a missing header, a missing key, malformed input or any other
+ * Legacy fallback: a bare hex digest (no t=/v1= structure) is treated as
+ * HMAC-SHA256/SHA512 over the raw body with the same secret — used only by
+ * manual replays/tests built before the v2 scheme was confirmed.
+ *
+ * Never throws: a missing header, missing key, malformed input or any other
  * error all return false (fail closed).
  */
 export function verifyBachsSignature(rawBody: string, signatureHeader: string | null): boolean {
@@ -70,34 +101,45 @@ export function verifyBachsSignature(rawBody: string, signatureHeader: string | 
     const signingSecret = BACHS_WEBHOOK_SECRET || BACHS_SECRET_KEY
     if (!signingSecret) return false
 
-    // Header may carry a single hex digest. Compare case-insensitively.
-    const received = signatureHeader.trim().toLowerCase()
+    const header = signatureHeader.trim()
 
-    // whsec_ secrets are Stripe-style: some integrations sign with the literal
-    // string, others with its base64-decoded bytes. Accept either so the exact
-    // convention cannot break deliveries; both are still keyed by the secret.
-    const keys: Buffer[] = [Buffer.from(signingSecret, 'utf8')]
-    const afterPrefix = signingSecret.startsWith('whsec_') ? signingSecret.slice('whsec_'.length) : signingSecret
-    try {
-      const decoded = Buffer.from(afterPrefix, 'base64')
-      if (decoded.length > 0) keys.push(decoded)
-    } catch {
-      // not base64 — ignore
-    }
-
-    for (const algorithm of ['sha512', 'sha256'] as const) {
-      for (const key of keys) {
-        const expected = crypto.createHmac(algorithm, key).update(rawBody, 'utf8').digest('hex').toLowerCase()
-        const expectedBuffer = Buffer.from(expected, 'utf8')
-        const receivedBuffer = Buffer.from(received, 'utf8')
-
-        // timingSafeEqual throws on length mismatch — check lengths first,
-        // which itself leaks nothing useful to a forger.
-        if (expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
-          return true
-        }
+    // --- v2 scheme: t=<unix>,v1=<hex>[,v1=<hex>...] -----------------------
+    if (header.includes('t=') || header.includes('v1=')) {
+      const pairs: Array<[string, string]> = []
+      for (const part of header.split(',')) {
+        const eq = part.indexOf('=')
+        if (eq === -1) continue
+        pairs.push([part.slice(0, eq).trim(), part.slice(eq + 1).trim()])
       }
+
+      const timestampRaw = pairs.find(([key]) => key === 't')?.[1]
+      const timestamp = timestampRaw ? Number(timestampRaw) : NaN
+      if (!Number.isFinite(timestamp)) return false
+      if (Math.abs(Date.now() / 1000 - timestamp) > BACHS_WEBHOOK_TOLERANCE_SECONDS) {
+        console.error('[BACHS] Webhook timestamp outside tolerance window')
+        return false
+      }
+
+      const expected = crypto
+        .createHmac('sha256', signingSecret)
+        .update(`${timestamp}.${rawBody}`, 'utf8')
+        .digest('hex')
+
+      const v1Signatures = pairs.filter(([key]) => key === 'v1').map(([, value]) => value)
+      if (v1Signatures.some((signature) => timingSafeHexEqual(expected, signature))) {
+        return true
+      }
+
+      console.error('[BACHS] Signature mismatch — confirm BACHS_WEBHOOK_SECRET matches the portal signing secret')
+      return false
     }
+
+    // --- legacy bare-digest fallback --------------------------------------
+    const received = header.toLowerCase()
+    const expectedSha256 = crypto.createHmac('sha256', signingSecret).update(rawBody, 'utf8').digest('hex')
+    if (timingSafeHexEqual(expectedSha256, received)) return true
+    const expectedSha512 = crypto.createHmac('sha512', signingSecret).update(rawBody, 'utf8').digest('hex')
+    if (timingSafeHexEqual(expectedSha512, received)) return true
 
     console.error('[BACHS] Signature mismatch — confirm BACHS_WEBHOOK_SECRET matches the portal signing secret')
     return false
