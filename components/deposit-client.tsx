@@ -333,10 +333,10 @@ export function DepositClient({ initialRules }: DepositClientProps) {
           if (data?.credited === true || data?.status === "SUCCESS") {
             if (unmountedRef.current) return
             updateStatus("success")
-            // Let the success state paint, then refresh the dashboard data
-            // so the new wallet balance shows.
+            // Let the success state paint, then take the buyer to the
+            // dashboard (fresh balance, no stale deposit form).
             window.setTimeout(() => {
-              if (!unmountedRef.current) window.location.reload()
+              if (!unmountedRef.current) window.location.href = "/dashboard?deposit=success"
             }, 1500)
             return
           }
@@ -418,7 +418,7 @@ export function DepositClient({ initialRules }: DepositClientProps) {
               if (credited) {
                 updateStatus("success")
                 window.setTimeout(() => {
-                  if (!unmountedRef.current) window.location.reload()
+                  if (!unmountedRef.current) window.location.href = "/dashboard?deposit=success"
                 }, 1500)
                 return
               }

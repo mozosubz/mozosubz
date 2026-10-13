@@ -21,7 +21,11 @@ interface CacheEntry {
 }
 
 const keyCache = new Map<string, CacheEntry>()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+// Short TTL on purpose: the cached context skips the per-request ban check, so
+// this bounds how long a banned account's keys can keep working on OTHER warm
+// instances after an admin bans them (banUser clears this instance's cache
+// immediately). One DB read per key per minute is still trivial.
+const CACHE_TTL = 60 * 1000 // 1 minute
 
 function getCachedContext(keyHash: string): CachedContext | undefined {
   const entry = keyCache.get(keyHash)
