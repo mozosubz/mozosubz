@@ -11,12 +11,9 @@ import {
   Wifi,
   Tv,
   Zap,
-  Printer,
-  Receipt,
   Clock,
   RefreshCw,
   Lock,
-  FileText,
 } from "lucide-react"
 import { Footer } from "@/components/footer"
 import { SiteHeader } from "@/components/site-header"
@@ -80,20 +77,6 @@ const DATA_SAMPLES = [
   },
 ]
 
-const DISCOS = [
-  "Abuja",
-  "Benin",
-  "Eko",
-  "Enugu",
-  "Ibadan",
-  "Ikeja",
-  "Jos",
-  "Kaduna",
-  "Kano",
-  "Port Harcourt",
-  "Yola",
-  "Bauchi",
-]
 
 const FAQS = [
   {
@@ -227,7 +210,7 @@ export default function HomePage() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="relative px-4 sm:px-6 lg:px-8 pt-14 pb-16 md:pt-20 md:pb-24 overflow-hidden">
+      <section className="relative px-4 sm:px-6 lg:px-8 pt-12 pb-12 md:pt-16 md:pb-16 overflow-hidden">
         {/* Subtle background decoration — breaks up the plain white */}
         <div
           aria-hidden="true"
@@ -360,7 +343,7 @@ export default function HomePage() {
       </section>
 
       {/* Networks strip */}
-      <section className="px-4 sm:px-6 lg:px-8 py-14 bg-slate-50 border-y border-slate-200">
+      <section className="px-4 sm:px-6 lg:px-8 py-10 bg-slate-50 border-y border-slate-200">
         <div className="max-w-6xl mx-auto">
           <p className="text-center text-xs font-semibold text-slate-500 uppercase tracking-widest mb-8">
             Works with every major network in Nigeria
@@ -381,7 +364,7 @@ export default function HomePage() {
       </section>
 
       {/* Services grid */}
-      <section id="services" className="px-4 sm:px-6 lg:px-8 py-20 md:py-24">
+      <section id="services" className="px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="max-w-6xl mx-auto">
           <div className="max-w-2xl mb-14">
             <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">What you can pay for</p>
@@ -436,7 +419,7 @@ export default function HomePage() {
       </section>
 
       {/* Data plan pricing — the "show off" */}
-      <section id="pricing" className="px-4 sm:px-6 lg:px-8 py-20 md:py-24 bg-slate-50 border-y border-slate-200">
+      <section id="pricing" className="px-4 sm:px-6 lg:px-8 py-12 md:py-16 bg-slate-50 border-y border-slate-200">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-12">
             <div className="max-w-2xl">
@@ -499,129 +482,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Cable + Electricity detail */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 md:py-24">
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-6">
-          {/* Cable */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-8 md:p-10">
-            <div className="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center mb-5">
-              <Tv className="w-5 h-5 text-blue-600" />
-            </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3 text-balance">
-              Renew cable TV in two taps.
-            </h3>
-            <p className="text-slate-600 mb-6 leading-relaxed">
-              Enter your IUC or smartcard number, pick your package, confirm. Works for every DStv, GOtv and Startimes
-              plan, no matter your subscription history.
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              {["DStv", "GOtv", "Startimes"].map((p) => (
-                <div
-                  key={p}
-                  className="bg-slate-50 border border-slate-200 rounded-xl py-4 text-center text-sm font-semibold text-slate-900"
-                >
-                  {p}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Electricity */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-8 md:p-10">
-            <div className="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center mb-5">
-              <Zap className="w-5 h-5 text-blue-600" />
-            </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3 text-balance">
-              Get your prepaid token in seconds.
-            </h3>
-            <p className="text-slate-600 mb-6 leading-relaxed">
-              Prepaid and postpaid meters. Minimum ₦1,000. Your token shows on screen and stays in your transaction
-              history — copy it any time.
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {DISCOS.map((d) => (
-                <span
-                  key={d}
-                  className="px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-700"
-                >
-                  {d}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Recharge pins */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 md:py-24 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-semibold text-blue-700 mb-5">
-              <Printer className="w-3.5 h-3.5" />
-              Built for kiosks and resellers
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 text-balance">
-              Print recharge pins in bulk, straight from your wallet.
-            </h2>
-            <p className="text-lg text-slate-600 mb-6 leading-relaxed">
-              Generate MTN, Glo, Airtel and 9mobile pins on demand. Pick a denomination, choose how many, and every pin
-              is saved under your account.
-            </p>
-            <ul className="space-y-3 mb-6">
-              <li className="flex items-start gap-3 text-sm text-slate-700">
-                <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                Up to 50 pins per batch — copy individually or in one click
-              </li>
-              <li className="flex items-start gap-3 text-sm text-slate-700">
-                <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                All four networks, no separate setup per provider
-              </li>
-              <li className="flex items-start gap-3 text-sm text-slate-700">
-                <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                Funded from your wallet — no extra payment per order
-              </li>
-            </ul>
-            <Link
-              href="/register"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
-            >
-              Start generating pins
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Link>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-            <div className="grid grid-cols-4 gap-2 mb-6">
-              {NETWORKS.map((n) => (
-                <div key={n.name} className="flex flex-col items-center gap-1.5">
-                  <img src={n.logo || "/placeholder.svg"} alt={n.name} className="w-10 h-10 rounded-full object-cover" />
-                  <span className="text-[10px] font-semibold text-slate-600">{n.name}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-2">
-              {[
-                { value: "₦100", max: "up to 50" },
-                { value: "₦200", max: "up to 25" },
-                { value: "₦400", max: "up to 15" },
-                { value: "₦500", max: "up to 10" },
-              ].map((d) => (
-                <div
-                  key={d.value}
-                  className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
-                >
-                  <span className="text-base font-bold text-slate-900">{d.value} pin</span>
-                  <span className="text-xs font-medium text-slate-500">{d.max} per batch</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* How it works */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 md:py-24 bg-slate-50 border-y border-slate-200">
+      <section className="px-4 sm:px-6 lg:px-8 py-12 md:py-16 bg-slate-50 border-y border-slate-200">
         <div className="max-w-6xl mx-auto">
           <div className="max-w-2xl mb-14">
             <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">How it works</p>
@@ -667,21 +529,21 @@ export default function HomePage() {
       </section>
 
       {/* Why Mozosubz */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 md:py-24">
+      <section className="px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="max-w-6xl mx-auto">
-          <div className="max-w-2xl mb-14">
+          <div className="max-w-2xl mb-10">
             <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">Why Mozosubz</p>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 text-balance">
               Built for speed, honesty and reliability.
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid md:grid-cols-3 gap-5">
             {[
               {
                 icon: Lock,
                 title: "One-time secure checkout",
-                desc: "Every deposit runs through a secure, single-use checkout powered by Bachs. Pay the exact amount and your wallet credits automatically — no card details stored, no shared payment link.",
+                desc: "Every deposit runs through a secure, single-use checkout powered by Bachs. Pay the exact amount and your wallet credits automatically — no card details stored.",
               },
               {
                 icon: Clock,
@@ -691,22 +553,7 @@ export default function HomePage() {
               {
                 icon: RefreshCw,
                 title: "Auto-refund on failure",
-                desc: "If a transaction fails at any point, your wallet is reversed automatically. No support ticket needed.",
-              },
-              {
-                icon: Wallet,
-                title: "Transparent fees",
-                desc: "We show the processing fee and the exact amount you'll receive before you pay. No hidden deductions.",
-              },
-              {
-                icon: Receipt,
-                title: "Every receipt saved",
-                desc: "Transactions are timestamped and logged with their reference IDs. Open any one for a full printable receipt.",
-              },
-              {
-                icon: FileText,
-                title: "Live provider pricing",
-                desc: "Data and cable plans are fetched from our provider in real time. You always see what's actually available.",
+                desc: "If a transaction fails at any point, your wallet is reversed automatically. Transparent fees, every receipt saved.",
               },
             ].map((f) => (
               <div
@@ -725,7 +572,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="px-4 sm:px-6 lg:px-8 py-20 md:py-24">
+      <section id="faq" className="px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="max-w-3xl mx-auto">
           <div className="mb-12 text-center">
             <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">Frequently asked</p>
@@ -750,7 +597,7 @@ export default function HomePage() {
       </section>
 
       {/* Final CTA */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 md:py-24 bg-slate-50 border-t border-slate-200">
+      <section className="px-4 sm:px-6 lg:px-8 py-12 md:py-16 bg-slate-50 border-t border-slate-200">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-5 text-balance">
             Your next top-up takes less than a minute.
