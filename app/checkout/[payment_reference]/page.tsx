@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: CheckoutPageProps) {
   const { payment_reference } = await params
   return {
     title: `Payment - ${payment_reference}`,
-    description: 'Complete your payment securely with Monnify',
+    description: 'Complete your payment securely with Bachs',
   }
 }
 

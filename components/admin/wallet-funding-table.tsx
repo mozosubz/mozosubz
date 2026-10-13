@@ -10,10 +10,13 @@ interface MonnifyTransaction {
   payment_reference: string
   amount: number
   status: string
-  account_number: string
-  bank_name: string
+  account_number: string | null
+  bank_name: string | null
   expires_at: string
   created_at: string
+  /** 'monnify' (legacy bank transfer) or 'bachs' (overlay checkout). */
+  provider?: string | null
+  bachs_checkout_id?: string | null
 }
 
 interface WalletFundingTableProps {
@@ -69,11 +72,23 @@ export function WalletFundingTable({ transactions }: WalletFundingTableProps) {
                       {tx.status}
                     </span>
                   </td>
-                  <td className="text-mono" style={{ fontSize: 13 }}>
-                    {tx.account_number}
+                  <td className="text-mono" style={{ fontSize: 12 }}>
+                    {tx.provider === 'bachs' ? (
+                      <span title={tx.bachs_checkout_id ?? undefined}>
+                        {tx.bachs_checkout_id ? tx.bachs_checkout_id.slice(0, 14) + '…' : 'Checkout'}
+                      </span>
+                    ) : (
+                      tx.account_number || '—'
+                    )}
                   </td>
                   <td style={{ color: 'var(--admin-text-secondary)', fontSize: 13 }}>
-                    {tx.bank_name}
+                    {tx.provider === 'bachs' ? (
+                      <span className="badge" style={{ background: 'var(--admin-surface-2, #eef4ff)', color: '#1a56db' }}>
+                        Bachs
+                      </span>
+                    ) : (
+                      tx.bank_name || '—'
+                    )}
                   </td>
                   <td style={{ color: 'var(--admin-text-secondary)', fontSize: 12 }}>
                     {new Date(tx.expires_at).toLocaleString()}

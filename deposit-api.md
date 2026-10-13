@@ -72,7 +72,7 @@ Content-Type: application/json
   "processing_fee": 50,
   "net_amount": 9950,
   "checkout_url": "https://api.mozosubz.xyz/checkout/DEP-20240115-50f1dbfb-123456",
-  "authorization_url": "https://checkout.monnify.com/pay/MCP1234567890",
+  "authorization_url": "https://checkout.bachs.io/c/abc123",
   "bank_details": {
     "account_number": "0123456789",
     "account_name": "Mozosubz Limited",
@@ -96,7 +96,7 @@ Content-Type: application/json
 | `processing_fee` | number | Processing fee (0.5% of amount) |
 | `net_amount` | number | Amount that will be credited (amount - fee) |
 | `checkout_url` | string | **USE THIS** - Mozosubz payment page URL |
-| `authorization_url` | string | Direct Monnify gateway URL (backup) |
+| `authorization_url` | string | Bachs checkout URL (open it in a browser/overlay) |
 | `bank_details` | object | Bank account details for manual transfer |
 | `expires_at` | string | ISO 8601 timestamp when payment link expires |
 | `remaining` | number | Remaining API calls for today |
@@ -169,11 +169,11 @@ Content-Type: application/json
 - Integrated transaction tracking
 - Better error recovery
 - Mobile optimized
-- Automatic redirects to Monnify
+- Automatic redirects to the Bachs checkout
 
 ### 🔄 `authorization_url` (BACKUP)
 
-**URL:** `https://checkout.monnify.com/pay/MCP1234567890`
+**URL:** `https://checkout.bachs.io/c/abc123`
 
 **Use this URL when:**
 - checkout_url is unavailable
@@ -231,7 +231,7 @@ Retry-After: 60 (only on 429)
    ↓
 6. User enters card/bank details
    ↓
-7. Payment processed by Monnify
+7. Payment processed by Bachs
    ↓
 8. Wallet credited automatically
    ↓

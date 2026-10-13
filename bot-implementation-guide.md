@@ -17,7 +17,7 @@ The bot needs to continuously poll the deposit status endpoint to check if a use
    ↓
 5. Bot starts polling loop with the payment_reference every 10 seconds
    ↓
-6. Webhook receives payment from Monnify
+6. Webhook receives the Bachs payment confirmation
    ↓
 7. Next poll (within 10 seconds) returns status: "SUCCESS"
    ↓

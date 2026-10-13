@@ -632,8 +632,10 @@ export function DepositClient({ initialRules }: DepositClientProps) {
           {buttonLabel}
         </button>
 
-        <p className="text-xs text-gray-400 text-center mt-4">
-          Secure payments powered by Bachs
+        <p className="text-xs text-gray-400 text-center mt-4 inline-flex w-full items-center justify-center gap-1.5">
+          Secure payments powered by
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brands/bachs-lettermark-black.svg" alt="Bachs" className="h-3 w-auto opacity-70" />
         </p>
       </div>
     </div>

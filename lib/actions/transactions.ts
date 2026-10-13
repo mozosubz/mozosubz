@@ -362,7 +362,7 @@ export async function verifyAndCreditPayment(paymentReference: string) {
     // Get transaction details from monnify_transactions table
     const { data: transaction, error: txError } = await supabase
       .from('monnify_transactions')
-      .select('user_id, amount, status, bank_name, account_number, account_name, transaction_reference, processing_fee, net_amount')
+      .select('user_id, amount, status, provider, bank_name, account_number, account_name, transaction_reference, processing_fee, net_amount')
       .eq('payment_reference', paymentReference)
       .maybeSingle()
 
@@ -433,8 +433,8 @@ export async function verifyAndCreditPayment(paymentReference: string) {
           user_id: transaction.user_id,
           transaction_id: paymentReference,
           category: 'WALLET_FUND',
-          service_id: transaction.transaction_reference || 'bank_transfer',
-          service_name: transaction.bank_name || 'Bank Transfer',
+          service_id: transaction.transaction_reference || (transaction.provider === 'bachs' ? 'bachs_checkout' : 'bank_transfer'),
+          service_name: transaction.provider === 'bachs' ? 'Bachs Checkout' : (transaction.bank_name || 'Bank Transfer'),
           amount: creditAmount,
           phone: '',
           status: 'SUCCESS',

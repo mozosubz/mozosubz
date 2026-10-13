@@ -163,7 +163,11 @@ export function Footer() {
 
         <div className="mt-10 pt-6 border-t border-slate-900 flex flex-col items-center justify-center gap-1 text-center">
           <p className="text-xs text-slate-500">© {year} Mozosubz. All rights reserved.</p>
-          <p className="text-xs text-slate-500">Payments secured by Bachs.</p>
+          <p className="text-xs text-slate-500 inline-flex items-center gap-1.5">
+            Payments secured by
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brands/bachs-logo-white.png" alt="Bachs" className="h-3.5 w-auto opacity-70" />
+          </p>
         </div>
       </div>
     </footer>

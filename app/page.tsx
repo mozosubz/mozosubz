@@ -98,7 +98,7 @@ const DISCOS = [
 const FAQS = [
   {
     q: "How do I fund my wallet?",
-    a: "Open your dashboard and tap Deposit Funds. Enter any amount between ₦100 and ₦100,000 and tap Continue — we generate a one-time bank account just for that deposit. Transfer the exact amount shown and your wallet credits instantly. The account is single-use: it cannot be reused for another deposit.",
+    a: "Open your dashboard and tap Deposit Funds, enter any amount from ₦100, then pay in the secure checkout that opens on the page — card or bank transfer through Bachs, our payment partner. Your wallet credits the moment the payment confirms, usually in seconds. No card details are ever stored on Mozosubz.",
   },
   {
     q: "Are there deposit fees?",

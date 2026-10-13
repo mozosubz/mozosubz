@@ -1,7 +1,7 @@
 import 'server-only'
 
 import crypto from 'crypto'
-import { BACHS_SECRET_KEY } from '@/lib/api/bachs-config'
+import { BACHS_SECRET_KEY, BACHS_WEBHOOK_SECRET } from '@/lib/api/bachs-config'
 
 // Origin of the Bachs overlay script (https://checkout.bachs.io/bachs.js) and
 // of the hosted checkout pages the overlay embeds.
@@ -62,28 +62,44 @@ export function mapBachsStatus(status: string, substatus?: string | null): Bachs
 export function verifyBachsSignature(rawBody: string, signatureHeader: string | null): boolean {
   try {
     if (!signatureHeader || signatureHeader.trim().length === 0) return false
-    if (!BACHS_SECRET_KEY) return false
 
-    // Hex digests are compared case-insensitively: normalise to lowercase.
+    // The webhook signing secret (whsec_...) is what Bachs signs with — the
+    // API secret key is NOT used for webhook signatures. Fall back to it only
+    // if the webhook secret is not configured, so a missing env var fails
+    // closed rather than breaking every delivery.
+    const signingSecret = BACHS_WEBHOOK_SECRET || BACHS_SECRET_KEY
+    if (!signingSecret) return false
+
+    // Header may carry a single hex digest. Compare case-insensitively.
     const received = signatureHeader.trim().toLowerCase()
 
+    // whsec_ secrets are Stripe-style: some integrations sign with the literal
+    // string, others with its base64-decoded bytes. Accept either so the exact
+    // convention cannot break deliveries; both are still keyed by the secret.
+    const keys: Buffer[] = [Buffer.from(signingSecret, 'utf8')]
+    const afterPrefix = signingSecret.startsWith('whsec_') ? signingSecret.slice('whsec_'.length) : signingSecret
+    try {
+      const decoded = Buffer.from(afterPrefix, 'base64')
+      if (decoded.length > 0) keys.push(decoded)
+    } catch {
+      // not base64 — ignore
+    }
+
     for (const algorithm of ['sha512', 'sha256'] as const) {
-      const expected = crypto
-        .createHmac(algorithm, BACHS_SECRET_KEY)
-        .update(rawBody, 'utf8')
-        .digest('hex')
-        .toLowerCase()
+      for (const key of keys) {
+        const expected = crypto.createHmac(algorithm, key).update(rawBody, 'utf8').digest('hex').toLowerCase()
+        const expectedBuffer = Buffer.from(expected, 'utf8')
+        const receivedBuffer = Buffer.from(received, 'utf8')
 
-      const expectedBuffer = Buffer.from(expected, 'utf8')
-      const receivedBuffer = Buffer.from(received, 'utf8')
-
-      // timingSafeEqual throws on length mismatch — check lengths first,
-      // which itself leaks nothing useful to a forger.
-      if (expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
-        return true
+        // timingSafeEqual throws on length mismatch — check lengths first,
+        // which itself leaks nothing useful to a forger.
+        if (expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
+          return true
+        }
       }
     }
 
+    console.error('[BACHS] Signature mismatch — confirm BACHS_WEBHOOK_SECRET matches the portal signing secret')
     return false
   } catch (error) {
     console.error('[BACHS] Signature verification error:', error instanceof Error ? error.message : error)

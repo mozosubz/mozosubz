@@ -21,3 +21,9 @@ export const BACHS_SECRET_KEY = process.env.BACHS_SECRET_KEY || ''
 export function isBachsConfigured(): boolean {
   return BACHS_SECRET_KEY.trim().length > 0
 }
+
+// Webhook signing secret from the Bachs developer portal (whsec_...). Bachs
+// signs every delivery with this — NOT with the API secret key — so webhook
+// verification must use this value. Kept separate from BACHS_SECRET_KEY on
+// purpose: rotating one must not break the other.
+export const BACHS_WEBHOOK_SECRET = process.env.BACHS_WEBHOOK_SECRET || ''

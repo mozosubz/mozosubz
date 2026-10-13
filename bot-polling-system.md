@@ -2,12 +2,12 @@
 
 ## Overview
 
-Your bot can check for completed deposits by polling the notification endpoint. When money is received by Monnify, the webhook automatically updates the transaction status, and your bot can retrieve these updates via polling.
+Your bot can check for completed deposits by polling the notification endpoint. When a deposit is paid in the Bachs checkout, the webhook automatically updates the transaction status, and your bot can retrieve these updates via polling.
 
 ## How It Works
 
 1. **Bot initiates deposit** → Shows bank details to user
-2. **User sends money** → Monnify receives payment
+2. **User pays** → Bachs confirms the payment in the checkout
 3. **Webhook fires** → System updates transaction to `SUCCESS` and credits wallet
 4. **Bot polls** → Checks for completed deposits
 5. **Bot notifies user** → Sends confirmation on WhatsApp/Telegram
@@ -45,7 +45,7 @@ Content-Type: application/json
       "completed_at": "2024-01-15T16:45:00Z",
       "bank_details": {
         "account_number": "6893099038",
-        "account_name": "Monnify Checkout",
+        "account_name": "Bachs Checkout",
         "bank_name": "Moniepoint Microfinance Bank"
       },
       "new_wallet_balance": 1000
@@ -495,7 +495,7 @@ if __name__ == "__main__":
 
 ### No notifications returned
 - Check that deposits have actually completed (webhook may still be processing)
-- Verify the payment reference is in the `monnify_transactions` table with `status = 'SUCCESS'`
+- Verify the payment reference is in the `monnify_transactions` table with `status = 'SUCCESS'` (table name retained for historical rows; Bachs deposits are marked `provider = 'bachs'`)
 - Make sure your API key has `bot` permissions
 
 ### "Invalid API key" error

@@ -123,12 +123,24 @@ export function WalletDetailModal({ transaction, onClose }: WalletDetailModalPro
           </div>
 
           <div className="detail-section">
+            {transaction.provider === 'bachs' || !transaction.account_number ? (
+              <>
+                <h4 className="detail-section-title">Checkout</h4>
+                <DetailRow label="Provider" value={transaction.provider === 'bachs' ? 'Bachs' : 'Legacy'} />
+                {transaction.bachs_checkout_id && (
+                  <DetailRow label="Checkout ID" value={transaction.bachs_checkout_id} mono copyable />
+                )}
+              </>
+            ) : (
+              <>
             <h4 className="detail-section-title">Bank Account</h4>
             <DetailRow label="Account Number" value={transaction.account_number} mono copyable />
             <DetailRow label="Account Name" value={transaction.account_name || 'N/A'} />
             <DetailRow label="Bank" value={transaction.bank_name} />
             {transaction.bank_code && (
               <DetailRow label="Bank Code" value={transaction.bank_code} mono />
+            )}
+              </>
             )}
             {transaction.ussd_code && (
               <DetailRow label="USSD Code" value={transaction.ussd_code} mono />
