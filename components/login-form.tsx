@@ -61,6 +61,14 @@ export function LoginForm() {
     }
   }, [searchParams])
 
+  // The proxy sends unauthenticated dashboard/admin visitors here with
+  // ?expired=1 (the cookie, if any, was cleared on the way).
+  useEffect(() => {
+    if (searchParams.get("expired") === "1") {
+      setNotice("Your session expired or you were signed out. Please sign in again.")
+    }
+  }, [searchParams])
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)

@@ -185,10 +185,15 @@ export async function proxy(request: NextRequest) {
     // would otherwise ping-pong between /dashboard (!user → /login) and
     // /login (user → /dashboard) forever — ERR_TOO_MANY_REDIRECTS. Clearing
     // the cookie here makes the next /login render (terminal, no forward).
+    //
+    // The target carries `?expired=1`: browsers that cached the old bare
+    // /login → /dashboard 307 (served with a 1-hour Cache-Control before the
+    // no-store fix) keep replaying it from cache. A parameterised URL was
+    // never cached, so the cycle can't survive in those browsers either.
     if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
       const url = request.nextUrl.clone()
       url.pathname = "/login"
-      url.search = ""
+      url.search = "?expired=1"
       return clearAuthCookiesOn(request, NextResponse.redirect(url))
     }
 
@@ -196,7 +201,7 @@ export async function proxy(request: NextRequest) {
     if (!user && request.nextUrl.pathname.startsWith("/integrations")) {
       const url = request.nextUrl.clone()
       url.pathname = "/login"
-      url.search = ""
+      url.search = "?expired=1"
       return clearAuthCookiesOn(request, NextResponse.redirect(url))
     }
 
@@ -204,7 +209,7 @@ export async function proxy(request: NextRequest) {
     if (!user && request.nextUrl.pathname.startsWith("/admin")) {
       const url = request.nextUrl.clone()
       url.pathname = "/login"
-      url.search = ""
+      url.search = "?expired=1"
       return clearAuthCookiesOn(request, NextResponse.redirect(url))
     }
 
