@@ -37,21 +37,17 @@ const BLOCKED_PATHS = [
 ]
 
 /**
- * Expire every supabase auth cookie on an outgoing redirect.
- *
- * Used when the proxy decides the visitor is unauthenticated but the request
- * still carries sb-* cookies (expired/revoked session, or the auth service
- * hiccuped). Without this, /dashboard and /login can redirect to each other
- * forever — ERR_TOO_MANY_REDIRECTS — because each hop re-evaluates the same
- * unusable cookie with opposite outcomes.
+ * NOTE (2026-10-13): unauthenticated redirects deliberately do NOT clear the
+ * sb-* cookies any more. Clearing on a transient auth failure hard-signed
+ * users out mid-session. The /login ↔ /dashboard loop is instead made
+ * impossible structurally: /login is never forwarded (see the guard below),
+ * so it is always a terminal page.
  */
-function clearAuthCookiesOn(request: NextRequest, response: NextResponse): NextResponse {
-  for (const cookie of request.cookies.getAll()) {
-    if (cookie.name.startsWith("sb-")) {
-      response.cookies.set(cookie.name, "", { path: "/", maxAge: 0 })
-    }
-  }
-  return response
+function redirectToLogin(request: NextRequest): NextResponse {
+  const url = request.nextUrl.clone()
+  url.pathname = "/login"
+  url.search = "?expired=1"
+  return NextResponse.redirect(url)
 }
 
 export async function proxy(request: NextRequest) {
@@ -179,46 +175,29 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    // Redirect unauthenticated users to login (except public pages and auth pages).
-    // The redirect ALSO expires any sb-* cookies present: an unusable session
-    // cookie (expired/revoked, or the auth service was briefly unreachable)
-    // would otherwise ping-pong between /dashboard (!user → /login) and
-    // /login (user → /dashboard) forever — ERR_TOO_MANY_REDIRECTS. Clearing
-    // the cookie here makes the next /login render (terminal, no forward).
-    //
-    // The target carries `?expired=1`: browsers that cached the old bare
-    // /login → /dashboard 307 (served with a 1-hour Cache-Control before the
-    // no-store fix) keep replaying it from cache. A parameterised URL was
-    // never cached, so the cycle can't survive in those browsers either.
+    // Redirect unauthenticated users to login (except public pages and auth
+    // pages). /login itself is never forwarded back (see below), so this can
+    // never ping-pong with the login page.
     if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/login"
-      url.search = "?expired=1"
-      return clearAuthCookiesOn(request, NextResponse.redirect(url))
+      return redirectToLogin(request)
     }
 
     // Protect /integrations/* (e.g. Connect Keys) — not public.
     if (!user && request.nextUrl.pathname.startsWith("/integrations")) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/login"
-      url.search = "?expired=1"
-      return clearAuthCookiesOn(request, NextResponse.redirect(url))
+      return redirectToLogin(request)
     }
 
     // Also protect admin routes for unauthenticated users
     if (!user && request.nextUrl.pathname.startsWith("/admin")) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/login"
-      url.search = "?expired=1"
-      return clearAuthCookiesOn(request, NextResponse.redirect(url))
+      return redirectToLogin(request)
     }
 
-    // Redirect authenticated users away from login (only login page, not register or register-success)
-    if (user && request.nextUrl.pathname === "/login") {
-      const url = request.nextUrl.clone()
-      url.pathname = "/dashboard"
-      return NextResponse.redirect(url)
-    }
+    // NOTE: authenticated users are intentionally NOT redirected away from
+    // /login any more. That forward was one half of the /login ↔ /dashboard
+    // redirect loop (the other half being the dashboard's auth check): when
+    // the two checks disagreed for a stale/rotating token the pair bounced
+    // forever. Leaving /login as a normal page makes the cycle impossible.
+    // Signed-in users who open /login simply see the form.
 
     // Allow authenticated users to access reset-password page
     // (they may have a recovery session from clicking password reset link)

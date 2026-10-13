@@ -1,25 +1,23 @@
 /**
- * SESSION MANAGEMENT using Supabase Real-Time Auth State
- * 
- * How it works:
- * 1. Supabase maintains ONE active session per user in their backend
- * 2. When user logs in on Device B, Device A's session is INVALIDATED
- * 3. onAuthStateChange fires on ALL tabs when auth state changes
- * 4. We detect SIGNED_IN event from another device and sign out immediately
- * 5. Session expires after configurable time (default 24h) for security
+ * SESSION MANAGEMENT
+ *
+ * IMPORTANT (bug fix 2026-10-13): this used to force a sign-out whenever a
+ * SIGNED_IN event arrived with an access token different from the current
+ * one. Supabase fires SIGNED_IN on token refresh/recovery paths too (tab
+ * regaining visibility, another tab refreshing first), so that check
+ * periodically logged the SAME device out mid-session — reported as "logged
+ * out a few minutes after signing in".
+ *
+ * Single-device enforcement already happens server-side and safely:
+ * signInAction revokes the account's other refresh tokens, so a second device
+ * loses access when its token next refreshes. No client-side forced sign-out
+ * is needed, and this manager now only reacts to a real SIGNED_OUT.
  */
 
 import { createClient } from "@/lib/supabase/client"
 
 let authSubscription: (() => void) | null = null
 
-/**
- * Initialize the multi-tab session manager
- * Must be called once when app loads (typically in a layout or root component)
- * 
- * This sets up a listener for Supabase auth state changes
- * When another tab/device logs in with same account, this tab signs out
- */
 export function setupSessionManager() {
   if (authSubscription) {
     return authSubscription
@@ -27,37 +25,14 @@ export function setupSessionManager() {
 
   const supabase = createClient()
 
-
   const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-
-      // When SIGNED_IN event fires (new login detected anywhere)
-      if (event === "SIGNED_IN" && session) {
-        // Get current session on THIS tab/device
-        const { data: { session: currentSession } } = await supabase.auth.getSession()
-
-        // If we're NOT the newly logged in device, sign out this one
-        if (currentSession && currentSession.access_token !== session.access_token) {
-          await supabase.auth.signOut()
-          
-          // Redirect to login page
-          if (typeof window !== "undefined") {
-            window.location.href = "/login?session_expired=1&reason=logged_in_elsewhere"
-          }
-        } else {
-          // This is the currently active session, store it
-        }
-      }
-
-      // When SIGNED_OUT event fires (logout on another tab)
+    async (event) => {
+      // When SIGNED_OUT fires (logout on another tab, or the refresh token
+      // was revoked), send this tab to the login page.
       if (event === "SIGNED_OUT") {
         if (typeof window !== "undefined") {
           window.location.href = "/login"
         }
-      }
-
-      // When session expires
-      if (event === "TOKEN_REFRESHED") {
       }
     }
   )

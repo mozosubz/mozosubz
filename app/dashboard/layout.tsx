@@ -14,12 +14,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   } = await supabase.auth.getUser()
 
   if (!user || error) {
-    // Route the sign-out through the route handler when the request still
-    // carries auth cookies: the proxy (proxy.ts) forwards logged-in users
-    // from /login to /dashboard, so a stale cookie the layout rejects would
-    // otherwise bounce between the two pages forever. The handler clears the
-    // cookies before landing on /login, which is then terminal.
-    redirect("/api/auth/signout?next=/login")
+    // Plain redirect — the cookie stays. A transient auth hiccup must never
+    // hard-sign-out the user (that caused spurious mid-session logouts); the
+    // login page itself handles genuinely dead sessions.
+    redirect("/login")
   }
 
   // Banned accounts are signed out and sent to /login with a notice.

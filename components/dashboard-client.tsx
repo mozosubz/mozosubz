@@ -1,11 +1,9 @@
 "use client"
 
-import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Settings, ChevronRight, CheckCircle2, X } from "lucide-react"
+import { ChevronRight, CheckCircle2, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 import { ServiceGrid } from "@/components/service-grid"
 import { TransactionList } from "@/components/transaction-list"
 import { Logo } from "@/components/logo"
@@ -42,9 +40,6 @@ export function DashboardClient({
 
   const [profile, setProfile] = useState<any>(initialProfile)
   const [transactions, setTransactions] = useState<any[]>(initialTransactions)
-  const [isAdmin, setIsAdmin] = useState<boolean>(
-    isHardcodedAdmin(userEmail) || initialProfile?.is_admin === true,
-  )
 
   const [banner, setBanner] = useState<
     | { kind: "confirmed"; title: string; subtitle: string }
@@ -159,9 +154,6 @@ export function DashboardClient({
       if (!mounted || !next) return
       if (!profileChanged(next, profileRef.current)) return
       setProfile(next)
-      if (!isHardcodedAdmin(userEmail) && next?.is_admin === true) {
-        setIsAdmin(true)
-      }
     }
 
     const applyTransactions = (next: any[]) => {
@@ -259,23 +251,6 @@ export function DashboardClient({
 
   return (
     <div className="bg-[var(--bg)] w-full min-h-full">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--border)] px-4 sm:px-6 lg:px-8 py-3.5">
-        <div className="flex items-center justify-end gap-3">
-          {isAdmin && (
-            <Link
-              href="/admin"
-              prefetch={false}
-              className="text-xs font-semibold text-[var(--primary)] flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--primary)]/25 hover:bg-[var(--primary-light)] transition"
-              title="Admin Panel"
-            >
-              <Settings size={14} />
-              Admin
-            </Link>
-          )}
-        </div>
-      </header>
-
       {/* Main Content — reference layout: one generous column */}
       <main className="px-4 sm:px-6 lg:px-8 py-6 w-full max-w-3xl lg:max-w-[860px] mx-auto">
         <div className="dash-grid">

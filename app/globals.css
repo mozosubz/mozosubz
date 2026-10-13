@@ -1495,4 +1495,11 @@ body {
   .sheet-body {
     padding: 16px 20px 20px;
   }
+
+  /* Owner request: the Bachs checkout overlay renders slightly smaller —
+     zoom scales the modal (and all of the checkout's text inside) down 10%
+     without leaving gaps. Mobile keeps its full-size bottom sheet. */
+  #bachs-checkout-overlay .bachs-modal {
+    zoom: 0.9;
+  }
 }
