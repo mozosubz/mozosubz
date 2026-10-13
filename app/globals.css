@@ -1412,11 +1412,13 @@ body {
 }
 
 /* ── Confirm sheet: admin-modal parity ────────────────────────────────────
-   The purchase confirmation ("Confirm & Pay") renders as a bottom sheet on
-   mobile — and from 769px it becomes the admin transaction modal's centred
-   dialog: 540px card, 16px radius, dimmed + blurred backdrop, raised above
-   the dashboard chrome. These rules are intentionally unlayered so they win
-   over the base .sheet-* rules inside @layer utilities. */
+   The purchase confirmation ("Confirm & Pay") mirrors the admin transaction
+   modal (styles/admin.css .modal-overlay/.modal-content/.modal-header/
+   .modal-body/.modal-actions): fixed dimmed+blurred backdrop, a bottom sheet
+   on mobile and a centred 540px card above 768px, header with a 32px close
+   button, scrollable body, and an actions row with the buttons side by side
+   (stacked, primary first, on mobile). Unlayered so it wins over the base
+   .sheet-* rules inside @layer utilities. */
 .sheet-overlay {
   background: rgba(0, 0, 0, 0.65);
   -webkit-backdrop-filter: blur(4px);
@@ -1426,6 +1428,11 @@ body {
 
 .bottom-sheet {
   z-index: 191;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 92vh;
+  border-radius: 16px 16px 0 0;
 }
 
 .sheet-head {
@@ -1433,6 +1440,17 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 14px 16px 12px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sheet-title {
+  padding: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
 }
 
 .sheet-close {
@@ -1440,12 +1458,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  margin-right: 10px;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 10px;
-  background: none;
+  background: var(--bg);
   color: var(--text-3);
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
@@ -1453,12 +1470,37 @@ body {
 
 .sheet-close:hover {
   color: var(--text-1);
-  background: var(--bg);
+  background: var(--border);
 }
 
 .sheet-close:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.bottom-sheet .sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  padding-bottom: 8px;
+}
+
+/* Actions row — same geometry as the admin modal: right-aligned pair on
+   desktop, stacked full-width (primary first) on mobile via column-reverse. */
+.sheet-actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sheet-actions .btn-accent,
+.sheet-actions .btn-ghost {
+  width: 100%;
+  height: 44px;
 }
 
 @media (min-width: 769px) {
@@ -1483,22 +1525,31 @@ body {
   }
 
   .sheet-head {
-    padding: 16px 10px 12px 20px;
-    border-bottom: 1px solid var(--border);
+    padding: 18px 20px;
   }
 
-  .sheet-title {
-    padding: 0;
-    font-size: 17px;
+  .bottom-sheet .sheet-body {
+    padding: 20px;
   }
 
-  .sheet-body {
-    padding: 16px 20px 20px;
+  .sheet-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    padding: 16px 20px;
   }
 
-  /* Owner request: the Bachs checkout overlay renders slightly smaller —
-     zoom scales the modal (and all of the checkout's text inside) down 10%
-     without leaving gaps. Mobile keeps its full-size bottom sheet. */
+  .sheet-actions .btn-accent,
+  .sheet-actions .btn-ghost {
+    width: auto;
+    min-width: 120px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Owner request: the Bachs checkout overlay renders smaller on MOBILE —
+     zoom scales the whole checkout (text included) down 10%. Desktop keeps
+     the full-size modal. */
   #bachs-checkout-overlay .bachs-modal {
     zoom: 0.9;
   }

@@ -92,7 +92,15 @@ export function ConfirmSheet({ show, title, network, page = 'airtime', details, 
               </div>
             ))}
           </div>
-          <button onClick={onConfirm} disabled={loading} className="btn-accent flex items-center justify-center gap-2 w-full mb-2" style={{ height: '44px' }}>
+        </div>
+        {/* Actions row — mirrors the admin modal: side-by-side on desktop
+            (Cancel then primary, right-aligned), stacked with the primary on
+            top on mobile (flex column-reverse). */}
+        <div className="sheet-actions">
+          <button onClick={onCancel} disabled={loading} className="btn-ghost">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading} className="btn-accent flex items-center justify-center gap-2">
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -101,9 +109,6 @@ export function ConfirmSheet({ show, title, network, page = 'airtime', details, 
             ) : (
               "Confirm & Pay"
             )}
-          </button>
-          <button onClick={onCancel} disabled={loading} className="btn-ghost w-full" style={{ height: '40px' }}>
-            Cancel
           </button>
         </div>
       </div>
