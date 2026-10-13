@@ -23,6 +23,13 @@ const QUICK_AMOUNTS = [500, 1000, 2000, 5000]
 
 const BACHS_SCRIPT_URL = "https://checkout.bachs.io/bachs.js"
 const BACHS_SCRIPT_TIMEOUT_MS = 10_000
+// The checkout origin the SDK validates `checkoutUrl` against. Live sessions
+// live on https://checkout.bachs.io (the SDK default); sandbox sessions live
+// on https://sandbox-checkout.bachs.io, so the sandbox deployment sets
+// NEXT_PUBLIC_BACHS_CHECKOUT_ORIGIN to that host. When a session's own origin
+// differs (or the var is unset) the SDK is re-initialized with the actual
+// session origin at open time — Initialize is idempotent and cheap.
+const BACHS_CHECKOUT_ORIGIN = process.env.NEXT_PUBLIC_BACHS_CHECKOUT_ORIGIN || ""
 // `checkout.completed` is UI-only — fulfilment is the webhook — so we poll
 // /api/payments/verify for the authoritative status: 30 tries × 2s ≈ 60s.
 const VERIFY_MAX_TRIES = 30
@@ -127,13 +134,13 @@ function loadScript(): Promise<void> {
  * only re-renders when the rules actually changed — so the UI stays
  * perfectly still unless something is genuinely different.
  *
- * Checkout: POST /api/deposit/start now returns an absolute Bachs checkout
- * URL. bachs.js is loaded lazily on the first Continue tap (never on page
- * load), then the overlay is opened via Bachs.Checkout.open(). Because
- * `checkout.completed` is UI-only, the wallet is only shown as funded after
- * /api/payments/verify reports it credited (webhook fulfilment). If the SDK
- * cannot load or open, we degrade gracefully to a full-page redirect to the
- * hosted Bachs checkout page.
+ * Checkout (per docs.bachs.io/guides/checkout/overlay-checkout): bachs.js is
+ * loaded and Bachs.Initialize() runs once when this page loads — NOT on the
+ * first click — so tapping Continue only waits on the fresh checkout_url
+ * roundtrip and the overlay opens immediately. Because `checkout.completed`
+ * is UI-only, the wallet is only shown as funded after /api/payments/verify
+ * reports it credited (webhook fulfilment). If the SDK cannot load or open,
+ * we degrade gracefully to a full-page redirect to the hosted Bachs checkout.
  */
 export function DepositClient({ initialRules }: DepositClientProps) {
   const [rules, setRules] = useState<DepositRules | null>(initialRules)
@@ -151,6 +158,8 @@ export function DepositClient({ initialRules }: DepositClientProps) {
   const pollingRef = useRef(false)
   const completedRef = useRef(false)
   const unmountedRef = useRef(false)
+  const bachsInitializedRef = useRef(false)
+  const bachsBaseUrlRef = useRef<string | null>(null)
 
   // Keep state and ref in lockstep — overlay event handlers are plain
   // closures and need the current status without waiting for a re-render.
@@ -162,6 +171,41 @@ export function DepositClient({ initialRules }: DepositClientProps) {
   useEffect(() => {
     rulesRef.current = rules
   }, [rules])
+
+  /**
+   * Initialize the SDK once for the origin we know before any session exists
+   * (the configured checkout origin, or the SDK's live default). Re-invoked
+   * at open time if a session turns out to live on a different Bachs origin
+   * (e.g. sandbox) — Initialize is idempotent.
+   */
+  const initBachs = (Bachs: any, baseUrl?: string | null) => {
+    const next = baseUrl || null
+    if (bachsInitializedRef.current && bachsBaseUrlRef.current === next) return
+    Bachs.Initialize(next ? { baseUrl: next } : {})
+    bachsInitializedRef.current = true
+    bachsBaseUrlRef.current = next
+  }
+
+  // Warm start (docs: "Initialize once when your app loads, not on every
+  // click"): fetch bachs.js and initialize while the user is still typing the
+  // amount, so tapping Continue only waits on the checkout-session roundtrip.
+  // Failures stay silent — the click path retries and can fall back to the
+  // hosted checkout page.
+  useEffect(() => {
+    let cancelled = false
+    loadScript()
+      .then(() => {
+        if (cancelled) return
+        const Bachs = window.Bachs
+        if (Bachs) initBachs(Bachs, BACHS_CHECKOUT_ORIGIN)
+      })
+      .catch(() => {
+        /* silent — retried on click */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Polling must die with the component: a late verify response must never
   // touch state after unmount.
@@ -357,9 +401,25 @@ export function DepositClient({ initialRules }: DepositClientProps) {
     try {
       const Bachs = window.Bachs
       if (!Bachs || !Bachs.Checkout) throw new Error("Bachs SDK failed to initialize")
-      Bachs.Initialize({ onEvent: handleEvent })
+
+      // The SDK validates `checkoutUrl` against the origin it was initialized
+      // with ("A checkoutUrl must be on your Bachs checkout origin; the SDK
+      // rejects any other host"). Sandbox sessions live on
+      // sandbox-checkout.bachs.io, live sessions on checkout.bachs.io — so
+      // initialize with THIS session's origin before opening.
+      let sessionOrigin: string | null = null
+      try {
+        sessionOrigin = new URL(checkoutUrl).origin
+      } catch {
+        sessionOrigin = null
+      }
+      initBachs(Bachs, sessionOrigin ?? BACHS_CHECKOUT_ORIGIN)
+
       await Bachs.Checkout.open({
         checkoutUrl,
+        // Per-checkout handler, on top of the global one (docs: pass onEvent
+        // to open for "this checkout only").
+        onEvent: handleEvent,
         options: { autoCloseOnComplete: true },
       })
     } catch (overlayError) {
@@ -421,9 +481,9 @@ export function DepositClient({ initialRules }: DepositClientProps) {
       if (!checkoutUrl) throw new Error("Failed to start checkout. Please try again.")
 
       try {
-        // Lazy: bachs.js is fetched the first time the user actually starts
-        // a deposit — never on page load. That is the whole point of the
-        // overlay being "super fast".
+        // Safety net: normally already resolved by the mount-time warm start,
+        // so this returns instantly. Only the very first click after a failed
+        // warm start actually waits on the network.
         await loadScript()
       } catch (scriptError) {
         console.error(
