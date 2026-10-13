@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Search, AlertCircle, Check, X } from 'lucide-react'
+import { ArrowLeft, Search, AlertCircle } from 'lucide-react'
 import { listSocialServices, purchaseSocial } from '@/lib/actions/social'
 import { getWalletBalance } from '@/lib/actions/wallet'
 import { ConfirmSheet } from '@/components/confirm-sheet'
+import { SuccessSheet } from '@/components/success-sheet'
 import { ProcessingOverlay } from '@/components/processing-overlay'
 
 interface SocialService {
@@ -339,55 +340,25 @@ export default function SocialPage() {
         loading={submitting}
       />
 
-      {/* Order placed — same anatomy as the admin transaction modal */}
-      {result && (
-        <>
-          <div className="sheet-overlay open" onClick={() => setResult(null)} />
-          <div className="bottom-sheet open" role="dialog" aria-modal="true" aria-label="Order placed">
-            <div className="sheet-handle" />
-            <div className="sheet-head">
-              <div className="sheet-title">Order placed</div>
-              <button type="button" className="sheet-close" onClick={() => setResult(null)} aria-label="Close">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="sheet-body">
-              <div className="flex items-start gap-3 mb-4">
-                <span className="w-10 h-10 rounded-full bg-[#f0fdf4] text-[#16a34a] flex items-center justify-center flex-shrink-0">
-                  <Check className="w-5 h-5" strokeWidth={2.5} />
-                </span>
-                <p className="text-xs text-[var(--text-3)] leading-relaxed">
-                  Order received by the provider. Delivery is handled by them and starts shortly.
-                </p>
-              </div>
-
-              <div className="bg-[var(--bg)] rounded-[16px] mb-3">
-                <div className="confirm-row">
-                  <span className="confirm-label">Service</span>
-                  <span className="confirm-value">{result.service}</span>
-                </div>
-                <div className="confirm-row">
-                  <span className="confirm-label">Quantity</span>
-                  <span className="confirm-value">{result.quantity.toLocaleString()}</span>
-                </div>
-                <div className="confirm-row">
-                  <span className="confirm-label">Charged</span>
-                  <span className="confirm-amount">₦{result.amount.toLocaleString()}</span>
-                </div>
-                <div className="confirm-row">
-                  <span className="confirm-label">Transaction ID</span>
-                  <span className="confirm-value">{result.transactionId}</span>
-                </div>
-              </div>
-            </div>
-            <div className="sheet-actions">
-              <button onClick={() => setResult(null)} className="btn-accent">
-                Done
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      {/* Order placed — shared success modal (same anatomy as the admin modal) */}
+      <SuccessSheet
+        show={!!result}
+        title="Order placed"
+        subtitle="Order received by the provider. Delivery is handled by them and starts shortly."
+        viewHistory
+        details={
+          result
+            ? [
+                { label: 'Service', value: result.service },
+                { label: 'Quantity', value: result.quantity.toLocaleString() },
+                { label: 'Charged', value: `₦${result.amount.toLocaleString()}`, amount: true },
+                { label: 'Status', value: 'Accepted — delivery in progress' },
+                { label: 'Transaction ID', value: result.transactionId || '—' },
+              ]
+            : []
+        }
+        onDone={() => setResult(null)}
+      />
 
       <ProcessingOverlay isVisible={submitting} />
     </div>

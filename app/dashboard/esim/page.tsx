@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Search, AlertCircle, Check, Loader2, Globe, X, QrCode } from 'lucide-react'
+import { ArrowLeft, Search, AlertCircle, Loader2, Globe, X, QrCode } from 'lucide-react'
 import type { EsimCountry, EsimPackage, EsimOrder } from 'gsubz-sdk'
 import { listEsimCountries, listEsimPackages, purchaseEsim, getEsimOrder } from '@/lib/actions/esim'
 import { getWalletBalance } from '@/lib/actions/wallet'
 import { ConfirmSheet } from '@/components/confirm-sheet'
+import { SuccessSheet } from "@/components/success-sheet"
 import { ProcessingOverlay } from '@/components/processing-overlay'
 
 function formatData(gb: number): string {
@@ -345,19 +346,23 @@ export default function EsimPage() {
         loading={submitting}
       />
 
-      {order && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto bg-[var(--surface)] rounded-t-3xl sm:rounded-3xl p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-full bg-[#f0fdf4] text-[#16a34a] flex items-center justify-center">
-                <Check className="w-5 h-5" strokeWidth={2.5} />
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-[var(--text-1)]">eSIM purchased</h2>
-                <p className="text-xs text-[var(--text-3)]">{order.packageName}</p>
-              </div>
-            </div>
-
+      <SuccessSheet
+        show={!!order}
+        title="eSIM purchased"
+        subtitle={order?.packageName ? `${order.packageName} — scan or enter the details below on your phone.` : undefined}
+        viewHistory
+        details={
+          order
+            ? [
+                ...(order.iccid ? [{ label: 'ICCID', value: order.iccid }] : []),
+                ...(order.activationCode ? [{ label: 'Activation code', value: order.activationCode }] : []),
+              ]
+            : []
+        }
+        onDone={closeResult}
+      >
+        {order && (
+          <>
             {order.esimStatus === 'provisioning' ? (
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-5 flex flex-col items-center gap-2 text-center">
                 <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
@@ -389,32 +394,9 @@ export default function EsimPage() {
                 </p>
               </div>
             )}
-
-            {(order.iccid || order.activationCode) && (
-              <div className="text-xs space-y-2">
-                {order.iccid && (
-                  <div className="flex justify-between gap-3">
-                    <span className="text-[var(--text-3)]">ICCID</span>
-                    <span className="font-mono font-semibold text-[var(--text-1)] break-all text-right">{order.iccid}</span>
-                  </div>
-                )}
-                {order.activationCode && (
-                  <div className="flex justify-between gap-3">
-                    <span className="text-[var(--text-3)]">Activation code</span>
-                    <span className="font-mono font-semibold text-[var(--text-1)] break-all text-right">
-                      {order.activationCode}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <button onClick={closeResult} className="btn-primary h-11 text-sm">
-              Done
-            </button>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </SuccessSheet>
 
       <ProcessingOverlay isVisible={submitting} />
     </div>

@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SuccessOverlay } from '@/components/success-overlay';
+import { SuccessSheet } from '@/components/success-sheet';
 import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
 import { PurchaseError } from '@/components/purchase-error';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Check, Copy } from 'lucide-react';
 import { payElectricity } from '@/lib/actions/electricity';
 import { getWalletBalance } from '@/lib/actions/wallet';
 import { verifyCustomer } from '@/lib/actions/verify-customer';
@@ -28,6 +28,14 @@ export default function ElectricityPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successToken, setSuccessToken] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [successInfo, setSuccessInfo] = useState<{
+    disco: string;
+    meterType: string;
+    meterNumber: string;
+    amount: number;
+    transactionId: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -125,6 +133,13 @@ export default function ElectricityPage() {
       if (token) {
         setSuccessToken(token);
       }
+      setSuccessInfo({
+        disco,
+        meterType,
+        meterNumber,
+        amount: Number(result.transaction?.amount ?? amount),
+        transactionId: result.transaction?.id ? String(result.transaction.id) : '',
+      });
       setShowSuccess(true);
     } catch (err: any) {
       setError(err.message || 'Transaction failed');
@@ -134,18 +149,6 @@ export default function ElectricityPage() {
     }
   };
 
-  if (showSuccess) {
-    return (
-      <SuccessOverlay
-        show={showSuccess}
-        title={meterType === 'prepaid' ? 'Electricity token generated' : 'Electricity payment successful'}
-        subtitle={successToken ? `Token: ${successToken}` : 'Payment successful'}
-        onDone={() => {
-          setShowSuccess(false);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background overflow-y-auto flex flex-col">
@@ -285,7 +288,50 @@ export default function ElectricityPage() {
         />
         
         {/* Processing Overlay */}
-        <ProcessingOverlay isVisible={processing} />
+        <SuccessSheet
+        show={showSuccess}
+        title={meterType === 'prepaid' ? 'Electricity token generated' : 'Electricity payment successful'}
+        subtitle={
+          meterType === 'prepaid'
+            ? 'Load the token below on your meter to receive your units.'
+            : 'Your bill payment has been delivered to the provider.'
+        }
+        network={successInfo?.disco}
+        page="electricity"
+        viewHistory
+        details={[
+          { label: 'Disco', value: (successInfo?.disco || '').toUpperCase() },
+          { label: 'Meter type', value: successInfo?.meterType || '' },
+          { label: 'Meter number', value: successInfo?.meterNumber || '' },
+          { label: 'Amount', value: `₦${(successInfo?.amount ?? 0).toLocaleString()}`, amount: true },
+          { label: 'Transaction ID', value: successInfo?.transactionId || '—' },
+        ]}
+        onDone={() => setShowSuccess(false)}
+      >
+        {successToken && (
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4 mb-3">
+            <p className="text-[11px] font-semibold text-[var(--text-3)] mb-1.5">YOUR TOKEN</p>
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-lg font-bold text-[var(--text-1)] break-all">{successToken}</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(successToken)
+                  setTokenCopied(true)
+                  setTimeout(() => setTokenCopied(false), 2000)
+                }}
+                className={`flex-shrink-0 p-2 rounded-lg transition ${
+                  tokenCopied ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[var(--primary-light)] text-[var(--primary)]'
+                }`}
+                aria-label="Copy token"
+              >
+                {tokenCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        )}
+      </SuccessSheet>
+
+      <ProcessingOverlay isVisible={processing} />
       </div>
     </div>
   );

@@ -11,10 +11,11 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Copy, Check, Download, AlertCircle, X } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Download, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { ConfirmSheet } from '@/components/confirm-sheet'
 import { ProcessingOverlay } from '@/components/processing-overlay'
+import { SuccessSheet } from "@/components/success-sheet"
 import { generateRechargePins } from '@/lib/actions/recharge-pins'
 import { getWalletBalance } from '@/lib/actions/wallet'
 import { NetworkLogo } from '@/lib/utils/network-logo'
@@ -339,47 +340,28 @@ Keep this safe. Do not share these pins with anyone.`
       />
 
       {/* Success Overlay */}
-      {showSuccess && successData && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
-          <div className="w-full sm:w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[var(--surface)] rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[var(--text-1)]">Pins Generated Successfully!</h2>
-              <button
-                onClick={() => setShowSuccess(false)}
-                className="p-1.5 rounded-lg text-[var(--text-3)] hover:bg-[var(--bg)] transition"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Summary */}
-            <div className="bg-[var(--primary-light)] border border-[var(--border)] rounded-lg p-3 text-sm space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[var(--text-3)]">Network</span>
-                <span className="font-semibold">{successData.network}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--text-3)]">Pin Value</span>
-                <span className="font-semibold">₦{successData.value}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--text-3)]">Quantity</span>
-                <span className="font-semibold">{successData.quantity} pins</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-[var(--border)]">
-                <span className="text-[var(--text-3)]">Total Charged</span>
-                <span className="font-bold text-[var(--primary)]">₦{successData.totalCost.toLocaleString()}</span>
-              </div>
-            </div>
-
-            {/* Transaction ID */}
-            <div className="bg-[var(--surface)] rounded-lg p-3 text-xs">
-              <p className="text-[var(--text-3)] mb-1">Transaction ID</p>
-              <p className="font-mono font-bold text-[var(--text-1)] break-all">{successData.transactionId}</p>
-            </div>
-
-            {/* Pins List */}
+      <SuccessSheet
+        show={showSuccess && !!successData}
+        title="Pins Generated Successfully!"
+        subtitle="Each pin is unique — copy them now or find them later in your transaction history."
+        network={successData?.network}
+        page="recharge-pins"
+        viewHistory
+        details={
+          successData
+            ? [
+                { label: "Network", value: successData.network },
+                { label: "Pin value", value: `₦${successData.value}` },
+                { label: "Quantity", value: `${successData.quantity} pins` },
+                { label: "Total charged", value: `₦${successData.totalCost.toLocaleString()}`, amount: true },
+                { label: "Transaction ID", value: successData.transactionId || "—" },
+              ]
+            : []
+        }
+        onDone={() => setShowSuccess(false)}
+      >
+        {successData && (
+          <div className="mb-3">
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[var(--text-3)]">YOUR PINS ({successData.pins.length})</p>
               <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -421,20 +403,11 @@ Keep this safe. Do not share these pins with anyone.`
                 <Download className="w-4 h-4" />
                 Download Pins
               </button>
-              <button
-                onClick={() => setShowSuccess(false)}
-                className="w-full px-4 py-2.5 rounded-lg border border-[var(--border)] font-semibold text-sm hover:bg-[var(--surface)] transition"
-              >
-                Done
-              </button>
             </div>
-
-            <p className="text-[11px] text-[var(--text-3)] text-center pt-2">Keep this safe. Do not share these pins with anyone.</p>
           </div>
-        </div>
-      )}
+        )}
+      </SuccessSheet>
 
-      {/* Processing Overlay */}
       <ProcessingOverlay isVisible={processing} />
     </div>
   )

@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SuccessOverlay } from '@/components/success-overlay';
+import { SuccessSheet } from '@/components/success-sheet';
 import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
 import { PurchaseError } from '@/components/purchase-error';
@@ -37,6 +37,13 @@ export default function CablePage() {
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successInfo, setSuccessInfo] = useState<{
+    provider: string;
+    plan: string;
+    smartcard: string;
+    amount: number;
+    transactionId: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -148,6 +155,13 @@ export default function CablePage() {
       const result = await res.json()
       
       if (result.success) {
+        setSuccessInfo({
+          provider: selectedProvider.toUpperCase(),
+          plan: selectedPlanData?.displayName || '',
+          smartcard,
+          amount: Number(selectedPlanData?.price || 0),
+          transactionId: result.transaction?.id ? String(result.transaction.id) : '',
+        });
         setShowSuccess(true);
       } else {
         setError(result.error || result.message || 'Transaction failed');
@@ -160,18 +174,6 @@ export default function CablePage() {
     }
   };
 
-  if (showSuccess) {
-    return (
-      <SuccessOverlay
-        show={showSuccess}
-        title="Cable subscription successful"
-        subtitle={`₦${selectedPlanData?.price.toLocaleString()} deducted from your wallet`}
-        onDone={() => {
-          setShowSuccess(false);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background overflow-y-auto flex flex-col">
@@ -294,7 +296,24 @@ export default function CablePage() {
         />
         
         {/* Processing Overlay */}
-        <ProcessingOverlay isVisible={processing} />
+        <SuccessSheet
+        show={showSuccess}
+        title="Cable subscription successful"
+        subtitle={`₦${(successInfo?.amount ?? 0).toLocaleString()} deducted from your wallet`}
+        network={successInfo?.provider}
+        page="cable"
+        viewHistory
+        details={[
+          { label: 'Provider', value: successInfo?.provider || '' },
+          { label: 'Plan', value: successInfo?.plan || '' },
+          { label: 'Smartcard / IUC', value: successInfo?.smartcard || '' },
+          { label: 'Amount', value: `₦${(successInfo?.amount ?? 0).toLocaleString()}`, amount: true },
+          { label: 'Transaction ID', value: successInfo?.transactionId || '—' },
+        ]}
+        onDone={() => setShowSuccess(false)}
+      />
+
+      <ProcessingOverlay isVisible={processing} />
       </div>
     </div>
   );

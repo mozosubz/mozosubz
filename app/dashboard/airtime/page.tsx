@@ -7,7 +7,7 @@ import Link from "next/link"
 import { getWalletBalance } from "@/lib/actions/wallet"
 import { getRecentPhones, saveRecentPhone, deleteRecentPhone } from "@/lib/actions/recent-phones"
 import { ConfirmSheet } from "@/components/confirm-sheet"
-import { SuccessOverlay } from "@/components/success-overlay"
+import { SuccessSheet } from "@/components/success-sheet"
 import { ProcessingOverlay } from "@/components/processing-overlay"
 import { NetworkLogo } from "@/lib/utils/network-logo"
 import { PurchaseError } from "@/components/purchase-error"
@@ -310,12 +310,19 @@ export default function AirtimePage() {
       />
 
       {/* Success Overlay */}
-      <SuccessOverlay
+      <SuccessSheet
         show={showSuccess}
         title="Purchase Successful!"
         subtitle={`Your ${successData?.network || network} airtime has been delivered.`}
         network={successData?.network || network}
         page="airtime"
+        viewHistory
+        details={[
+          { label: "Phone", value: successData?.phone || "" },
+          { label: "Amount", value: `₦${(successData?.amount ?? 0).toLocaleString()}`, amount: true },
+          { label: "New balance", value: `₦${(successData?.balanceAfter ?? 0).toLocaleString()}` },
+          { label: "Transaction ID", value: successData?.transactionId || "—" },
+        ]}
         onDone={() => {
           setShowSuccess(false)
           setSuccessData(null)

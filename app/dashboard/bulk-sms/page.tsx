@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, AlertCircle, Check, MessageSquare, Info } from 'lucide-react'
+import { ArrowLeft, AlertCircle, MessageSquare, Info } from 'lucide-react'
 import { sendBulkSms, getBulkSmsRate } from '@/lib/actions/bulk-sms'
 import { getWalletBalance } from '@/lib/actions/wallet'
 import { countSmsPages } from '@/lib/utils/sms'
 import { ConfirmSheet } from '@/components/confirm-sheet'
 import { ProcessingOverlay } from '@/components/processing-overlay'
+import { SuccessSheet } from "@/components/success-sheet"
 
 // Fallbacks used only until the server rate loads.
 const DEFAULT_UNIT_PRICE = 5
@@ -261,19 +262,19 @@ export default function BulkSmsPage() {
         loading={submitting}
       />
 
-      {result && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto bg-[var(--surface)] rounded-t-3xl sm:rounded-3xl p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-full bg-[#f0fdf4] text-[#16a34a] flex items-center justify-center">
-                <Check className="w-5 h-5" strokeWidth={2.5} />
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-[var(--text-1)]">Messages queued</h2>
-                <p className="text-xs text-[var(--text-3)]">Delivery is handled by the network.</p>
-              </div>
-            </div>
-
+      <SuccessSheet
+        show={!!result}
+        title="Messages queued"
+        subtitle="Delivery is handled by the network."
+        viewHistory
+        details={[
+          { label: "Charged", value: `₦${(result?.amount ?? 0).toLocaleString()}`, amount: true },
+          { label: "Transaction ID", value: result?.transactionId || "—" },
+        ]}
+        onDone={() => setResult(null)}
+      >
+        {result && (
+          <>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4 flex items-center gap-3">
               <MessageSquare className="w-5 h-5 text-[var(--primary)]" />
               <div className="text-sm">
@@ -294,18 +295,9 @@ export default function BulkSmsPage() {
                 </span>
               </div>
             )}
-
-            <div className="text-xs flex justify-between gap-3">
-              <span className="text-[var(--text-3)]">Transaction ID</span>
-              <span className="font-mono font-semibold text-[var(--text-1)] break-all text-right">{result.transactionId}</span>
-            </div>
-
-            <button onClick={() => setResult(null)} className="btn-primary h-11 text-sm">
-              Done
-            </button>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </SuccessSheet>
 
       <ProcessingOverlay isVisible={submitting} message="Sending messages..." />
     </div>

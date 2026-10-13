@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, AlertCircle, Copy, Check, GraduationCap, ShieldCheck } from 'lucide-react'
 import { ConfirmSheet } from '@/components/confirm-sheet'
 import { ProcessingOverlay } from '@/components/processing-overlay'
+import { SuccessSheet } from "@/components/success-sheet"
 import { purchaseExamPin, getExamPinPrices, type ExamBoardOption } from '@/lib/actions/exam-pins'
 import { getWalletBalance } from '@/lib/actions/wallet'
 
@@ -231,58 +232,41 @@ export default function ExamPinsPage() {
         loading={submitting}
       />
 
-      {result && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto bg-[var(--surface)] rounded-t-3xl sm:rounded-3xl p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-full bg-[#f0fdf4] text-[#16a34a] flex items-center justify-center">
-                <Check className="w-5 h-5" strokeWidth={2.5} />
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-[var(--text-1)]">Pin generated</h2>
-                <p className="text-xs text-[var(--text-3)]">{result.board}</p>
-              </div>
+      <SuccessSheet
+        show={!!result}
+        title="Pin generated"
+        subtitle={result?.board ? `${result.board} result checker pin` : "Your result checker pin is ready."}
+        viewHistory
+        details={[
+          { label: "Amount charged", value: `₦${(result?.amount ?? 0).toLocaleString()}`, amount: true },
+          { label: "Transaction ID", value: result?.transactionId || "—" },
+        ]}
+        onDone={() => setResult(null)}
+      >
+        {result && (
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4 mb-3">
+            <p className="text-[11px] font-semibold text-[var(--text-3)] mb-1.5">YOUR PIN</p>
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-lg font-bold text-[var(--text-1)] break-all">{result.pin || '—'}</span>
+              <button
+                onClick={handleCopy}
+                className={`flex-shrink-0 p-2 rounded-lg transition ${
+                  copied ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[var(--primary-light)] text-[var(--primary)]'
+                }`}
+                aria-label="Copy pin"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
             </div>
-
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4">
-              <p className="text-[11px] font-semibold text-[var(--text-3)] mb-1.5">YOUR PIN</p>
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-mono text-lg font-bold text-[var(--text-1)] break-all">{result.pin || '—'}</span>
-                <button
-                  onClick={handleCopy}
-                  className={`flex-shrink-0 p-2 rounded-lg transition ${
-                    copied ? 'bg-[#f0fdf4] text-[#16a34a]' : 'bg-[var(--primary-light)] text-[var(--primary)]'
-                  }`}
-                  aria-label="Copy pin"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-              {result.serial && (
-                <>
-                  <p className="text-[11px] font-semibold text-[var(--text-3)] mb-1.5 mt-3">SERIAL NUMBER</p>
-                  <span className="font-mono text-sm font-semibold text-[var(--text-2)] break-all">{result.serial}</span>
-                </>
-              )}
-            </div>
-
-            <div className="text-xs space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[var(--text-3)]">Amount charged</span>
-                <span className="font-semibold text-[var(--text-1)]">₦{result.amount.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--text-3)]">Transaction ID</span>
-                <span className="font-mono font-semibold text-[var(--text-1)] break-all text-right">{result.transactionId}</span>
-              </div>
-            </div>
-
-            <button onClick={() => setResult(null)} className="btn-primary h-11 text-sm">
-              Done
-            </button>
+            {result.serial && (
+              <>
+                <p className="text-[11px] font-semibold text-[var(--text-3)] mb-1.5 mt-3">SERIAL NUMBER</p>
+                <span className="font-mono text-sm font-semibold text-[var(--text-2)] break-all">{result.serial}</span>
+              </>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </SuccessSheet>
 
       <ProcessingOverlay isVisible={submitting} />
     </div>
