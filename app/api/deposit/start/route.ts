@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { amount, description } = body
+    const { amount, description, overlay } = body
 
     const numAmount = parseFloat(String(amount))
     if (!Number.isFinite(numAmount) || numAmount < 100 || numAmount > 1000000) {
@@ -235,8 +235,15 @@ export async function POST(request: NextRequest) {
         email: profile.email,
         name: profile.full_name || 'User',
         userId: user.id,
-        successUrl: 'https://mozosubz.xyz/dashboard?deposit=success',
-        cancelUrl: 'https://mozosubz.xyz/dashboard/deposit?deposit=cancelled',
+        // Overlay sessions get NO redirect URLs: on completion the checkout
+        // iframe shows Bachs' own success screen and stays alive, instead of
+        // navigating inside the modal (the dashboard is auth-gated and a
+        // third-party iframe has no session cookie, so a redirect there used
+        // to land on the login page inside the overlay and kill the SDK's
+        // completion event channel). The hosted fallback still works without
+        // them — Bachs shows the success screen after payment.
+        successUrl: overlay === true ? undefined : 'https://mozosubz.xyz/dashboard?deposit=success',
+        cancelUrl: overlay === true ? undefined : 'https://mozosubz.xyz/dashboard/deposit?deposit=cancelled',
       }),
     ])
 

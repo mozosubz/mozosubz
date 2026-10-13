@@ -107,8 +107,9 @@ export async function createBachsCheckoutSession(input: {
   email: string
   name: string
   userId: string
-  successUrl: string
-  cancelUrl: string
+  /** Omitted for overlay sessions — see the deposit route. */
+  successUrl?: string
+  cancelUrl?: string
 }): Promise<{ success: boolean; error?: string; session?: BachsCheckoutSession }> {
   if (!isBachsConfigured()) {
     return { success: false, error: 'Bachs is not configured (missing BACHS_SECRET_KEY)' }
@@ -120,7 +121,7 @@ export async function createBachsCheckoutSession(input: {
 
   const amountString = input.amount.toFixed(2)
 
-  const requestBody = {
+  const requestBody: Record<string, unknown> = {
     pricing: {
       currency: input.currency ?? 'NGN',
       amount: amountString,
@@ -129,9 +130,12 @@ export async function createBachsCheckoutSession(input: {
       email: input.email,
       name: input.name,
     },
-    success_url: input.successUrl,
-    cancel_url: input.cancelUrl,
   }
+  // Redirect URLs are optional (Bachs docs: may be left out). Overlay
+  // sessions omit them so the checkout iframe shows Bachs' own success
+  // screen instead of navigating inside the modal.
+  if (input.successUrl) requestBody.success_url = input.successUrl
+  if (input.cancelUrl) requestBody.cancel_url = input.cancelUrl
 
   try {
     const response = await fetchWithBachsTimeout(`${BACHS_BASE_URL}/v1/checkout-sessions`, {

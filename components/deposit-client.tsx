@@ -30,10 +30,16 @@ const BACHS_SCRIPT_TIMEOUT_MS = 10_000
 // differs (or the var is unset) the SDK is re-initialized with the actual
 // session origin at open time — Initialize is idempotent and cheap.
 const BACHS_CHECKOUT_ORIGIN = process.env.NEXT_PUBLIC_BACHS_CHECKOUT_ORIGIN || ""
-// `checkout.completed` is UI-only — fulfilment is the webhook — so we poll
-// /api/payments/verify for the authoritative status: 30 tries × 2s ≈ 60s.
-const VERIFY_MAX_TRIES = 30
-const VERIFY_INTERVAL_MS = 2_000
+// `checkout.completed` is UI-only — fulfilment is the webhook — so the wallet
+// is confirmed by polling /api/payments/verify. The poll starts as soon as the
+// overlay opens (the sandbox checkout does not always relay the completion
+// event to the page) and accelerates once a completion event does arrive.
+// Cadence stays under the endpoint's 8 requests/minute limit: ~6.7/min while
+// waiting, then a short 2s burst after checkout.completed.
+const VERIFY_MAX_TRIES = 45
+const VERIFY_SLOW_INTERVAL_MS = 9_000
+const VERIFY_FAST_INTERVAL_MS = 2_000
+const VERIFY_FAST_TRIES = 12
 
 type CheckoutStatus =
   | "idle"
@@ -308,7 +314,7 @@ export function DepositClient({ initialRules }: DepositClientProps) {
   const showReceiveBox = numAmount > 0 && !error
 
   // Poll the authoritative status until the wallet is credited (webhook
-  // fulfilment) or ~60s have elapsed.
+  // fulfilment) or the attempt budget runs out.
   const pollVerify = async (paymentReference: string) => {
     if (pollingRef.current) return
     pollingRef.current = true
@@ -335,15 +341,38 @@ export function DepositClient({ initialRules }: DepositClientProps) {
             return
           }
         } catch {
-          // Transient network error — keep polling; the ~60s window absorbs it.
+          // Transient network error — keep polling; the budget absorbs it.
         }
-        await new Promise((resolve) => window.setTimeout(resolve, VERIFY_INTERVAL_MS))
+        const delay =
+          completedRef.current && attempt < VERIFY_FAST_TRIES
+            ? VERIFY_FAST_INTERVAL_MS
+            : VERIFY_SLOW_INTERVAL_MS
+        await new Promise((resolve) => window.setTimeout(resolve, delay))
       }
       if (unmountedRef.current) return
       updateStatus("pending-review")
       setProcessing(false)
     } finally {
       pollingRef.current = false
+    }
+  }
+
+  /**
+   * One-shot verification used when the customer closes the overlay: if they
+   * paid just before closing, this catches it; otherwise the caller resets
+   * to idle.
+   */
+  const verifyOnce = async (paymentReference: string): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/payments/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentReference }),
+      })
+      const data = await response.json().catch(() => ({}))
+      return data?.credited === true || data?.status === "SUCCESS"
+    } catch {
+      return false
     }
   }
 
@@ -377,13 +406,25 @@ export function DepositClient({ initialRules }: DepositClientProps) {
         case "checkout.closed":
           // Voluntary close (or auto-close after a terminal event). Only
           // reset when the user backed out of a live session — never clobber
-          // a failure/expiry message that is already on screen.
+          // a failure/expiry message that is already on screen. One final
+          // verify catches a payment that succeeded just before closing.
           if (
             !completedRef.current &&
             (statusRef.current === "opening" || statusRef.current === "paying")
           ) {
-            updateStatus("idle")
-            setProcessing(false)
+            pollingRef.current = false
+            void verifyOnce(paymentReference).then((credited) => {
+              if (unmountedRef.current) return
+              if (credited) {
+                updateStatus("success")
+                window.setTimeout(() => {
+                  if (!unmountedRef.current) window.location.reload()
+                }, 1500)
+                return
+              }
+              updateStatus("idle")
+              setProcessing(false)
+            })
           }
           break
 
@@ -422,6 +463,11 @@ export function DepositClient({ initialRules }: DepositClientProps) {
         onEvent: handleEvent,
         options: { autoCloseOnComplete: true },
       })
+
+      // Start verifying immediately — the webhook credits the wallet, and the
+      // sandbox checkout does not always relay checkout.completed to the page,
+      // so the success state must not depend on that event alone.
+      void pollVerify(paymentReference)
     } catch (overlayError) {
       // SDK blocked or misbehaving — the hosted checkout page still works,
       // so degrade to a full-page redirect instead of stranding the user.
@@ -468,6 +514,10 @@ export function DepositClient({ initialRules }: DepositClientProps) {
           processingFee: calculation.processingFee,
           netAmount: calculation.netAmount,
           description: "Wallet deposit",
+          // Overlay-first: the server skips success/cancel redirect URLs so
+          // the checkout iframe keeps its own success screen instead of
+          // navigating inside the modal.
+          overlay: true,
         }),
       })
 
