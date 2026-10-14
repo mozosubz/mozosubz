@@ -297,9 +297,12 @@ body {
   .app-shell-sidebar { width: 264px !important; }
 
   /* Owner feature: collapse the sidebar on desktop (the floating button in
-     app-shell.tsx brings it back; the choice is remembered). */
+     app-shell.tsx brings it back; the choice is remembered). The content must
+     also drop its grid-column: 2 — with a single-column grid that would land
+     it in an implicit right-hand column. */
   .app-shell.sidebar-hidden { grid-template-columns: 1fr; }
   .app-shell.sidebar-hidden .app-shell-sidebar { display: none; }
+  .app-shell.sidebar-hidden .app-content { grid-column: 1 / -1; }
 }
 
 /* Desktop type scale for the shell chrome — phone sizes untouched */
