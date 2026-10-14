@@ -3,13 +3,15 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, LayoutGrid, Wallet, History, User, X } from "lucide-react"
+import { Home, LayoutGrid, Wallet, History, User, X, PanelLeftClose } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Logo } from "./logo"
 
 interface DesktopSidebarProps {
   isOpen: boolean
   onClose: () => void
+  /** Desktop-only: collapse the sidebar entirely (a floating button brings it back). */
+  onCollapse?: () => void
 }
 
 const tabs = [
@@ -20,7 +22,7 @@ const tabs = [
   { name: "Profile", href: "/dashboard/profile", icon: User },
 ]
 
-export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
+export function DesktopSidebar({ isOpen, onClose, onCollapse }: DesktopSidebarProps) {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
@@ -62,11 +64,22 @@ export function DesktopSidebar({ isOpen, onClose }: DesktopSidebarProps) {
           </button>
         </div>
 
-        {/* Logo - desktop only */}
-        <div className="hidden md:block p-6 border-b border-[var(--border)]">
+        {/* Logo - desktop only, with the collapse control */}
+        <div className="hidden md:flex items-center justify-between gap-2 p-6 border-b border-[var(--border)]">
           <Link href="/dashboard" aria-label="Mozosubz home">
             <Logo />
           </Link>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Hide sidebar"
+              title="Hide sidebar"
+              className="p-2 rounded-lg text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--surface)] transition flex-shrink-0"
+            >
+              <PanelLeftClose style={{ width: 18, height: 18 }} />
+            </button>
+          )}
         </div>
 
         {/* Navigation — icon squares with soft tints, active row on light blue */}

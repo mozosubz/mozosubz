@@ -321,6 +321,21 @@ export default function EsimPage() {
         details={
           order
             ? [
+                {
+                  label: 'Status',
+                  value:
+                    order.esimStatus === 'active'
+                      ? 'Active — ready to install'
+                      : order.esimStatus === 'provisioning'
+                        ? 'Being prepared by the provider'
+                        : order.esimStatus === 'refunded'
+                          ? 'Refunded to your wallet'
+                          : 'Could not be issued',
+                },
+                { label: 'Amount paid', value: `₦${(order.amountPaid ?? 0).toLocaleString()}`, amount: true },
+                ...(order.amountRefunded && order.amountRefunded > 0
+                  ? [{ label: 'Refunded', value: `₦${order.amountRefunded.toLocaleString()}` }]
+                  : []),
                 ...(order.iccid ? [{ label: 'ICCID', value: order.iccid }] : []),
                 ...(order.activationCode ? [{ label: 'Activation code', value: order.activationCode }] : []),
               ]
@@ -330,7 +345,23 @@ export default function EsimPage() {
       >
         {order && (
           <>
-            {order.esimStatus === 'provisioning' ? (
+            {order.esimStatus === 'failed' ? (
+              <div className="rounded-2xl border border-[#fecaca] bg-[#fef2f2] p-4 mb-3">
+                <p className="text-sm font-semibold text-[#dc2626]">This eSIM could not be issued</p>
+                <p className="text-[11px] text-[#dc2626]/80 mt-1">
+                  {order.amountRefunded && order.amountRefunded > 0
+                    ? `₦${order.amountRefunded.toLocaleString()} has been refunded to your wallet automatically.`
+                    : 'Nothing was charged, or the charge will be reversed to your wallet automatically.'}
+                </p>
+              </div>
+            ) : order.esimStatus === 'refunded' ? (
+              <div className="rounded-2xl border border-[#fde68a] bg-[#fffbeb] p-4 mb-3">
+                <p className="text-sm font-semibold text-[#92400e]">This eSIM was refunded</p>
+                <p className="text-[11px] text-[#92400e]/80 mt-1">
+                  ₦{(order.amountRefunded ?? order.amountPaid ?? 0).toLocaleString()} is back in your wallet.
+                </p>
+              </div>
+            ) : order.esimStatus === 'provisioning' ? (
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-5 flex flex-col items-center gap-2 text-center">
                 <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
                 <p className="text-sm font-semibold text-[var(--text-1)]">Preparing your eSIM</p>

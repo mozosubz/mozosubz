@@ -5,8 +5,6 @@ import {
   Check,
   ChevronDown,
   Eye,
-  Shield,
-  Wallet,
   Smartphone,
   Wifi,
   Tv,
@@ -94,22 +92,6 @@ const FAQS = [
   {
     q: "What data plan types can I buy?",
     a: "MTN SME, Data Share, Gifting and AWOOF. Glo Data and SME. Airtel SME and Gifting. 9mobile Data. Plans and prices are pulled live from our provider so you always see what is actually available.",
-  },
-  {
-    q: "Which cable TV providers work?",
-    a: "DStv, GOtv and Startimes. Enter your IUC or smartcard number, pick the package, and we renew it immediately.",
-  },
-  {
-    q: "Which electricity distribution companies are supported?",
-    a: "All 12 major Nigerian DISCOs — Abuja, Benin, Eko, Enugu, Ibadan, Ikeja, Jos, Kaduna, Kano, Port Harcourt, Yola and Bauchi. Prepaid and postpaid meters, minimum ₦1,000.",
-  },
-  {
-    q: "Where do I get my prepaid meter token?",
-    a: "As soon as the DISCO responds, your token is displayed on screen and saved in your transaction history so you can copy it any time.",
-  },
-  {
-    q: "Can I print recharge pins for my shop or kiosk?",
-    a: "Yes. Generate MTN, Glo, Airtel or 9mobile pins in ₦100, ₦200, ₦400 and ₦500 denominations — up to 50 pins in a single batch. Every pin is stored under your account.",
   },
   {
     q: "What happens if a transaction fails?",
@@ -479,52 +461,6 @@ export default function HomePage() {
           <p className="text-center text-xs text-slate-500 mt-8">
             Sample starting prices. Full list of plans, validity periods and live pricing appear inside your dashboard.
           </p>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="px-4 sm:px-6 lg:px-8 py-12 md:py-16 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-6xl mx-auto">
-          <div className="max-w-2xl mb-14">
-            <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">How it works</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 text-balance">
-              Three steps to your first payment.
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                step: "01",
-                icon: Shield,
-                title: "Create an account",
-                desc: "Sign up with your email and phone number. Takes under a minute — no paperwork.",
-              },
-              {
-                step: "02",
-                icon: Wallet,
-                title: "Fund your wallet",
-                desc: "Tap Deposit Funds, enter any amount from ₦100 and we generate a one-time bank account. Transfer the exact amount and your wallet credits instantly.",
-              },
-              {
-                step: "03",
-                icon: Zap,
-                title: "Pay for anything",
-                desc: "Buy airtime or data, renew cable, top up electricity or print recharge pins — straight from your balance.",
-              },
-            ].map((s) => (
-              <div key={s.step} className="bg-white border border-slate-200 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                    <s.icon className="w-5 h-5 text-white" strokeWidth={1.75} />
-                  </div>
-                  <span className="text-2xl font-bold text-slate-200 tabular-nums">{s.step}</span>
-                </div>
-                <h3 className="text-base font-bold text-slate-900 mb-2">{s.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
