@@ -37,7 +37,94 @@ export interface RevenueActivity {
  * - Deposit fees: Fixed fee per successful deposit
  * - Markup earnings: (selling_price - base_price) from plan purchases
  */
+/**
+ * Pricing rules are stored per NETWORK ('mtn'), while transactions store the
+ * plan TYPE ('mtn_sme') or 'network-airtime' ('glo-airtime'). The headline
+ * markup figure used to compare them for exact equality — 'mtn' never equals
+ * 'mtn_sme', so markupRevenue summed to zero no matter how many sales carried
+ * a markup. These helpers mirror the lookup the pricing engine performs at
+ * purchase time (lib/pricing/markup.ts).
+ */
+function networkKeyOf(serviceId: unknown): string {
+  return String(serviceId ?? '').toLowerCase().trim().split(/[_-]/)[0]
+}
+
+function normalisePlan(name: unknown): string {
+  return String(name ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+interface RuleLike {
+  service_id: string | null
+  plan_name: string | null
+  markup_type: string | null
+  markup_value: number | null
+  base_price?: number | null
+}
+
+/** The rule that applied to a purchase, or undefined when none matched. */
+function findRuleForPurchase(
+  rules: RuleLike[] | null | undefined,
+  serviceId: unknown,
+  planDetails: unknown,
+): RuleLike | undefined {
+  const exact = String(serviceId ?? '').toLowerCase().trim()
+  const network = networkKeyOf(serviceId)
+  const plan = normalisePlan(planDetails)
+  if (!plan || (!exact && !network)) return undefined
+  return rules?.find(
+    (rule) =>
+      rule.service_id &&
+      (rule.service_id.toLowerCase().trim() === exact || rule.service_id.toLowerCase().trim() === network) &&
+      rule.plan_name &&
+      normalisePlan(rule.plan_name) === plan,
+  )
+}
+
+/** Markup in naira for one purchase under its rule. */
+function markupForPurchase(purchaseAmount: number, rule: RuleLike | undefined): number {
+  if (!rule) return 0
+  const value = Number(rule.markup_value || 0)
+  if (!(value > 0)) return 0
+  if (rule.markup_type === 'fixed') return value
+  // Percentage rules are percentages of the plan's base price (the price the
+  // provider charged), falling back to the charged amount when the rule row
+  // carries no base.
+  const base = Number(rule.base_price || 0)
+  const basis = base > 0 ? base : purchaseAmount
+  return (basis * value) / 100
+}
+
+/**
+ * 'use server' exports are HTTP-callable. Revenue figures are aggregate but
+ * still internal — refuse callers that are not an admin (profiles.is_admin,
+ * or the ADMIN_EMAILS fallback list).
+ */
+async function assertAdminAccess(): Promise<boolean> {
+  try {
+    const { createServerClient } = await import('@/lib/supabase/server')
+    const { isFallbackAdmin } = await import('@/lib/utils/hardcoded-admin')
+    const supabase = await createServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return false
+    const { data: profile } = await createAdminClient()
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle()
+    return profile?.is_admin === true || isFallbackAdmin(user.email)
+  } catch {
+    return false
+  }
+}
+
 export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | 'all' = 'all'): Promise<RevenueData | null> {
+  if (!(await assertAdminAccess())) {
+    console.error('[v0] getRevenueData refused for non-admin caller')
+    return null
+  }
+
   const supabase = createAdminClient()
 
   try {
@@ -151,26 +238,11 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
           marginCovered += amount
         }
 
-        // Match on the FULL service id (mtn_sme — the old code matched the
-        // "mtn" prefix, which never matched a rule, so markup revenue was
-        // always ~0) and the exact plan name.
-        const rule = pricingRules?.find(
-          (r) =>
-            r.service_id &&
-            purchase.service_id &&
-            r.service_id.toLowerCase() === purchase.service_id.toLowerCase() &&
-            r.plan_name &&
-            purchase.plan_details &&
-            r.plan_name.toLowerCase() === purchase.plan_details.toLowerCase(),
-        )
-        if (rule) {
-          const base = Number(rule.base_price || 0)
-          const markup =
-            rule.markup_type === 'fixed'
-              ? Number(rule.markup_value || 0)
-              : base * (Number(rule.markup_value || 0) / 100)
-          if (markup > 0) markupRevenue += markup
-        }
+        // Rules are keyed per network ('mtn'), transactions per plan type
+        // ('mtn_sme') — match via the shared resolver, never exact equality.
+        const rule = findRuleForPurchase(pricingRules, purchase.service_id, purchase.plan_details)
+        const markup = markupForPurchase(amount, rule)
+        if (markup > 0) markupRevenue += markup
       })
     }
 
@@ -206,6 +278,11 @@ export async function getRevenueData(dateRange: 'today' | '7days' | '30days' | '
  * Get revenue activity for display in table
  */
 export async function getRevenueActivity(limit: number = 50): Promise<RevenueActivity[] | null> {
+  if (!(await assertAdminAccess())) {
+    console.error('[v0] getRevenueActivity refused for non-admin caller')
+    return null
+  }
+
   const supabase = createAdminClient()
 
   try {
@@ -264,28 +341,12 @@ export async function getRevenueActivity(limit: number = 50): Promise<RevenueAct
         .eq('is_active', true)
 
       purchases.forEach((purchase) => {
-        // Extract network prefix from service_id (e.g., "mtn" from "mtn_gifting")
-        const networkPrefix = purchase.service_id?.split('_')[0].toLowerCase()
-        
-        // Find pricing rule matching network prefix AND plan name
-        const pricingRule = pricingRules?.find(rule => 
-          rule.service_id && 
-          networkPrefix &&
-          rule.service_id.toLowerCase() === networkPrefix &&
-          rule.plan_name &&
-          purchase.plan_details &&
-          rule.plan_name.toLowerCase() === purchase.plan_details.toLowerCase() &&
-          rule.markup_value > 0
-        )
+        // Same resolver the headline figure uses — one definition of "which
+        // rule applied to this purchase".
+        const pricingRule = findRuleForPurchase(pricingRules, purchase.service_id, purchase.plan_details)
+        const markup = markupForPurchase(Number(purchase.amount || 0), pricingRule)
 
         if (pricingRule) {
-          let markup = 0
-          if (pricingRule.markup_type === 'fixed') {
-            markup = pricingRule.markup_value
-          } else if (pricingRule.markup_type === 'percentage') {
-            markup = purchase.amount * (pricingRule.markup_value / 100)
-          }
-
           if (markup > 0) {
             activity.push({
               id: `markup-${purchase.id}`,
