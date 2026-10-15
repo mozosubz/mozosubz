@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 import { logRequest, logResponse, formatLog } from "@/lib/api-logger"
 
 // Paths that are commonly scanned by bots looking for exposed credentials.
@@ -160,34 +159,20 @@ export async function proxy(request: NextRequest) {
         return new NextResponse("Not Found", { status: 404 })
       }
 
-      // Check hardcoded admin email first
-      const isAdmin = isHardcodedAdmin(user.email)
-      
-      if (isAdmin) {
-        // Set is_admin=true in the profiles table for this user
-        // This ensures the database reflects the admin status
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ is_admin: true })
-          .eq('id', user.id)
-        
-        if (updateError) {
-          // Silent fail - admin flag update is non-critical
-        }
-        
-        // Return supabaseResponse (NOT a fresh NextResponse.next) so a token
-        // refresh performed by getUser() lands its Set-Cookie on the browser.
-        return supabaseResponse
-      }
-
-      // Check if user has admin flag in database
+      // Admin access = profiles.is_admin in the database — one source of truth,
+      // no hardcoded or env-based email lists. (When this was a bespoke branch
+      // it also had to hand-carry refreshed cookies; now the request simply
+      // falls through to the supabaseResponse return below.)
       const { data: profile } = await supabase
         .from('profiles')
         .select('is_admin')
         .eq('id', user.id)
         .single()
-      
-      if (!profile?.is_admin) {
+
+      // Fallback: the ADMIN_EMAILS list keeps a known address working even if
+      // its DB flag is missing (see lib/utils/hardcoded-admin.ts).
+      if (!profile?.is_admin && !isFallbackAdmin(user.email)) {
+        console.warn('[proxy] admin 404 — not admin:', user.email, request.nextUrl.pathname)
         return new NextResponse("Not Found", { status: 404 })
       }
     }
@@ -196,6 +181,9 @@ export async function proxy(request: NextRequest) {
     // pages). /login itself is never forwarded back (see below), so this can
     // never ping-pong with the login page.
     if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+      // Diagnostic: shows in Vercel runtime logs when a session fails to
+      // resolve, with whether cookies were present at all.
+      console.warn('[proxy] unauth bounce:', request.nextUrl.pathname, '| cookies:', request.cookies.getAll().filter((c) => c.name.startsWith('sb-')).length)
       return redirectToLogin()
     }
 
@@ -206,6 +194,7 @@ export async function proxy(request: NextRequest) {
 
     // Also protect admin routes for unauthenticated users
     if (!user && request.nextUrl.pathname.startsWith("/admin")) {
+      console.warn('[proxy] unauth admin bounce:', request.nextUrl.pathname, '| cookies:', request.cookies.getAll().filter((c) => c.name.startsWith('sb-')).length)
       return redirectToLogin()
     }
 

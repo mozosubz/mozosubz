@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
+import { isFallbackAdmin } from '@/lib/utils/hardcoded-admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { isHardcodedAdmin } from '@/lib/utils/hardcoded-admin'
 
 export async function GET() {
   const supabase = await createServerClient()
@@ -32,7 +32,7 @@ export async function PATCH() {
 export async function POST(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || (!isHardcodedAdmin(user.email) && !(await supabase.from('profiles').select('is_admin').eq('id', user.id).single()).data?.is_admin)) {
+  if (!user || (!(await supabase.from('profiles').select('is_admin').eq('id', user.id).single()).data?.is_admin && !isFallbackAdmin(user.email))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

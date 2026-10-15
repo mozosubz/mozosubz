@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
+import { isFallbackAdmin } from "@/lib/utils/hardcoded-admin"
 import { checkRateLimit, RATE_LIMIT_CONFIG, getRateLimitCount, clearRateLimit } from "@/lib/utils/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createServerClient } from "@/lib/supabase/server"
@@ -17,7 +17,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!isHardcodedAdmin(user.email)) {
+    // Admin means profiles.is_admin in the database — the single source of truth.
+    const { data: adminProfile } = await createAdminClient()
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if (!adminProfile?.is_admin && !isFallbackAdmin(user.email)) {
       return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 })
     }
 

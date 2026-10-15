@@ -8,7 +8,7 @@ import { isDisposableEmail } from "@/lib/utils/disposable-email"
 import { after } from "next/server"
 import { sendLoginAlertEmail, sendWelcomeEmail } from "@/lib/email/server-flows"
 import { isUserBanned } from "@/lib/utils/bans"
-import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
+import { isFallbackAdmin } from "@/lib/utils/hardcoded-admin"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { EMAIL_RX, RESERVED_USERNAMES, USERNAME_RX } from "@/lib/utils/profile-validation"
 
@@ -104,7 +104,7 @@ export async function signInAction(
   // Admin accounts are EXEMPT: the owner runs the admin login on several
   // devices at once, and every new sign-in was silently killing the other
   // devices' sessions — reported as random "logged out" on the admin account.
-  let adminAccount = isHardcodedAdmin(normalizedEmail)
+  let adminAccount = isFallbackAdmin(normalizedEmail)
   if (!adminAccount && signedInUserId) {
     try {
       const { data: profile } = await createAdminClient()

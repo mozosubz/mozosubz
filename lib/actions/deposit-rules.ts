@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { isHardcodedAdmin } from '@/lib/utils/hardcoded-admin'
 import type { DepositRules } from '@/lib/utils/deposit-fee'
 
 /**
@@ -57,20 +56,17 @@ export async function updateDepositRules(
     return { success: false, error: 'Not authenticated' }
   }
 
-  // Check if hardcoded admin first
-  if (isHardcodedAdmin(user.email)) {
-    // Proceed with update
-  } else {
-    // Get user role from database
-    const { data: userRole } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+  // Admin means profiles.is_admin in the database. (The previous role lookup
+  // used a public.users table that does not exist, so the check only ever
+  // passed for the hardcoded admin emails.)
+  const { data: adminProfile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .maybeSingle()
 
-    if (userRole?.role !== 'admin') {
-      return { success: false, error: 'Only admins can update deposit rules' }
-    }
+  if (!adminProfile?.is_admin && !isFallbackAdmin(user.email)) {
+    return { success: false, error: 'Only admins can update deposit rules' }
   }
 
   // First, get the current active rule ID (if exists)
@@ -137,17 +133,15 @@ export async function getAllDepositRules(): Promise<DepositRules[] | null> {
     return null
   }
 
-  // Check if hardcoded admin
-  if (!isHardcodedAdmin(user.email)) {
-    const { data: userRole } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+  // Admin means profiles.is_admin in the database (see the note above).
+  const { data: adminProfile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .maybeSingle()
 
-    if (userRole?.role !== 'admin') {
-      return null
-    }
+  if (!adminProfile?.is_admin && !isFallbackAdmin(user.email)) {
+    return null
   }
 
   const { data, error } = await supabase

@@ -1,23 +1,23 @@
 /**
- * Admin identity is configuration, not code.
+ * Admin email fallback list.
  *
- * Set `ADMIN_EMAILS` in the environment — comma-separated, e.g.
- *   ADMIN_EMAILS=admin@mozosubz.xyz,second@example.com
+ * The PRIMARY source of admin access is `profiles.is_admin = true` in the
+ * database — set that column to make someone an admin. This list exists only
+ * as a FALLBACK so a specific address keeps working even if its DB flag was
+ * never set (bootstrap/recovery).
  *
- * The value is read at request time. IMPORTANT: on Vercel, middleware
- * (proxy.ts) runs on the edge runtime where env vars are bound into the
- * deployment — after changing ADMIN_EMAILS you MUST trigger a new deployment,
- * or the change will look like it "didn't work".
+ * Configure it with the `ADMIN_EMAILS` environment variable — comma-separated,
+ * e.g. `ADMIN_EMAILS=admin@mozosubz.xyz,second@example.com`. When the variable
+ * is set it REPLACES the historical addresses below; when it is unset, the
+ * historical two keep working, so a missing variable can never lock anyone out.
  *
- * Fallback: when ADMIN_EMAILS is unset, the historical addresses below keep
- * working, so a missing variable can never lock the owner out. Setting
- * ADMIN_EMAILS replaces the fallback entirely — remove an address there and it
- * stops being a hardcoded admin (an account's profiles.is_admin flag still
- * governs admin access on its own, independently of this list).
+ * IMPORTANT (Vercel): middleware (proxy.ts) runs on the edge runtime, where
+ * env vars are bound into the deployment — after changing ADMIN_EMAILS you
+ * MUST trigger a new deployment, or the change will look like it "didn't
+ * work".
  *
  * Server/edge only: this reads a non-public env var, which is never inlined
- * into the browser bundle — do not call it from a client component. Current
- * callers are proxy.ts, server actions, server components and API routes.
+ * into the browser bundle — do not call it from a client component.
  */
 const FALLBACK_ADMIN_EMAILS = [
   'admin@mozosubz.xyz',
@@ -31,22 +31,26 @@ function adminEmails(): string[] {
 }
 
 /**
- * Checks whether an email belongs to a configured admin.
+ * True when the email is on the configured fallback admin list.
+ * Always combine with the database check: `profile.is_admin || isFallbackAdmin(email)`.
  */
-export function isHardcodedAdmin(email: string | null | undefined): boolean {
+export function isFallbackAdmin(email: string | null | undefined): boolean {
   if (!email) return false
   return adminEmails().includes(email.toLowerCase().trim())
 }
 
+/** Backwards-compatible alias. */
+export const isHardcodedAdmin = isFallbackAdmin
+
 /**
- * Get all configured admin emails.
+ * Get all configured fallback admin emails.
  */
 export function getAdminEmails(): string[] {
   return adminEmails()
 }
 
 /**
- * Get the first (primary) configured admin email.
+ * Get the first (primary) configured fallback admin email.
  */
 export function getAdminEmail(): string {
   return adminEmails()[0] ?? ''

@@ -1,14 +1,14 @@
 import { put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
+import { isFallbackAdmin } from '@/lib/utils/hardcoded-admin'
 import { createServerClient } from '@/lib/supabase/server'
-import { isHardcodedAdmin } from '@/lib/utils/hardcoded-admin'
 
 export async function POST(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  if (!profile?.is_admin && !isHardcodedAdmin(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!profile?.is_admin && !isFallbackAdmin(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const formData = await request.formData()
   const file = formData.get('file')

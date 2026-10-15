@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
+import { isFallbackAdmin } from '@/lib/utils/hardcoded-admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { isHardcodedAdmin } from '@/lib/utils/hardcoded-admin'
 
 export async function GET(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || (!isHardcodedAdmin(user.email) && !(await supabase.from('profiles').select('is_admin').eq('id', user.id).single()).data?.is_admin)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!user || (!(await supabase.from('profiles').select('is_admin').eq('id', user.id).single()).data?.is_admin && !isFallbackAdmin(user.email))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const url = new URL(request.url)
   const q = url.searchParams.get('q')?.trim() || ''
   const transactionId = url.searchParams.get('transactionId')?.trim() || ''
