@@ -42,13 +42,17 @@ const BLOCKED_PATHS = [
  * users out mid-session. The /login ↔ /dashboard loop is instead made
  * impossible structurally: /login is never forwarded (see the guard below),
  * so it is always a terminal page.
+ *
+ * NOTE (2026-10-14): every response returned AFTER the auth check below must
+ * carry the cookies @supabase/ssr attached to `supabaseResponse`. When
+ * `getUser()` refreshes an expiring session, Supabase ROTATES the refresh
+ * token — if that Set-Cookie never reaches the browser, the browser keeps the
+ * old, now-invalidated token, its next refresh fails and the user is bounced
+ * to /login (and the login page then signs the dead session out). The
+ * hardcoded-admin branch here returned a bare NextResponse.next(), which is
+ * exactly why the owner's admin account seemed to "log out" when navigating
+ * between admin pages.
  */
-function redirectToLogin(request: NextRequest): NextResponse {
-  const url = request.nextUrl.clone()
-  url.pathname = "/login"
-  url.search = "?expired=1"
-  return NextResponse.redirect(url)
-}
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname.toLowerCase()
@@ -93,6 +97,19 @@ export async function proxy(request: NextRequest) {
         },
       },
     })
+
+    // Carry any refreshed auth cookies onto redirects and pass-throughs.
+    const redirectWithAuthCookies = (url: URL): NextResponse => {
+      const response = NextResponse.redirect(url)
+      supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie))
+      return response
+    }
+    const redirectToLogin = (): NextResponse => {
+      const url = request.nextUrl.clone()
+      url.pathname = "/login"
+      url.search = "?expired=1"
+      return redirectWithAuthCookies(url)
+    }
 
     // Handle Supabase email confirmation PKCE code exchange.
     // When a user clicks the email confirmation link, Supabase redirects back
@@ -158,11 +175,11 @@ export async function proxy(request: NextRequest) {
           // Silent fail - admin flag update is non-critical
         }
         
-        return NextResponse.next({
-          request,
-        })
+        // Return supabaseResponse (NOT a fresh NextResponse.next) so a token
+        // refresh performed by getUser() lands its Set-Cookie on the browser.
+        return supabaseResponse
       }
-      
+
       // Check if user has admin flag in database
       const { data: profile } = await supabase
         .from('profiles')
@@ -179,17 +196,17 @@ export async function proxy(request: NextRequest) {
     // pages). /login itself is never forwarded back (see below), so this can
     // never ping-pong with the login page.
     if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
-      return redirectToLogin(request)
+      return redirectToLogin()
     }
 
     // Protect /integrations/* (e.g. Connect Keys) — not public.
     if (!user && request.nextUrl.pathname.startsWith("/integrations")) {
-      return redirectToLogin(request)
+      return redirectToLogin()
     }
 
     // Also protect admin routes for unauthenticated users
     if (!user && request.nextUrl.pathname.startsWith("/admin")) {
-      return redirectToLogin(request)
+      return redirectToLogin()
     }
 
     // NOTE: authenticated users are intentionally NOT redirected away from
@@ -213,7 +230,7 @@ export async function proxy(request: NextRequest) {
       if (user.email_confirmed_at) {
         const url = request.nextUrl.clone()
         url.pathname = "/dashboard"
-        return NextResponse.redirect(url)
+        return redirectWithAuthCookies(url)
       }
       // Allow unconfirmed users to stay on /register page
     }
@@ -225,7 +242,7 @@ export async function proxy(request: NextRequest) {
     if (user && request.nextUrl.pathname === "/") {
       const url = request.nextUrl.clone()
       url.pathname = "/dashboard"
-      return NextResponse.redirect(url)
+      return redirectWithAuthCookies(url)
     }
 
     // /register-success is intentionally public: Supabase signUp() with email
@@ -238,10 +255,9 @@ export async function proxy(request: NextRequest) {
 
     return supabaseResponse
   } catch (error) {
-    // On error, allow the request to continue
-    return NextResponse.next({
-      request,
-    })
+    // On error, allow the request to continue — but still hand back whatever
+    // auth cookies were attached before the failure.
+    return supabaseResponse
   }
 }
 

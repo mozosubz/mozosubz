@@ -22,6 +22,19 @@ async function clearDeadSession() {
     const { error } = await supabase.auth.getUser()
     if (!error) return // session is still valid — nothing to clear
 
+    // Only destroy the session when Supabase says the session itself is dead.
+    // A transient/network error must NOT sign the user out — that made brief
+    // outages (and auth races) look like random logouts. The form still
+    // renders either way.
+    const message = (error.message || "").toLowerCase()
+    const sessionIsDead =
+      message.includes("invalid refresh token") ||
+      message.includes("refresh token not found") ||
+      message.includes("invalid claim") ||
+      message.includes("auth session missing") ||
+      message.includes("user from sub claim in jwt does not exist")
+    if (!sessionIsDead) return
+
     try {
       await supabase.auth.signOut()
     } catch {
