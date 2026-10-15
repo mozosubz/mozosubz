@@ -118,10 +118,14 @@ export function AdminSidebar() {
         <div className="admin-sidebar-divider" style={{borderTop: '1px solid #e5e7eb', margin: '12px 0', opacity: 0.5}} />
 
         <div className="admin-sidebar-footer">
-          <Link href="/api/auth/signout" className="admin-nav-item logout">
+          {/* Deliberately a plain <a>, NOT next/link: next/link prefetches
+              visible links, and this route signs the session out on GET — the
+              prefetch was silently logging the admin out moments after any
+              admin page loaded. */}
+          <a href="/api/auth/signout" className="admin-nav-item logout">
             <LogOut size={18} />
             <span>Sign Out</span>
-          </Link>
+          </a>
         </div>
       </aside>
     </>

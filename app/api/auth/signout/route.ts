@@ -11,6 +11,20 @@ import { createServerClient } from "@/lib/supabase/server"
  * the browser back to the login page.
  */
 export async function GET(request: NextRequest) {
+  // Never honour a link PREFETCH: next/link fetches visible hrefs in the
+  // background, and this route signs out on GET — an admin-sidebar Link to
+  // /api/auth/signout was prefetched on every admin page load and destroyed
+  // the session seconds later. Prefetches carry next-router-prefetch; a real
+  // click does not.
+  const isPrefetch =
+    request.headers.get('next-router-prefetch') === '1' ||
+    request.headers.get('purpose') === 'prefetch' ||
+    request.headers.get('x-middleware-prefetch') === '1' ||
+    request.headers.get('rsc') === '1'
+  if (isPrefetch) {
+    return new NextResponse(null, { status: 204 })
+  }
+
   try {
     const supabase = await createServerClient()
     await supabase.auth.signOut()
