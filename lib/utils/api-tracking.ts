@@ -88,11 +88,14 @@ export async function logSuspiciousActivity(
 
 /**
  * Get user IP address from request (handles proxies/CDN)
+ * Uses the last X-Forwarded-For hop: the edge appends the real peer, so earlier
+ * entries are client-controlled. See getTrustedClientIp in rate-limit.ts.
  */
 export function getUserIPAddress(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")
   if (forwarded) {
-    return forwarded.split(",")[0].trim()
+    const hops = forwarded.split(",").map((hop) => hop.trim()).filter(Boolean)
+    if (hops.length > 0) return hops[hops.length - 1]
   }
 
   return request.headers.get("x-real-ip") || "unknown"

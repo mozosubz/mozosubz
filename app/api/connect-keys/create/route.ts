@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateConnectKey, hashConnectKey, getKeyPreview } from '@/lib/utils/connect-key'
+import { clearConnectKeyCacheForUser } from '@/lib/middleware/verify-connect-key'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -43,6 +44,9 @@ export async function POST(request: NextRequest) {
     .update({ is_active: false, revoked_at: new Date().toISOString() })
     .eq('user_id', user.id)
     .is('revoked_at', null)
+
+  // The previous key(s) must stop verifying immediately on this instance.
+  clearConnectKeyCacheForUser(user.id)
 
   // Generate new key
   const rawKey = generateConnectKey()

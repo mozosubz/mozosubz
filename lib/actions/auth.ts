@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
-import { checkRateLimit } from "@/lib/utils/rate-limit"
+import { checkRateLimit, getTrustedClientIp } from "@/lib/utils/rate-limit"
 import { isDisposableEmail } from "@/lib/utils/disposable-email"
 import { after } from "next/server"
 import { sendLoginAlertEmail, sendWelcomeEmail } from "@/lib/email/server-flows"
@@ -20,11 +20,7 @@ export async function signOut() {
 
 async function getClientIp(): Promise<string> {
   const headerList = await headers()
-  return (
-    headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    headerList.get("x-real-ip") ||
-    "unknown"
-  )
+  return getTrustedClientIp(headerList)
 }
 
 /**

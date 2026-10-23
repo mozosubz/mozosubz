@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { clearConnectKeyCacheForUser } from '@/lib/middleware/verify-connect-key'
 
 export async function POST() {
   const supabase = await createServerClient()
@@ -30,6 +31,10 @@ export async function POST() {
       { status: 404 }
     )
   }
+
+  // Without this the 60-second verifier cache keeps honouring the revoked key
+  // on this instance. (Other instances still expire within the TTL.)
+  clearConnectKeyCacheForUser(user.id)
 
   return NextResponse.json({ success: true, revoked: data.length })
 }

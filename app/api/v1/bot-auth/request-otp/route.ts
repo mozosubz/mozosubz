@@ -93,6 +93,10 @@ export async function POST(request: NextRequest) {
     const firstName = profile?.full_name?.split(' ')[0] || email.split('@')[0] || 'User'
     const userId = profile.id
 
+    // One live code per user+platform: stale codes would otherwise stay
+    // guessable for their full lifetime alongside the new one.
+    await supabase.from('bot_otp').delete().eq('user_id', userId).eq('platform', platform)
+
     // Generate OTP
     const otp = generateOTP()
     const now = new Date()

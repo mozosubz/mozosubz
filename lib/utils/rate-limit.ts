@@ -133,18 +133,32 @@ export const RATE_LIMIT_CONFIG = {
 }
 
 /**
+ * Resolve the caller's IP from proxy headers.
+ *
+ * SECURITY (round 2): the first `x-forwarded-for` entry is whatever the client
+ * sends — Vercel APPENDS the real peer address, so taking `[0]` let an attacker
+ * rotate a fake first hop and reset every IP-based budget (login, signup, OTP,
+ * payment init, connect-key guessing). The LAST hop is the one the edge saw and
+ * cannot be forged. `x-real-ip` is used only when no XFF exists at all.
+ */
+export function getTrustedClientIp(headers: { get(name: string): string | null }): string {
+  const forwarded = headers.get("x-forwarded-for")
+  if (forwarded) {
+    const hops = forwarded
+      .split(",")
+      .map((hop) => hop.trim())
+      .filter(Boolean)
+    if (hops.length > 0) return hops[hops.length - 1]
+  }
+  return headers.get("x-real-ip")?.trim() || "unknown"
+}
+
+/**
  * Get user IP address from request
  * Works behind proxies and CDNs
  */
 export function getRateLimitIdentifier(request: Request): string {
-  // Use X-Forwarded-For header for IP behind proxy/CDN
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    request.headers.get("cf-connecting-ip") ||
-    "unknown"
-
-  return ip
+  return getTrustedClientIp(request.headers)
 }
 
 /**

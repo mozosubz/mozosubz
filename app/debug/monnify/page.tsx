@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 
 export default function MonnifyDebugPage() {
   const [credentials, setCredentials] = useState({
-    apiKey: '',
-    secretKey: '',
-    contractCode: '',
+    secretKey: false,
+    webhookSecret: false,
+    baseUrl: '',
   })
   const [status, setStatus] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -46,9 +46,9 @@ export default function MonnifyDebugPage() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-4">Environment Variables</h2>
           <div className="bg-gray-50 p-4 rounded font-mono text-sm space-y-2">
-            <p>API Key: <span className="text-red-600">{credentials.apiKey ? '✓ Set' : '✗ Missing'}</span></p>
-            <p>Secret Key: <span className="text-red-600">{credentials.secretKey ? '✓ Set' : '✗ Missing'}</span></p>
-            <p>Contract Code: <span className="text-red-600">{credentials.contractCode ? '✓ Set' : '✗ Missing'}</span></p>
+            <p>API base URL: <span className="text-gray-700">{credentials.baseUrl || '—'}</span></p>
+            <p>Secret key (BACHS_SECRET_KEY): <span className={credentials.secretKey ? 'text-green-600' : 'text-red-600'}>{credentials.secretKey ? '✓ Set' : '✗ Missing'}</span></p>
+            <p>Webhook secret (BACHS_WEBHOOK_SECRET): <span className={credentials.webhookSecret ? 'text-green-600' : 'text-red-600'}>{credentials.webhookSecret ? '✓ Set' : '✗ Missing'}</span></p>
           </div>
         </div>
 

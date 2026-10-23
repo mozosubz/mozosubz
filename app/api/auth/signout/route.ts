@@ -35,7 +35,11 @@ export async function GET(request: NextRequest) {
 
   const banned = request.nextUrl.searchParams.get("banned") === "1"
   const nextParam = request.nextUrl.searchParams.get("next")
-  const base = nextParam && nextParam.startsWith("/") ? nextParam : "/login"
+  // A leading "/" alone is not enough: "//evil.com" and "/\evil.com" are parsed
+  // as protocol-relative URLs by browsers, so they escape the site.
+  const isLocalPath =
+    !!nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") && !nextParam.startsWith("/\\")
+  const base = isLocalPath ? nextParam : "/login"
 
   const url = new URL(base, request.url)
   if (banned) url.searchParams.set("banned", "1")

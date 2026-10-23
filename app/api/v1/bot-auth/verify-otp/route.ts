@@ -68,13 +68,16 @@ export async function POST(request: NextRequest) {
 
     const userId = profile.id
 
-    // 2. Verify OTP from database
-    const { data: otpRecords, error: otpFetchError } = await supabase
+    // 2. Verify OTP from database. One live row is kept per user+platform, so
+    // we fetch that row rather than filtering by the guessed code — that is
+    // what lets us count wrong guesses against it.
+    const { data: otpRecord, error: otpFetchError } = await supabase
       .from('bot_otp')
       .select('*')
       .eq('user_id', userId)
-      .eq('otp_code', otp_code)
       .eq('platform', platform)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (otpFetchError) {
@@ -84,9 +87,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-    
 
-    if (!otpRecords) {
+    if (!otpRecord) {
       return NextResponse.json(
         { success: false, error: 'Invalid or expired OTP' },
         { status: 401 }
@@ -94,18 +96,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Check expiry
-    const expiresAt = new Date(otpRecords.expires_at)
+    const expiresAt = new Date(otpRecord.expires_at)
     if (expiresAt < new Date()) {
       // Clean up expired OTP
-      await supabase.from('bot_otp').delete().eq('id', otpRecords.id)
+      await supabase.from('bot_otp').delete().eq('id', otpRecord.id)
       return NextResponse.json(
         { success: false, error: 'OTP has expired' },
         { status: 401 }
       )
     }
 
+    // A 6-digit code is only safe for a handful of guesses. Burn it after
+    // five wrong attempts so the window cannot be exhausted by brute force.
+    if (otpRecord.otp_code !== String(otp_code).trim()) {
+      const attempts = (otpRecord.attempts ?? 0) + 1
+      if (attempts >= 5) {
+        await supabase.from('bot_otp').delete().eq('id', otpRecord.id)
+        return NextResponse.json(
+          { success: false, error: 'Too many incorrect attempts. Request a new code.' },
+          { status: 401 }
+        )
+      }
+      await supabase.from('bot_otp').update({ attempts }).eq('id', otpRecord.id)
+      return NextResponse.json(
+        { success: false, error: 'Invalid OTP' },
+        { status: 401 }
+      )
+    }
+
     // 3. Delete used OTP (single use)
-    await supabase.from('bot_otp').delete().eq('id', otpRecords.id)
+    await supabase.from('bot_otp').delete().eq('id', otpRecord.id)
 
     // 4. Upsert bot_connections record
     const { error: connectionError } = await supabase.from('bot_connections').upsert(

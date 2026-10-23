@@ -36,10 +36,11 @@ export function withSecurityHeaders(response: Response): Response {
  * Uses IP + endpoint path to create unique rate limit keys
  */
 export function getRateLimitKey(request: Request, endpoint: string): string {
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0] ||
-    request.headers.get("cf-connecting-ip") ||
-    "unknown"
+  // Last XFF hop: the edge appends the real peer address, earlier entries are
+  // client-supplied and therefore rotatable.
+  const forwarded = request.headers.get("x-forwarded-for")
+  const hops = forwarded?.split(",").map((hop) => hop.trim()).filter(Boolean) || []
+  const ip = hops[hops.length - 1] || request.headers.get("cf-connecting-ip") || "unknown"
   return `rate_limit:${endpoint}:${ip}`
 }
 
