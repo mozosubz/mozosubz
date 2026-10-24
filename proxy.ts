@@ -54,6 +54,20 @@ const BLOCKED_PATHS = [
  */
 
 export async function proxy(request: NextRequest) {
+  // Canonical host. www and the apex both serve this app, but Supabase auth
+  // cookies are host-only: a session created on mozosubz.xyz is invisible on
+  // www.mozosubz.xyz, so a user who enters via the other host gets bounced to
+  // /login every time ("have to log in again whenever I come back"). 308
+  // everything to the apex host, path and query preserved. api.mozosubz.xyz is
+  // a different deployment surface and must not be touched.
+  const host = (request.headers.get("host") || "").toLowerCase()
+  if (host === "www.mozosubz.xyz") {
+    const url = request.nextUrl.clone()
+    url.protocol = "https"
+    url.host = "mozosubz.xyz"
+    return NextResponse.redirect(url, 308)
+  }
+
   const pathname = request.nextUrl.pathname.toLowerCase()
 
   // Log API requests
