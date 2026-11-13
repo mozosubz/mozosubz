@@ -497,12 +497,12 @@ export async function syncBachsFeeMetadata(paymentReference: string): Promise<{
     if (feeCurrency) update.bachs_fee_currency = feeCurrency
     if (lookup.feeUsd != null) update.bachs_fee_usd = lookup.feeUsd
     if (lookup.paymentMethod) update.bachs_payment_method = lookup.paymentMethod
-    // Never write a zero/absent collected figure over a real one — unpaid
-    // checkouts report amount_paid "0.00".
-    const collected = lookup.amountPaid != null ? Number(lookup.amountPaid) : null
+    // settlement_amount is a NAIRA column — only Bachs' settlement figure
+    // (settlement_amount, always NGN for us) belongs in it. amount_paid is
+    // what the customer paid in the CHARGE currency (USD for a USD-card
+    // payment) and must never be written there; it lives in the raw payload.
     const settledAs = lookup.settlementAmount != null ? Number(lookup.settlementAmount) : null
-    if (collected != null && collected > 0) update.settlement_amount = lookup.amountPaid
-    else if (settledAs != null && settledAs > 0) update.settlement_amount = lookup.settlementAmount
+    if (settledAs != null && settledAs > 0) update.settlement_amount = lookup.settlementAmount
     // fee_paid_by flips from null once the charge settles.
     if (lookup.feePaidBy) update.settled = lookup.feePaidBy === 'merchant'
 
