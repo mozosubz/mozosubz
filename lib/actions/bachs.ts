@@ -226,10 +226,13 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
   feeUsd?: string | null
   /** 'merchant' (fee came out of the charge) or 'platform' — null until settlement. */
   feePaidBy?: string | null
-  /** Corridor the customer paid through: CARD, NGN_BANK_TRANSFER, USD_CARD, CRYPTO, MOMO_*, ... */
+  /** Corridor the customer paid through: usd_card, ngn_bank_transfer, crypto, momo_*, ... */
   paymentMethod?: string | null
-  /** What Bachs actually collected so far (amount_paid). */
+  /** What Bachs collected so far (amount_paid). */
   amountPaid?: string | null
+  /** What the charge is set to settle as (settlement_amount) + its currency. */
+  settlementAmount?: string | null
+  settlementCurrency?: string | null
   raw?: unknown
 }> {
   if (!isBachsConfigured()) {
@@ -256,16 +259,28 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
     const listData = await safeJson(listResponse)
 
     if (listResponse.ok) {
-      let record = pickPaymentRecord(listData)
-      const status =
-        record && typeof record.status === 'string' && record.status.trim().length > 0
-          ? record.status
-          : null
-      // A record is a payment only when it carries a status and is not the
-      // empty-list envelope itself.
-      const isPayment = record !== null && status !== null && !Array.isArray((record as Record<string, unknown>).items)
+      // SECURITY: the list endpoint returns the ORG's payments (most recent
+      // first) and does not reliably filter by checkout_id — observed live.
+      // Picking the first item used to credit a deposit from SOMEONE ELSE'S
+      // succeeded payment. Only a record whose own checkout_id matches the
+      // one we asked about may be used.
+      const listEnvelope = asRecord(listData)
+      const items = Array.isArray(listEnvelope?.items)
+        ? (listEnvelope!.items as unknown[]).map((it) => asRecord(it)).filter(Boolean)
+        : []
+      const record = items.find((it) => {
+        const source = asRecord(it.source)
+        const itsCheckout =
+          typeof it.checkout_id === 'string'
+            ? it.checkout_id
+            : source && typeof source.checkout_id === 'string'
+              ? source.checkout_id
+              : null
+        return itsCheckout === encoded
+      })
 
-      if (isPayment && record) {
+      if (record) {
+        const paymentStatus = typeof record.status === 'string' ? record.status : null
         // The list representation omits fee details — Bachs documents them on
         // the payment retrieve endpoint ("every payment reports the fee that
         // was actually applied to it"). Re-read the full payment when we have
@@ -295,49 +310,76 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
             // Fee detail is best-effort; the list record still answers status.
           }
         }
-        // Fee fields on the payment object: fees { amount, currency } (the
-        // money Bachs deducted), fee_usd (same fee converted), fee_paid_by
-        // ('merchant' | 'platform', null until the charge settles) and
-        // payment_method (the corridor the customer paid through — for cards
-        // Bachs reports 'CARD', not the USD_CARD/NGN_CARD corridor name).
-        const fees = (record as Record<string, unknown>).fees as
-          | Record<string, unknown>
-          | null
-        | undefined
+        // Fee fields on the payment object (live API shape): `fee` is the
+        // money Bachs deducted in the CHARGE currency (USD for a USD-card
+        // payment), `fee_paid_by` is null until the charge settles, and
+        // `payment_method` is either a corridor string or an object with a
+        // `type` (usd_card / ngn_bank_transfer / crypto / momo_*). The list
+        // view omits nothing critical, but fall back to the full retrieve
+        // when fee fields are missing.
+        const listPaymentId =
+          typeof record.payment_id === 'string'
+            ? record.payment_id
+            : typeof record.id === 'string'
+              ? record.id
+              : null
+        if (listPaymentId && record.fee == null && !record.payment_method) {
+          try {
+            const retrieveResponse = await fetchWithBachsTimeout(
+              `${BACHS_BASE_URL}/v1/payments/${encodeURIComponent(listPaymentId)}`,
+              { method: 'GET', headers: authHeaders }
+            )
+            const retrieveData = await safeJson(retrieveResponse)
+            const full = asRecord(retrieveData)
+            if (retrieveResponse.ok && full) {
+              record = full
+            }
+          } catch {
+            // Fee detail is best-effort; the list record still answers status.
+          }
+        }
+        const fees = asRecord(record.fees)
+        const feeObject = fees && (fees.amount != null)
+        const feeValue = feeObject ? fees.amount : record.fee
+        const feeCurrencyValue = feeObject && typeof fees.currency === 'string' ? fees.currency : null
+        const paymentMethodRaw = record.payment_method
+        const paymentMethodValue =
+          typeof paymentMethodRaw === 'string'
+            ? paymentMethodRaw
+            : asRecord(paymentMethodRaw) && typeof asRecord(paymentMethodRaw)!.type === 'string'
+              ? String(asRecord(paymentMethodRaw)!.type)
+              : null
         return {
           success: true,
-          status: status as string,
+          status: paymentStatus as string,
           substatus: typeof record.substatus === 'string' ? record.substatus : null,
-          // Payment objects expose their own id (ch_...); charge_id may be
-          // absent from the list representation.
-          chargeId:
-            typeof record.charge_id === 'string'
-              ? record.charge_id
-              : typeof record.payment_id === 'string'
-                ? record.payment_id
-                : typeof record.id === 'string'
-                  ? record.id
-                  : undefined,
+          chargeId: listPaymentId ?? undefined,
           amount:
             typeof record.amount === 'string' || typeof record.amount === 'number'
               ? String(record.amount)
               : undefined,
           currency: typeof record.currency === 'string' ? record.currency : undefined,
           feeAmount:
-            fees && (typeof fees.amount === 'string' || typeof fees.amount === 'number')
-              ? String(fees.amount)
+            feeValue != null && (typeof feeValue === 'string' || typeof feeValue === 'number')
+              ? String(feeValue)
               : null,
-          feeCurrency: fees && typeof fees.currency === 'string' ? fees.currency : null,
+          feeCurrency: feeCurrencyValue,
           feeUsd:
             typeof record.fee_usd === 'string' || typeof record.fee_usd === 'number'
               ? String(record.fee_usd)
               : null,
           feePaidBy: typeof record.fee_paid_by === 'string' ? record.fee_paid_by : null,
-          paymentMethod: typeof record.payment_method === 'string' ? record.payment_method : null,
+          paymentMethod: paymentMethodValue,
           amountPaid:
             typeof record.amount_paid === 'string' || typeof record.amount_paid === 'number'
               ? String(record.amount_paid)
               : null,
+          settlementAmount:
+            typeof record.settlement_amount === 'string' || typeof record.settlement_amount === 'number'
+              ? String(record.settlement_amount)
+              : null,
+          settlementCurrency:
+            typeof record.settlement_currency === 'string' ? record.settlement_currency : null,
           raw: listData,
         }
       }
@@ -464,11 +506,21 @@ export async function syncBachsFeeMetadata(paymentReference: string): Promise<{
       monnify_response: (lookup.raw ?? null) as object | null,
     }
     if (lookup.feeAmount != null) update.bachs_fee = lookup.feeAmount
-    if (lookup.feeCurrency != null) update.bachs_fee_currency = lookup.feeCurrency
+    // The fee is denominated in the CHARGE currency (USD for a USD-card
+    // payment), not the settlement currency — record which one it is so the
+    // admin UI never subtracts dollars from naira.
+    const feeCurrency = lookup.feeCurrency ?? (lookup.feeAmount != null ? lookup.currency ?? null : null)
+    if (feeCurrency) update.bachs_fee_currency = feeCurrency
     if (lookup.feeUsd != null) update.bachs_fee_usd = lookup.feeUsd
-    if (lookup.paymentMethod != null) update.bachs_payment_method = lookup.paymentMethod
-    if (lookup.amountPaid != null) update.settlement_amount = lookup.amountPaid
-    if (lookup.feePaidBy === 'merchant') update.settled = true
+    if (lookup.paymentMethod) update.bachs_payment_method = lookup.paymentMethod
+    // Never write a zero/absent collected figure over a real one — unpaid
+    // checkouts report amount_paid "0.00".
+    const collected = lookup.amountPaid != null ? Number(lookup.amountPaid) : null
+    const settledAs = lookup.settlementAmount != null ? Number(lookup.settlementAmount) : null
+    if (collected != null && collected > 0) update.settlement_amount = lookup.amountPaid
+    else if (settledAs != null && settledAs > 0) update.settlement_amount = lookup.settlementAmount
+    // fee_paid_by flips from null once the charge settles.
+    if (lookup.feePaidBy) update.settled = lookup.feePaidBy === 'merchant'
 
     if (Object.keys(update).length > 0) {
       const { error: updateError } = await admin
