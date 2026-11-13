@@ -268,7 +268,8 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
       const items = Array.isArray(listEnvelope?.items)
         ? (listEnvelope!.items as unknown[]).map((it) => asRecord(it)).filter(Boolean)
         : []
-      const record = items.find((it) => {
+      let record: Record<string, unknown> | null | undefined = items.find((it) => {
+        if (!it) return false
         const source = asRecord(it.source)
         const itsCheckout =
           typeof it.checkout_id === 'string'
@@ -281,35 +282,6 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
 
       if (record) {
         const paymentStatus = typeof record.status === 'string' ? record.status : null
-        // The list representation omits fee details — Bachs documents them on
-        // the payment retrieve endpoint ("every payment reports the fee that
-        // was actually applied to it"). Re-read the full payment when we have
-        // its id and the list view didn't already carry fee fields.
-        const listPaymentId =
-          typeof record.payment_id === 'string'
-            ? record.payment_id
-            : typeof record.id === 'string'
-              ? record.id
-              : null
-        const hasFeeInfo =
-          (record as Record<string, unknown>).fees != null ||
-          (record as Record<string, unknown>).fee_usd != null ||
-          (record as Record<string, unknown>).payment_method != null
-        if (listPaymentId && !hasFeeInfo) {
-          try {
-            const retrieveResponse = await fetchWithBachsTimeout(
-              `${BACHS_BASE_URL}/v1/payments/${encodeURIComponent(listPaymentId)}`,
-              { method: 'GET', headers: authHeaders }
-            )
-            const retrieveData = await safeJson(retrieveResponse)
-            const full = asRecord(retrieveData)
-            if (retrieveResponse.ok && full) {
-              record = full
-            }
-          } catch {
-            // Fee detail is best-effort; the list record still answers status.
-          }
-        }
         // Fee fields on the payment object (live API shape): `fee` is the
         // money Bachs deducted in the CHARGE currency (USD for a USD-card
         // payment), `fee_paid_by` is null until the charge settles, and
