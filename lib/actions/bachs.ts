@@ -457,7 +457,12 @@ export async function syncBachsFeeMetadata(paymentReference: string): Promise<{
       return { success: false, error: lookup.error }
     }
 
-    const update: Record<string, unknown> = {}
+    // Keep the provider's own view of the payment on the row (same slot the
+    // Monnify flow uses) so fee oddities can be inspected later without
+    // another API call.
+    const update: Record<string, unknown> = {
+      monnify_response: (lookup.raw ?? null) as object | null,
+    }
     if (lookup.feeAmount != null) update.bachs_fee = lookup.feeAmount
     if (lookup.feeCurrency != null) update.bachs_fee_currency = lookup.feeCurrency
     if (lookup.feeUsd != null) update.bachs_fee_usd = lookup.feeUsd
