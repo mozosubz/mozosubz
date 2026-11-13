@@ -14,12 +14,14 @@ function DetailRow({
   mono,
   copyable,
   highlight,
+  danger,
 }: {
   label: string
   value: React.ReactNode
   mono?: boolean
   copyable?: boolean
   highlight?: boolean
+  danger?: boolean
 }) {
   return (
     <div className="detail-row">
@@ -27,8 +29,8 @@ function DetailRow({
       <span
         className={`detail-row-value ${mono ? 'mono' : ''}`}
         style={{
-          color: highlight ? 'var(--admin-success)' : 'var(--admin-text)',
-          fontWeight: highlight ? 700 : 500,
+          color: danger ? 'var(--admin-danger)' : highlight ? 'var(--admin-success)' : 'var(--admin-text)',
+          fontWeight: highlight || danger ? 700 : 500,
         }}
       >
         {value}
@@ -50,6 +52,20 @@ function DetailRow({
 
 export function WalletDetailModal({ transaction, onClose }: WalletDetailModalProps) {
   const status = transaction.status?.toLowerCase() || 'pending'
+
+  // Bachs fee reconciliation: the fee Bachs deducted from this deposit and the
+  // revenue that is actually ours (our naira deposit fee minus Bachs' cut).
+  // Only comparable when Bachs reported the fee in naira; a USD fee is shown
+  // as-is instead of being converted here.
+  const bachsFeeNaira =
+    transaction.bachs_fee != null &&
+    (transaction.bachs_fee_currency == null || transaction.bachs_fee_currency === 'NGN')
+      ? Number(transaction.bachs_fee)
+      : null
+  const trueRevenue =
+    bachsFeeNaira != null && transaction.processing_fee != null
+      ? Number(transaction.processing_fee) - bachsFeeNaira
+      : null
 
   return (
     <ModalPortal onClose={onClose}>
@@ -129,6 +145,23 @@ export function WalletDetailModal({ transaction, onClose }: WalletDetailModalPro
                 <DetailRow label="Provider" value={transaction.provider === 'bachs' ? 'Bachs' : 'Legacy'} />
                 {transaction.bachs_checkout_id && (
                   <DetailRow label="Checkout ID" value={transaction.bachs_checkout_id} mono copyable />
+                )}
+                {transaction.bachs_payment_method && (
+                  <DetailRow label="Paid via" value={transaction.bachs_payment_method} />
+                )}
+                {transaction.bachs_fee != null && (
+                  <DetailRow
+                    label="Bachs fee"
+                    value={`${transaction.bachs_fee_currency || 'NGN'} ${Number(transaction.bachs_fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}${transaction.bachs_fee_usd != null ? ` (≈$${Number(transaction.bachs_fee_usd).toFixed(2)})` : ''}`}
+                    mono
+                  />
+                )}
+                {trueRevenue != null && (
+                  <DetailRow
+                    label="Our fee − Bachs fee"
+                    value={`₦${trueRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                    danger={trueRevenue < 0}
+                  />
                 )}
               </>
             ) : (

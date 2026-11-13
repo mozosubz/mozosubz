@@ -219,6 +219,17 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
   chargeId?: string
   amount?: string
   currency?: string
+  /** Fee Bachs actually deducted (fees.amount) + its currency. Null until the charge settles. */
+  feeAmount?: string | null
+  feeCurrency?: string | null
+  /** Same fee converted to USD by Bachs (fee_usd). */
+  feeUsd?: string | null
+  /** 'merchant' (fee came out of the charge) or 'platform' — null until settlement. */
+  feePaidBy?: string | null
+  /** Corridor the customer paid through: CARD, NGN_BANK_TRANSFER, USD_CARD, CRYPTO, MOMO_*, ... */
+  paymentMethod?: string | null
+  /** What Bachs actually collected so far (amount_paid). */
+  amountPaid?: string | null
   raw?: unknown
 }> {
   if (!isBachsConfigured()) {
@@ -255,6 +266,15 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
       const isPayment = record !== null && status !== null && !Array.isArray((record as Record<string, unknown>).items)
 
       if (isPayment && record) {
+        // Fee fields on the payment object: fees { amount, currency } (the
+        // money Bachs deducted), fee_usd (same fee converted), fee_paid_by
+        // ('merchant' | 'platform', null until the charge settles) and
+        // payment_method (the corridor the customer paid through — for cards
+        // Bachs reports 'CARD', not the USD_CARD/NGN_CARD corridor name).
+        const fees = (record as Record<string, unknown>).fees as
+          | Record<string, unknown>
+          | null
+        | undefined
         return {
           success: true,
           status: status as string,
@@ -274,6 +294,21 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
               ? String(record.amount)
               : undefined,
           currency: typeof record.currency === 'string' ? record.currency : undefined,
+          feeAmount:
+            fees && (typeof fees.amount === 'string' || typeof fees.amount === 'number')
+              ? String(fees.amount)
+              : null,
+          feeCurrency: fees && typeof fees.currency === 'string' ? fees.currency : null,
+          feeUsd:
+            typeof record.fee_usd === 'string' || typeof record.fee_usd === 'number'
+              ? String(record.fee_usd)
+              : null,
+          feePaidBy: typeof record.fee_paid_by === 'string' ? record.fee_paid_by : null,
+          paymentMethod: typeof record.payment_method === 'string' ? record.payment_method : null,
+          amountPaid:
+            typeof record.amount_paid === 'string' || typeof record.amount_paid === 'number'
+              ? String(record.amount_paid)
+              : null,
           raw: listData,
         }
       }
@@ -350,5 +385,81 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
     const message = errorMessage(error)
     console.error('[BACHS] Payment lookup request error:', message, { checkoutId })
     return { success: false, error: `Bachs payment lookup failed: ${message}` }
+  }
+}
+
+/**
+ * Fetch the Bachs payment for a deposit row and persist what Bachs charged
+ * for it — fee (amount + currency + USD equivalent), the payment corridor the
+ * customer used, and what Bachs collected.
+ *
+ * Why: our deposit fee (deposit_rules) is a flat naira percentage that knows
+ * nothing about the corridor. Bachs charges 2% for local NGN cards, 5% + $0.40
+ * for US cards, base + 1.5% for international cards, 1.5% for crypto — and a
+ * customer can pay an NGN-priced checkout with any of them. Recording the
+ * provider fee per charge makes admin revenue (processing_fee − bachs_fee)
+ * real instead of assumed.
+ *
+ * Fee fields on the payment object are null until the charge settles, so this
+ * is safe to call repeatedly (webhook credit, verify poll, admin reconcile):
+ * each call overwrites the columns with whatever Bachs currently reports.
+ */
+export async function syncBachsFeeMetadata(paymentReference: string): Promise<{
+  success: boolean
+  error?: string
+  fee?: { amount: string | null; currency: string | null; usd: string | null; paidBy: string | null; method: string | null }
+}> {
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const admin = createAdminClient()
+
+    const { data: row, error } = await admin
+      .from('monnify_transactions')
+      .select('payment_reference, bachs_checkout_id, provider')
+      .eq('payment_reference', paymentReference)
+      .maybeSingle()
+
+    if (error || !row || row.provider !== 'bachs' || !row.bachs_checkout_id) {
+      return { success: false, error: error?.message || 'Not a Bachs deposit' }
+    }
+
+    const lookup = await getBachsPaymentByCheckoutId(String(row.bachs_checkout_id))
+    if (!lookup.success) {
+      return { success: false, error: lookup.error }
+    }
+
+    const update: Record<string, unknown> = {}
+    if (lookup.feeAmount != null) update.bachs_fee = lookup.feeAmount
+    if (lookup.feeCurrency != null) update.bachs_fee_currency = lookup.feeCurrency
+    if (lookup.feeUsd != null) update.bachs_fee_usd = lookup.feeUsd
+    if (lookup.paymentMethod != null) update.bachs_payment_method = lookup.paymentMethod
+    if (lookup.amountPaid != null) update.settlement_amount = lookup.amountPaid
+    if (lookup.feePaidBy === 'merchant') update.settled = true
+
+    if (Object.keys(update).length > 0) {
+      const { error: updateError } = await admin
+        .from('monnify_transactions')
+        .update(update)
+        .eq('payment_reference', paymentReference)
+      if (updateError) {
+        console.error('[BACHS] Failed to persist fee metadata:', updateError.message, { paymentReference })
+        return { success: false, error: updateError.message }
+      }
+    }
+
+    return {
+      success: true,
+      fee: {
+        amount: lookup.feeAmount ?? null,
+        currency: lookup.feeCurrency ?? null,
+        usd: lookup.feeUsd ?? null,
+        paidBy: lookup.feePaidBy ?? null,
+        method: lookup.paymentMethod ?? null,
+      },
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[BACHS] Fee metadata sync failed:', message, { paymentReference })
+    return { success: false, error: message }
   }
 }

@@ -487,6 +487,21 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       console.error('[TRANSACTION] deposit email failed (swallowed):', err)
     })
 
+    // Record what Bachs itself charged for this deposit (fee + corridor). The
+    // customer can pay an NGN-priced checkout with a local card, a US/intl
+    // card, or crypto — each costs Bachs a different percentage, and our flat
+    // naira deposit fee does not know which one was used. Without this the
+    // admin revenue number silently ignores the provider's cut. Failures are
+    // swallowed: the credit above must never depend on fee bookkeeping, and
+    // the admin Bachs-fee reconcile endpoint can backfill later.
+    if (transaction.provider === 'bachs') {
+      const { syncBachsFeeMetadata } = await import('@/lib/actions/bachs')
+      const feeSync = await syncBachsFeeMetadata(paymentReference)
+      if (!feeSync.success) {
+        console.warn('[TRANSACTION] Bachs fee metadata not recorded (non-fatal):', feeSync.error)
+      }
+    }
+
     return { success: true, credited: true }
   } catch (error) {
     console.error('[TRANSACTION] Exception:', error)
