@@ -450,7 +450,19 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
 export async function syncBachsFeeMetadata(paymentReference: string): Promise<{
   success: boolean
   error?: string
-  fee?: { amount: string | null; currency: string | null; usd: string | null; paidBy: string | null; method: string | null }
+  fee?: {
+    amount: string | null
+    currency: string | null
+    usd: string | null
+    paidBy: string | null
+    method: string | null
+    /** The charge's own amount + currency (USD 70.30 for a USD-card payment). */
+    chargeAmount: string | null
+    chargeCurrency: string | null
+    /** What the charge is set to settle as (naira for us). */
+    settlementAmount: string | null
+    settlementCurrency: string | null
+  }
 }> {
   try {
     const { createAdminClient } = await import('@/lib/supabase/admin')
@@ -513,6 +525,10 @@ export async function syncBachsFeeMetadata(paymentReference: string): Promise<{
         usd: lookup.feeUsd ?? null,
         paidBy: lookup.feePaidBy ?? null,
         method: lookup.paymentMethod ?? null,
+        chargeAmount: lookup.amount ?? null,
+        chargeCurrency: lookup.currency ?? null,
+        settlementAmount: lookup.settlementAmount ?? null,
+        settlementCurrency: lookup.settlementCurrency ?? null,
       },
     }
   } catch (error) {

@@ -75,10 +75,24 @@ export async function GET(request: NextRequest) {
     .maybeSingle()
 
   const ourFee = Number(row.processing_fee || 0)
+  // Bachs reports the fee in the CHARGE currency (USD for a USD-card payment).
+  // Convert for display using the FX implied by the charge itself:
+  // settlement_amount / charge amount = Bachs' applied rate for this payment
+  // (e.g. ₦100,000 settled for a $70.30 charge → ₦1,422.48/$).
+  const chargeAmount =
+    sync.success && sync.fee?.chargeAmount != null ? Number(sync.fee.chargeAmount) : null
+  const chargeCurrency = sync.success ? sync.fee?.chargeCurrency ?? null : null
   const bachsFeeNaira =
     fresh?.bachs_fee != null && (fresh?.bachs_fee_currency == null || fresh.bachs_fee_currency === 'NGN')
       ? Number(fresh.bachs_fee)
       : null
+  const impliedFxRate =
+    fresh?.settlement_amount != null && chargeAmount && Number(fresh.settlement_amount) > 0 && chargeAmount > 0 && chargeCurrency && chargeCurrency !== 'NGN'
+      ? Number(fresh.settlement_amount) / chargeAmount
+      : null
+  const bachsFeeNairaEstimate =
+    bachsFeeNaira ??
+    (fresh?.bachs_fee != null && impliedFxRate ? Number(fresh.bachs_fee) * impliedFxRate : null)
 
   return NextResponse.json({
     success: true,
@@ -94,7 +108,10 @@ export async function GET(request: NextRequest) {
     paymentMethod: fresh?.bachs_payment_method ?? null,
     collected: fresh?.settlement_amount ?? null,
     settled: fresh?.settled ?? null,
-    trueRevenueNaira: bachsFeeNaira != null ? Math.round((ourFee - bachsFeeNaira) * 100) / 100 : null,
+    impliedFxRate,
+    bachsFeeNairaEstimate: bachsFeeNairaEstimate != null ? Math.round(bachsFeeNairaEstimate * 100) / 100 : null,
+    trueRevenueNaira:
+      bachsFeeNairaEstimate != null ? Math.round((ourFee - bachsFeeNairaEstimate) * 100) / 100 : null,
     syncError: sync.success ? null : sync.error,
   })
 }
