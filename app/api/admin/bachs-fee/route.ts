@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   }
 
   const reference = request.nextUrl.searchParams.get('reference')?.trim() || ''
-  if (!reference || !/^MOZO_[A-Za-z0-9]+$/i.test(reference.replace(/_/g, ''))) {
+  if (!reference || !/^MOZO_[A-Za-z0-9_]+$/i.test(reference)) {
     return NextResponse.json({ success: false, error: 'A payment reference is required' }, { status: 400 })
   }
 
