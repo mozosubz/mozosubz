@@ -256,7 +256,7 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
     const listData = await safeJson(listResponse)
 
     if (listResponse.ok) {
-      const record = pickPaymentRecord(listData)
+      let record = pickPaymentRecord(listData)
       const status =
         record && typeof record.status === 'string' && record.status.trim().length > 0
           ? record.status
@@ -266,6 +266,35 @@ export async function getBachsPaymentByCheckoutId(checkoutId: string): Promise<{
       const isPayment = record !== null && status !== null && !Array.isArray((record as Record<string, unknown>).items)
 
       if (isPayment && record) {
+        // The list representation omits fee details — Bachs documents them on
+        // the payment retrieve endpoint ("every payment reports the fee that
+        // was actually applied to it"). Re-read the full payment when we have
+        // its id and the list view didn't already carry fee fields.
+        const listPaymentId =
+          typeof record.payment_id === 'string'
+            ? record.payment_id
+            : typeof record.id === 'string'
+              ? record.id
+              : null
+        const hasFeeInfo =
+          (record as Record<string, unknown>).fees != null ||
+          (record as Record<string, unknown>).fee_usd != null ||
+          (record as Record<string, unknown>).payment_method != null
+        if (listPaymentId && !hasFeeInfo) {
+          try {
+            const retrieveResponse = await fetchWithBachsTimeout(
+              `${BACHS_BASE_URL}/v1/payments/${encodeURIComponent(listPaymentId)}`,
+              { method: 'GET', headers: authHeaders }
+            )
+            const retrieveData = await safeJson(retrieveResponse)
+            const full = asRecord(retrieveData)
+            if (retrieveResponse.ok && full) {
+              record = full
+            }
+          } catch {
+            // Fee detail is best-effort; the list record still answers status.
+          }
+        }
         // Fee fields on the payment object: fees { amount, currency } (the
         // money Bachs deducted), fee_usd (same fee converted), fee_paid_by
         // ('merchant' | 'platform', null until the charge settles) and
