@@ -98,10 +98,10 @@ export async function GET(request: NextRequest) {
   // Current market naira rate for the charge currency — display/reference.
   let liveNairaRate: number | null = null
   let liveNairaRateSource: string | null = null
-  const chargeCurrency = sync.success ? sync.fee?.chargeCurrency ?? null : null
-  if (chargeCurrency) {
+  const fxChargeCurrency = sync.success ? sync.fee?.chargeCurrency ?? null : null
+  if (fxChargeCurrency) {
     const { getNairaRate } = await import('@/lib/api/fx-rate')
-    const fx = await getNairaRate(chargeCurrency)
+    const fx = await getNairaRate(fxChargeCurrency)
     liveNairaRate = fx.rate
     liveNairaRateSource = fx.source
   }
