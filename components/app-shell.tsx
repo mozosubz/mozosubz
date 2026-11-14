@@ -8,6 +8,7 @@ import { Home, LayoutGrid, History, User, PanelLeftOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DesktopSidebar } from "./desktop-sidebar"
 import { WhatsAppSupport } from "./whatsapp-support"
+import { SupportWidget } from "./support-widget"
 
 const SIDEBAR_STORAGE_KEY = "mozosubz:sidebar-hidden"
 
@@ -75,6 +76,9 @@ export function AppShell({ children }: AppShellProps) {
       )}
 
       <WhatsAppSupport />
+
+      {/* Support widget — auto-opens once per session, always reachable. */}
+      <SupportWidget />
 
       <nav className="bottom-nav" style={{ contain: "layout style paint" }}>
         {tabs.map((tab) => {
