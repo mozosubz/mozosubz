@@ -407,7 +407,10 @@ export async function verifyAndCreditPayment(paymentReference: string) {
     let corridorFee: Awaited<ReturnType<typeof import('@/lib/actions/bachs')['computeCorridorFee']>> | null = null
     if (transaction.provider === 'bachs') {
       try {
-        const bachs = await import('@/lib/actions/bachs')
+        const [bachs, { computeCorridorFee }] = await Promise.all([
+          import('@/lib/actions/bachs'),
+          import('@/lib/api/bachs-fees'),
+        ])
         const { data: feeRow } = await supabase
           .from('monnify_transactions')
           .select('bachs_checkout_id')
@@ -416,7 +419,7 @@ export async function verifyAndCreditPayment(paymentReference: string) {
         if (feeRow?.bachs_checkout_id) {
           const lookup = await bachs.getBachsPaymentByCheckoutId(String(feeRow.bachs_checkout_id))
           if (lookup.success) {
-            corridorFee = bachs.computeCorridorFee(lookup, Number(transaction.processing_fee || 0))
+            corridorFee = computeCorridorFee(lookup, Number(transaction.processing_fee || 0))
             const { syncBachsFeeMetadata } = bachs
             const persisted = await syncBachsFeeMetadata(paymentReference)
             if (!persisted.success) {
