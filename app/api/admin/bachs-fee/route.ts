@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   const { data: row, error } = await admin
     .from('monnify_transactions')
     .select(
-      'payment_reference, amount, processing_fee, net_amount, status, provider, bachs_fee, bachs_fee_currency, bachs_fee_usd, bachs_payment_method, settlement_amount, settled'
+      'payment_reference, amount, processing_fee, net_amount, status, provider, bachs_fee, bachs_fee_currency, bachs_fee_usd, bachs_payment_method, settlement_amount, settled, bachs_fee_charged_naira'
     )
     .eq('payment_reference', reference)
     .maybeSingle()
@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
   const bachsFeeNairaEstimate =
     bachsFeeNaira ??
     (fresh?.bachs_fee != null && impliedFxRate ? Number(fresh.bachs_fee) * impliedFxRate : null)
+  const chargedToUser = Number(fresh?.bachs_fee_charged_naira ?? 0)
 
   return NextResponse.json({
     success: true,
@@ -109,12 +110,19 @@ export async function GET(request: NextRequest) {
     chargeAmount: sync.success ? sync.fee?.chargeAmount ?? null : null,
     chargeCurrency: sync.success ? sync.fee?.chargeCurrency ?? null : null,
     settledTo: fresh?.settlement_amount ?? null,
+    chargedToUser,
+    walletCreditAfterCharges: Math.max(
+      0,
+      Math.round((Number(row.net_amount || row.amount) - chargedToUser) * 100) / 100
+    ),
     settledCurrency: sync.success ? sync.fee?.settlementCurrency ?? null : null,
     settled: fresh?.settled ?? null,
     impliedFxRate,
     bachsFeeNairaEstimate: bachsFeeNairaEstimate != null ? Math.round(bachsFeeNairaEstimate * 100) / 100 : null,
     trueRevenueNaira:
-      bachsFeeNairaEstimate != null ? Math.round((ourFee - bachsFeeNairaEstimate) * 100) / 100 : null,
+      bachsFeeNairaEstimate != null
+        ? Math.round((ourFee - bachsFeeNairaEstimate + chargedToUser) * 100) / 100
+        : null,
     syncError: sync.success ? null : sync.error,
   })
 }

@@ -394,8 +394,44 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       return { success: true, credited: true, alreadyProcessed: true }
     }
 
-    // Use net_amount if available (new calculation), fallback to full amount for legacy transactions
-    const creditAmount = Number(transaction.net_amount || transaction.amount)
+    // Promised credit (deposit page showed this): amount minus the deposit rule fee.
+    const promisedCredit = Number(transaction.net_amount || transaction.amount)
+
+    // Corridor fee pass-through (owner policy): the deposit fee covers Bachs'
+    // bank-transfer cost, but a customer can pay the same checkout with a USD
+    // card, international card, mobile money or crypto — corridors Bachs
+    // charges far more for. The uncovered part of Bachs' actual fee is
+    // deducted from the user's credit, so the platform never loses on the
+    // corridor choice. Lookup failure must never block a paid deposit: on any
+    // error we credit the promised amount and the platform absorbs the fee.
+    let corridorFee: Awaited<ReturnType<typeof import('@/lib/actions/bachs')['computeCorridorFee']>> | null = null
+    if (transaction.provider === 'bachs') {
+      try {
+        const bachs = await import('@/lib/actions/bachs')
+        const { data: feeRow } = await supabase
+          .from('monnify_transactions')
+          .select('bachs_checkout_id')
+          .eq('payment_reference', paymentReference)
+          .maybeSingle()
+        if (feeRow?.bachs_checkout_id) {
+          const lookup = await bachs.getBachsPaymentByCheckoutId(String(feeRow.bachs_checkout_id))
+          if (lookup.success) {
+            corridorFee = bachs.computeCorridorFee(lookup, Number(transaction.processing_fee || 0))
+            const { syncBachsFeeMetadata } = bachs
+            const persisted = await syncBachsFeeMetadata(paymentReference)
+            if (!persisted.success) {
+              console.warn('[TRANSACTION] Bachs fee metadata not persisted (non-fatal):', persisted.error)
+            }
+          } else {
+            console.warn('[TRANSACTION] Bachs payment lookup failed during credit (crediting promised amount):', lookup.error)
+          }
+        }
+      } catch (feeError) {
+        console.warn('[TRANSACTION] Corridor fee computation failed (crediting promised amount):', feeError)
+      }
+    }
+    const corridorExcess = corridorFee?.excessNaira ?? 0
+    const creditAmount = Math.max(0, Math.round((promisedCredit - corridorExcess) * 100) / 100)
 
     // Atomic credit: the RPC row-locks the profile and adds in one statement, so a
     // concurrent purchase deduction can't be overwritten by a stale read here.
@@ -416,6 +452,14 @@ export async function verifyAndCreditPayment(paymentReference: string) {
 
     const balanceAfter = Number(newBalance)
     const balanceBefore = Number((balanceAfter - creditAmount).toFixed(2))
+
+    // Record what was actually deducted from the user for the corridor fee.
+    if (transaction.provider === 'bachs' && corridorExcess > 0) {
+      await supabase
+        .from('monnify_transactions')
+        .update({ bachs_fee_charged_naira: corridorExcess })
+        .eq('payment_reference', paymentReference)
+    }
 
 
     // Log transaction to transactions table with full schema
@@ -450,6 +494,14 @@ export async function verifyAndCreditPayment(paymentReference: string) {
             depositAmount: transaction.amount,
             processingFee: transaction.processing_fee || 0,
             netAmount: creditAmount,
+            ...(corridorFee && corridorFee.excessNaira
+              ? {
+                  corridorFeeOriginal: corridorFee.feeOriginal,
+                  corridorFeeCurrency: corridorFee.feeCurrency,
+                  corridorFeeNaira: corridorFee.feeNaira,
+                  corridorFeeCharged: corridorFee.excessNaira,
+                }
+              : {}),
           }),
           created_at: new Date().toISOString(),
           payment_reference: paymentReference,
@@ -481,28 +533,19 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       transactionId: paymentReference,
       paymentMethod: 'Bank Transfer',
       extras: [
+        ...(corridorFee && corridorFee.excessNaira
+          ? [{
+              label: `Processor fee (${(corridorFee.feeCurrency || '').toUpperCase()} card/int'l)`,
+              value: `−₦${corridorFee.excessNaira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            }]
+          : []),
         { label: 'New balance', value: `₦${balanceAfter.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
       ],
     }).catch((err) => {
       console.error('[TRANSACTION] deposit email failed (swallowed):', err)
     })
 
-    // Record what Bachs itself charged for this deposit (fee + corridor). The
-    // customer can pay an NGN-priced checkout with a local card, a US/intl
-    // card, or crypto — each costs Bachs a different percentage, and our flat
-    // naira deposit fee does not know which one was used. Without this the
-    // admin revenue number silently ignores the provider's cut. Failures are
-    // swallowed: the credit above must never depend on fee bookkeeping, and
-    // the admin Bachs-fee reconcile endpoint can backfill later.
-    if (transaction.provider === 'bachs') {
-      const { syncBachsFeeMetadata } = await import('@/lib/actions/bachs')
-      const feeSync = await syncBachsFeeMetadata(paymentReference)
-      if (!feeSync.success) {
-        console.warn('[TRANSACTION] Bachs fee metadata not recorded (non-fatal):', feeSync.error)
-      }
-    }
-
-    return { success: true, credited: true }
+    return { success: true, credited: true, creditedAmount: creditAmount }
   } catch (error) {
     console.error('[TRANSACTION] Exception:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }

@@ -64,7 +64,9 @@ export function WalletDetailModal({ transaction, onClose }: WalletDetailModalPro
       : null
   const trueRevenue =
     bachsFeeNaira != null && transaction.processing_fee != null
-      ? Number(transaction.processing_fee) - bachsFeeNaira
+      ? Number(transaction.processing_fee) -
+        bachsFeeNaira +
+        Number(transaction.bachs_fee_charged_naira || 0)
       : null
 
   return (
@@ -153,6 +155,13 @@ export function WalletDetailModal({ transaction, onClose }: WalletDetailModalPro
                   <DetailRow
                     label="Bachs fee"
                     value={`${transaction.bachs_fee_currency || 'NGN'} ${Number(transaction.bachs_fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}${transaction.bachs_fee_usd != null ? ` (≈$${Number(transaction.bachs_fee_usd).toFixed(2)})` : ''}`}
+                    mono
+                  />
+                )}
+                {transaction.bachs_fee_charged_naira != null && (
+                  <DetailRow
+                    label="Corridor fee charged to user"
+                    value={`₦${Number(transaction.bachs_fee_charged_naira).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                     mono
                   />
                 )}

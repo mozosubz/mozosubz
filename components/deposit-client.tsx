@@ -662,6 +662,12 @@ export function DepositClient({ initialRules }: DepositClientProps) {
               </span>
             </p>
             <p className="text-xs text-gray-400 mt-1">Final amount after processing</p>
+            <p className="text-xs text-gray-400 mt-2">
+              Paying by card, mobile money or crypto? Our processor charges extra for
+              those methods (up to ~6.5% on USD/international cards). Whatever part of
+              that fee the processing fee above doesn&apos;t cover is deducted from your
+              credit when the payment is confirmed — bank transfer has no extra charge.
+            </p>
           </div>
         )}
 
