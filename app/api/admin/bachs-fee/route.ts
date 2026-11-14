@@ -95,6 +95,17 @@ export async function GET(request: NextRequest) {
     (fresh?.bachs_fee != null && impliedFxRate ? Number(fresh.bachs_fee) * impliedFxRate : null)
   const chargedToUser = Number(fresh?.bachs_fee_charged_naira ?? 0)
 
+  // Current market naira rate for the charge currency — display/reference.
+  let liveNairaRate: number | null = null
+  let liveNairaRateSource: string | null = null
+  const chargeCurrency = sync.success ? sync.fee?.chargeCurrency ?? null : null
+  if (chargeCurrency) {
+    const { getNairaRate } = await import('@/lib/api/fx-rate')
+    const fx = await getNairaRate(chargeCurrency)
+    liveNairaRate = fx.rate
+    liveNairaRateSource = fx.source
+  }
+
   return NextResponse.json({
     success: true,
     reference: row.payment_reference,
@@ -118,6 +129,8 @@ export async function GET(request: NextRequest) {
     settledCurrency: sync.success ? sync.fee?.settlementCurrency ?? null : null,
     settled: fresh?.settled ?? null,
     impliedFxRate,
+    liveNairaRate,
+    liveNairaRateSource,
     bachsFeeNairaEstimate: bachsFeeNairaEstimate != null ? Math.round(bachsFeeNairaEstimate * 100) / 100 : null,
     trueRevenueNaira:
       bachsFeeNairaEstimate != null

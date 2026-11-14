@@ -404,10 +404,10 @@ export async function verifyAndCreditPayment(paymentReference: string) {
     // deducted from the user's credit, so the platform never loses on the
     // corridor choice. Lookup failure must never block a paid deposit: on any
     // error we credit the promised amount and the platform absorbs the fee.
-    let corridorFee: Awaited<ReturnType<typeof import('@/lib/actions/bachs')['computeCorridorFee']>> | null = null
+    let corridorFee: Awaited<ReturnType<typeof import('@/lib/api/bachs-fees')['resolveCorridorFee']>> | null = null
     if (transaction.provider === 'bachs') {
       try {
-        const [bachs, { computeCorridorFee }] = await Promise.all([
+        const [bachs, { resolveCorridorFee }] = await Promise.all([
           import('@/lib/actions/bachs'),
           import('@/lib/api/bachs-fees'),
         ])
@@ -419,7 +419,7 @@ export async function verifyAndCreditPayment(paymentReference: string) {
         if (feeRow?.bachs_checkout_id) {
           const lookup = await bachs.getBachsPaymentByCheckoutId(String(feeRow.bachs_checkout_id))
           if (lookup.success) {
-            corridorFee = computeCorridorFee(lookup, Number(transaction.processing_fee || 0))
+            corridorFee = await resolveCorridorFee(lookup, Number(transaction.processing_fee || 0))
             const { syncBachsFeeMetadata } = bachs
             const persisted = await syncBachsFeeMetadata(paymentReference)
             if (!persisted.success) {

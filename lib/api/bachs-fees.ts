@@ -95,3 +95,49 @@ export function computeCorridorFee(
  * is safe to call repeatedly (webhook credit, verify poll, admin reconcile):
  * each call overwrites the columns with whatever Bachs currently reports.
  */
+
+/**
+ * Async wrapper: same math as computeCorridorFee, but when the charge does
+ * not reveal its own FX (no settlement_amount vs charge amount), the fee is
+ * converted with the REAL-TIME naira rate from lib/api/fx-rate.ts instead of
+ * skipping the deduction.
+ */
+export async function resolveCorridorFee(
+  lookup: {
+    feeAmount?: string | null
+    currency?: string | null
+    amount?: string | null
+    settlementAmount?: string | null
+  },
+  ourFeeNaira: number
+): Promise<BachsCorridorFee & { rateSource: string }> {
+  const base = computeCorridorFee(lookup, ourFeeNaira)
+
+  // Implied FX already produced a naira figure — that is Bachs' own applied
+  // rate and the most accurate possible source.
+  if (base.feeNaira != null) {
+    return { ...base, rateSource: base.impliedFxRate != null ? "charge-implied" : "charge-currency-ngn" }
+  }
+
+  // No implied rate: convert with the live naira rate.
+  if (base.feeOriginal == null || base.feeCurrency == null || base.feeCurrency === "NGN") {
+    return { ...base, rateSource: "unavailable" }
+  }
+
+  const { getNairaRate } = await import("@/lib/api/fx-rate")
+  const { rate, source } = await getNairaRate(base.feeCurrency)
+  if (rate == null) {
+    return { ...base, rateSource: "unavailable" }
+  }
+
+  const fee = Number(base.feeOriginal)
+  const feeNaira = Math.round(fee * rate * 100) / 100
+  const excessNaira = Math.max(0, Math.round((feeNaira - ourFeeNaira) * 100) / 100)
+  return {
+    ...base,
+    feeNaira,
+    impliedFxRate: rate,
+    excessNaira,
+    rateSource: `live:${source}`,
+  }
+}
