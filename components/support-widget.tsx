@@ -15,6 +15,9 @@ type PanelState = 'idle' | 'sending' | 'sent' | 'error'
  * stacked with the WhatsApp button). Opens on its own once per login session
  * so the user always sees it when they enter the dashboard, and can be
  * reopened from the floating button at any time.
+ *
+ * Panel anatomy mirrors the admin modal: dimmed + blurred backdrop, a
+ * centered card on desktop and a bottom sheet on mobile (styles/support.css).
  */
 export function SupportWidget() {
   const [open, setOpen] = useState(false)
@@ -97,97 +100,88 @@ export function SupportWidget() {
   if (!mounted) return null
 
   const panel = open ? (
-    <>
-      <div
-        className="fixed inset-0 z-[59] bg-black/40 sm:bg-black/20"
-        onClick={close}
-        aria-hidden="true"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Support"
-        className="fixed inset-x-3 bottom-3 z-[60] sm:inset-x-auto sm:right-3 sm:bottom-[202px] sm:w-[360px] rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden"
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <LifeBuoy className="w-4.5 h-4.5 text-black" style={{ width: 18, height: 18 }} />
-            <h2 className="text-sm font-semibold text-gray-900">Support</h2>
+    <div
+      className="support-overlay"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) close()
+      }}
+    >
+      <div className="support-card" role="dialog" aria-modal="true" aria-label="Support">
+        <div className="support-header">
+          <div className="support-header-title">
+            <span className="support-header-icon" aria-hidden="true">
+              <LifeBuoy style={{ width: 17, height: 17 }} />
+            </span>
+            <div>
+              <h2>Support</h2>
+              <p>Tell us what went wrong.</p>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={close}
-            aria-label="Close support"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-          >
+          <button type="button" className="support-close" onClick={close} aria-label="Close support">
             <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
 
         {state === 'sent' ? (
-          <div className="px-4 py-6 text-center">
-            <div className="mx-auto w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-              <Check style={{ width: 20, height: 20 }} className="text-black" />
+          <div className="support-done">
+            <div className="support-done-icon" aria-hidden="true">
+              <Check style={{ width: 22, height: 22 }} />
             </div>
-            <p className="text-sm font-medium text-gray-900">Message sent</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {email ? `We'll reply to ${email}.` : "We'll reply to your email."}
-            </p>
-            <button
-              type="button"
-              onClick={close}
-              className="mt-4 w-full h-10 rounded-xl bg-black text-white text-sm font-medium hover:bg-gray-800 transition"
-            >
+            <h3>Message sent</h3>
+            <p>{email ? `We'll reply to ${email}.` : "We'll reply to your email."}</p>
+            <button type="button" className="support-btn support-btn-primary" onClick={close}>
               Done
             </button>
           </div>
         ) : (
-          <div className="p-4">
-            <textarea
-              ref={textareaRef}
-              value={message}
-              maxLength={MAX_LENGTH}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder="Describe the issue…"
-              rows={5}
-              className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white transition"
-            />
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-[11px] text-gray-400 truncate pr-2">
-                {email ? `We'll reply to ${email}` : 'Sent from your account'}
-              </span>
-              <span className="text-[11px] text-gray-300 flex-shrink-0">
-                {message.length}/{MAX_LENGTH}
-              </span>
+          <>
+            <div className="support-body">
+              <label className="support-label" htmlFor="support-message">
+                Message
+              </label>
+              <textarea
+                id="support-message"
+                ref={textareaRef}
+                value={message}
+                maxLength={MAX_LENGTH}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder="Describe the issue, e.g. a failed purchase or deposit…"
+                className="support-textarea"
+              />
+              <div className="support-meta">
+                <span className="support-reply-to">
+                  {email ? `Reply goes to ${email}` : 'Sent from your account'}
+                </span>
+                <span className="support-counter">
+                  {message.length}/{MAX_LENGTH}
+                </span>
+              </div>
+              {state === 'error' && errorMsg && <p className="support-error">{errorMsg}</p>}
             </div>
 
-            {state === 'error' && errorMsg && (
-              <p className="text-xs text-red-500 mt-2">{errorMsg}</p>
-            )}
-
-            <div className="flex gap-2 mt-3">
+            <div className="support-footer">
               <button
                 type="button"
+                className="support-btn support-btn-ghost"
                 onClick={close}
                 disabled={state === 'sending'}
-                className="h-10 flex-1 rounded-xl border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
+                className="support-btn support-btn-primary"
                 onClick={send}
                 disabled={state === 'sending' || message.trim().length < 2}
-                className="h-10 flex-1 rounded-xl bg-black text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-40 transition flex items-center justify-center gap-2"
               >
                 {state === 'sending' && <Loader2 style={{ width: 15, height: 15 }} className="animate-spin" />}
                 Send
               </button>
             </div>
-          </div>
+          </>
         )}
       </div>
-    </>
+    </div>
   ) : null
 
   return (
@@ -196,9 +190,9 @@ export function SupportWidget() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
+        className="support-fab"
         aria-label="Open support"
         title="Support"
-        className="fixed right-3 bottom-[142px] z-50 w-12 h-12 rounded-full bg-black text-white shadow-lg shadow-black/20 flex items-center justify-center hover:bg-gray-800 active:scale-95 transition"
       >
         <LifeBuoy style={{ width: 21, height: 21 }} />
       </button>

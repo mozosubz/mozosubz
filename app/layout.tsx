@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { PerformanceInitializer } from "@/components/performance-initializer"
 import { AppDialogProvider } from "@/components/app-dialog"
 import "./globals.css"
+import "@/styles/support.css"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
